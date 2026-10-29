@@ -7,8 +7,8 @@ codeatlas finds the code that many repositories write again and again. It writes
 - **Function shapes.** For each function, the atlas keeps the sequence of its syntax node types, without names, literal values and types. Two functions with one shape differ only in their identifiers, their literals or their types. Thus a helper that two repositories wrote on their own gets one hash, also when one copy is JavaScript and the other is TypeScript.
 - **Clone classes.** A clone class is a set of two or more functions with one shape and 40 nodes or more. Its duplicated nodes are its size times its copies minus one: the code that one shared function removes. A class inside a bigger class does not count again.
 - **Shared names.** Each exported name that two or more repositories declare.
-- **Packages by purpose.** For each purpose, such as seeded random, property tests or schemas, the atlas lists the packages that each repository imports. Two packages for one purpose show a split.
-- **Topics.** The words of the names and the paths put each class into the areas of the shared rigor libraries: generators, statistics, gates, test generation, chaos and load, and measures.
+- **Packages by purpose.** For each purpose, for example seeded random or schemas, the atlas lists the packages that each repository imports. Two packages for one purpose show a split.
+- **Topics.** The words of the names and the paths put each class into an area of the shared rigor libraries. The areas are generators, statistics, gates, test generation, chaos and load, and measures.
 
 The output is sorted, so one input gives one byte sequence.
 
