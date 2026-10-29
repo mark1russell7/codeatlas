@@ -240,7 +240,7 @@ export async function start(): Promise<void> {
   root.replaceChildren(
     kpis,
     section("topics", "Where the copies are", "Duplicated nodes of the cross-repo classes, by topic. Each topic is an area of a shared library. Click a bar to list its classes.", topicChart),
-    section("pairs", "Which repositories share code", "Each cell is the size of the code that two repositories both have. Darker is more. Click a cell to list the classes of the pair.", heat),
+    section("pairs", "Which repositories share code", "Each cell is the size of the code that two repositories both have: the legend below gives the scale. Click a cell to list the classes of the pair.", heat),
     section("repos", "Repositories", "Click a column to sort and a row to list its classes. The ratio is the share of the code of the repository that is a copy.", repoTable),
     section("classes", "Clone classes", "Functions with one shape: the same code, with other names, literals or types. The largest first.", controls, countLine, classesBox),
     section("names", "Names that two or more repositories export", "The number is the count of repositories.", names),
