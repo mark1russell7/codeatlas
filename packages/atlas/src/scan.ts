@@ -52,13 +52,15 @@ export interface RepoScan {
 
 const SOURCE = /\.(?:[cm]?[jt]s|[jt]sx)$/;
 const SKIP = /(?:^|\/)(?:node_modules|build|dist|coverage|vendor|\.next|out)\//;
+/** Generated code: one generator writes all its copies, so they are one source, not duplication (the first atlas, 10-29). */
+const GENERATED = /(?:^|\/)(?:__golden__|__snapshots__|generated)\/|\.generated\.[cm]?[jt]sx?$/;
 const TEST = /(?:^|\/)(?:test|tests|__tests__|e2e|fixtures?)\/|\.(?:test|spec|bench)\.[cm]?[jt]sx?$/;
 /** A larger file is a bundle or generated output. */
 const MAX_BYTES = 400_000;
 
 /** This function tells if the scan reads a file of the repository. */
 export function isSource(file: string): boolean {
-  return SOURCE.test(file) && !file.endsWith(".d.ts") && !SKIP.test(file) && !/\.min\.[cm]?js$/.test(file);
+  return SOURCE.test(file) && !file.endsWith(".d.ts") && !SKIP.test(file) && !GENERATED.test(file) && !/\.min\.[cm]?js$/.test(file);
 }
 
 /** The files of a repository that git keeps, with forward slashes. */

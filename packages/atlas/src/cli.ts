@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * codeatlas build [--out atlas.json] [--markdown atlas.md] [--min-nodes 40] [--repos-dir <folder>] [<name>=<path> ...]
+ * codeatlas clone --owner <owner> --into <folder>
  *
  * The command scans each repository (each folder of --repos-dir, and each name=path), and writes the
  * atlas as JSON and as Markdown.
@@ -8,6 +9,7 @@
 import { readdirSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildAtlas } from "./atlas.ts";
+import { clonePublic } from "./clone.ts";
 import { atlasMarkdown } from "./report.ts";
 import { scanRepo, type RepoScan } from "./scan.ts";
 
@@ -51,10 +53,25 @@ function subfolders(dir: string): string[] {
     .sort();
 }
 
+const USAGE = `Usage:
+  codeatlas build [--out atlas.json] [--markdown atlas.md] [--min-nodes 40] [--repos-dir <folder>] [<name>=<path> ...]
+  codeatlas clone --owner <owner> --into <folder>`;
+
 function main(argv: readonly string[]): number {
   const [command, ...rest] = argv;
+  if (command === "clone") {
+    const owner = rest[rest.indexOf("--owner") + 1];
+    const into = rest[rest.indexOf("--into") + 1];
+    if (!rest.includes("--owner") || !rest.includes("--into") || owner === undefined || into === undefined) {
+      console.error(USAGE);
+      return 2;
+    }
+    const { failed } = clonePublic(owner, into);
+    for (const name of failed) console.log(`::warning::${name} did not clone`);
+    return 0;
+  }
   if (command !== "build") {
-    console.error("Usage: codeatlas build [--out atlas.json] [--markdown atlas.md] [--min-nodes 40] [--repos-dir <folder>] [<name>=<path> ...]");
+    console.error(USAGE);
     return 2;
   }
   const args = parseBuildArgs(rest);

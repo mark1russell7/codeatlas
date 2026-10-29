@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { buildAtlas, topicsOf, wordsOf } from "./atlas.ts";
 import { atlasMarkdown } from "./report.ts";
-import { packageOf, scanSource, type RepoScan } from "./scan.ts";
+import { isSource, packageOf, scanSource, type RepoScan } from "./scan.ts";
 import { parseBuildArgs } from "./cli.ts";
+import { listArgs, repoNames } from "./clone.ts";
 
 const MEAN = `
 export function mean(values: readonly number[]): number {
@@ -101,6 +102,26 @@ const later = await import("pino");`,
   it("reads JSX and TSX", () => {
     expect(scanSource("v.tsx", "export const V = (p: { a: number }) => <div>{p.a}</div>;").units).toHaveLength(1);
     expect(scanSource("v.jsx", "export const V = (p) => <div>{p.a}</div>;").units).toHaveLength(1);
+  });
+});
+
+describe("isSource", () => {
+  it("reads the sources, and not the build output, the bundles and the generated code", () => {
+    expect(isSource("packages/core/src/route.ts")).toBe(true);
+    expect(isSource("site/src/Tabs.tsx")).toBe(true);
+    expect(isSource("packages/core/dist/index.js")).toBe(false);
+    expect(isSource("src/types.d.ts")).toBe(false);
+    expect(isSource("public/app.min.js")).toBe(false);
+    expect(isSource("packages/ireko/src/core/engine/place.generated.js")).toBe(false);
+    expect(isSource("packages/compiler/src/__golden__/module-sheet.js")).toBe(false);
+    expect(isSource("src/generated/schema.ts")).toBe(false);
+  });
+});
+
+describe("clone", () => {
+  it("lists the public sources that are not archived, and sorts the names", () => {
+    expect(listArgs("o")).toEqual(["repo", "list", "o", "--visibility", "public", "--no-archived", "--source", "--limit", "1000", "--json", "name", "--jq", ".[].name"]);
+    expect(repoNames("vex\r\npacking\n\n")).toEqual(["packing", "vex"]);
   });
 });
 

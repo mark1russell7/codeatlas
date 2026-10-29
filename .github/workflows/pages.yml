@@ -1,0 +1,78 @@
+# Builds the atlas and the site, and publishes them to GitHub Pages at https://mark1russell7.github.io/codeatlas/,
+# with the shared Pages workflow of mark1russell7 (reusable-pages.yml of mark1russell7/template, its CI.md).
+# The build clones each public repository of the owner, scans it, and writes the atlas (data/atlas.json,
+# data/atlas.md) and the page that shows it. The schedule makes a new atlas each Monday.
+# The Pages source of the repository is "GitHub Actions" (Settings > Pages).
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions: {}
+
+# One deployment at a time. A newer push cancels a deployment that waits.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  pages:
+    uses: mark1russell7/template/.github/workflows/reusable-pages.yml@68e160e7cae2f00c2c8b401d514f4a1e2e6d1967 # main
+    # The build job of the shared workflow gets only the read permissions. Only its deploy job,
+    # which runs no code of the repository, writes to Pages.
+    permissions:
+      contents: read
+      actions: read
+      issues: read
+      pull-requests: read
+      checks: read
+      statuses: read
+      pages: write
+      id-token: write
+    with:
+      # gh lists the public repositories with the token of the run (read permissions only).
+      github-token: true
+      build: |
+        node packages/atlas/src/cli.ts clone --owner "$GITHUB_REPOSITORY_OWNER" --into "$RUNNER_TEMP/repos"
+        node packages/atlas/src/cli.ts build --repos-dir "$RUNNER_TEMP/repos" --out "$RUNNER_TEMP/atlas.json" --markdown "$RUNNER_TEMP/atlas.md"
+        node packages/site/src/build.ts --atlas "$RUNNER_TEMP/atlas.json" --markdown "$RUNNER_TEMP/atlas.md" --out packages/site/dist
+        cat "$RUNNER_TEMP/atlas.md" >> "$GITHUB_STEP_SUMMARY"
+      out: packages/site/dist
+      timeout-minutes: 30
+      site-pages: true
+      site-name: codeatlas
+      roadmap: docs/ROADMAP.md
+
+  # This job examines the deployed site: the page, the atlas data and the pages of site-pages.
+  # It starts no code of the repository and reads only the public site.
+  served:
+    needs: pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: The site has the page and its data
+        shell: bash
+        env:
+          SITE: ${{ needs.pages.outputs.page-url }}
+        run: |
+          set -euo pipefail
+          for f in "" data/atlas.json data/atlas.md data/releases.json data/status.json releases/ status/; do
+            # A new deployment can take some seconds to be served, so each file gets 5 tries.
+            ok=0
+            for i in 1 2 3 4 5; do
+              if curl -fsS -o /dev/null "${SITE%/}/$f"; then ok=1; break; fi
+              sleep 10
+            done
+            if [ "$ok" != 1 ]; then echo "::error::The site has no /$f."; exit 1; fi
+            echo "The site has /$f."
+          done
+          curl -fsS "${SITE%/}/data/atlas.json" | node -e '
+            const a = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
+            if (a.schema !== "codeatlas/1" || !(a.totals.repos > 0)) { console.error("data/atlas.json is not an atlas."); process.exit(1); }
+            console.log(`data/atlas.json: ${a.totals.repos} repositories, ${a.totals.crossRepoClasses} cross-repo classes.`);
+          '

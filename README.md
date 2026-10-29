@@ -17,10 +17,16 @@ The output is sorted, so one input gives one byte sequence.
 ```sh
 node packages/atlas/src/cli.ts build --repos-dir <folder> --out atlas.json --markdown atlas.md
 node packages/atlas/src/cli.ts build template=../template packing=../packing --min-nodes 60
+node packages/atlas/src/cli.ts clone --owner <owner> --into <folder>
+node packages/site/src/build.ts --atlas atlas.json --out site
 ```
 
 The scan reads the files that git keeps, so build output and `node_modules` stay out.
 
+## The site
+
+The site at https://mark1russell7.github.io/codeatlas/ shows the newest atlas. It shows the topics, the repositories that share code, and each clone class with a link to each copy. The atlas data is at `data/atlas.json`.
+
 ## CI
 
-The workflow `Atlas` (`.github/workflows/atlas.yml`) clones each public repository of the owner every Monday, and on a manual start. It writes the atlas as an artifact of the run and as the summary of the run.
+The workflow `Pages` (`.github/workflows/pages.yml`) clones each public repository of the owner every Monday, on each push to main and on a manual start. It builds the atlas and the site, and publishes them to GitHub Pages.
