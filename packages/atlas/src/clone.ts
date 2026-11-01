@@ -11,12 +11,22 @@ export function listArgs(owner: string): string[] {
   return ["repo", "list", owner, "--visibility", "public", "--no-archived", "--source", "--limit", "1000", "--json", "name", "--jq", ".[].name"];
 }
 
+/**
+ * A name of a GitHub owner or repository: letters, digits, `-`, `_` and `.`, and no `-` or `.` at the start. A name
+ * that starts with `-` could be read by git as an option, so the clone takes only names that match.
+ */
+const SAFE_NAME = /^[A-Za-z0-9_][A-Za-z0-9_.-]*$/;
+
+export const isSafeName = (name: string): boolean => SAFE_NAME.test(name) && name !== "." && name !== "..";
+
+/** This function gives the names of the `gh repo list` output, sorted. It drops a line that is not a safe name. */
 export function repoNames(output: string): string[] {
-  return output.split(/\r?\n/).map((line) => line.trim()).filter((line) => line !== "").sort();
+  return output.split(/\r?\n/).map((line) => line.trim()).filter(isSafeName).sort();
 }
 
 /** This function clones each repository into `into/<name>`, and gives the names that did not clone. */
 export function clonePublic(owner: string, into: string, log: (line: string) => void = console.error): { cloned: string[]; failed: string[] } {
+  if (!isSafeName(owner)) throw new Error(`The owner "${owner}" is not a GitHub name.`);
   const names = repoNames(execFileSync("gh", listArgs(owner), { encoding: "utf8" }));
   log(`${names.length} public repositories of ${owner}`);
   mkdirSync(into, { recursive: true });
@@ -29,7 +39,8 @@ export function clonePublic(owner: string, into: string, log: (line: string) => 
       continue;
     }
     try {
-      execFileSync("git", ["clone", "--quiet", "--depth", "1", `https://github.com/${owner}/${name}.git`, target], { stdio: ["ignore", "ignore", "pipe"] });
+      // "--" ends the options: git reads the URL and the folder only as arguments
+      execFileSync("git", ["clone", "--quiet", "--depth", "1", "--", `https://github.com/${owner}/${name}.git`, target], { stdio: ["ignore", "ignore", "pipe"] });
       cloned.push(name);
     } catch {
       failed.push(name);
