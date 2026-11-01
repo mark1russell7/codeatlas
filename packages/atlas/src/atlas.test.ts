@@ -122,6 +122,7 @@ describe("clone", () => {
   it("lists the public sources that are not archived, and sorts the names", () => {
     expect(listArgs("o")).toEqual(["repo", "list", "o", "--visibility", "public", "--no-archived", "--source", "--limit", "1000", "--json", "name", "--jq", ".[].name"]);
     expect(repoNames("vex\r\npacking\n\n")).toEqual(["packing", "vex"]);
+    expect(repoNames("--upload-pack=x\n.git\n..\na b\nmark1russell7.github.io\n_x\n")).toEqual(["_x", "mark1russell7.github.io"]);
   });
 });
 
