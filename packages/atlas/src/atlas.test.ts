@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildAtlas, topicsOf, wordsOf } from "./atlas.ts";
+import { buildAtlas, homeOf, topicsOf, wordsOf } from "./atlas.ts";
 import { atlasMarkdown } from "./report.ts";
 import { isSource, packageOf, scanSource, type RepoScan } from "./scan.ts";
 import { parseBuildArgs } from "./cli.ts";
@@ -148,6 +148,28 @@ describe("buildAtlas", () => {
     expect(cls?.topics).toEqual(["statistics"]);
     expect(atlas.totals.crossRepoClasses).toBe(1);
     expect(atlas.sharedNames.map((n) => n.name)).toEqual(["mean"]);
+  });
+
+  it("lists the copies that have a home, outside the home and outside tests", () => {
+    const median = "export function median(xs: number[]) { return xs[0] ?? 0; }";
+    const atlas = buildAtlas([
+      repo("alpha", { "src/a.ts": median, "src/a.test.ts": median }),
+      repo("beta", { "src/b.ts": median, "src/c.ts": "export const quantile = (xs: number[]) => xs[0];" }),
+      repo("rigor", { "packages/statistics/src/median.ts": median }),
+    ]);
+    expect(atlas.homed.map((row) => row.area)).toEqual(["statistics"]);
+    expect(atlas.homed[0]?.home).toEqual(["@mark1russell7/rigor-statistics"]);
+    expect(atlas.homed[0]?.repos).toEqual(["alpha", "beta"]);
+    expect(atlas.homed[0]?.copies.map((copy) => `${copy.repo}/${copy.file}`)).toEqual(["alpha/src/a.ts", "beta/src/b.ts", "beta/src/c.ts"]);
+    expect(homeOf("median", "Rigor")).toBeUndefined();
+    expect(homeOf("record", "alpha")).toBeUndefined();
+    expect(atlasMarkdown(atlas)).toContain("| Statistics | `@mark1russell7/rigor-statistics` | 3 | alpha (1), beta (2) | `median`, `quantile` |");
+  });
+
+  it("flags a clone class that has a home", () => {
+    const body = "{ let s = 0; for (const x of xs) s += x * x; return s / (xs.length || 1) + xs.length * 2; }";
+    const atlas = buildAtlas([repo("alpha", { "a.ts": `export function variance(xs: number[]) ${body}` }), repo("beta", { "b.ts": `export function spread(xs: number[]) ${body}` })], { minNodes: 5 });
+    expect(atlas.classes[0]?.homes).toEqual(["statistics"]);
   });
 
   it("drops functions under the minimum size", () => {

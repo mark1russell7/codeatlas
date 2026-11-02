@@ -237,8 +237,25 @@ export async function start(): Promise<void> {
     })),
   );
 
+  // An atlas of an older build has no homed list
+  const homedRows = atlas.homed ?? [];
+  const homed = homedRows.length === 0
+    ? h("p", {}, "No copies.")
+    : h("table", { class: "table" },
+        h("thead", {}, h("tr", {}, h("th", {}, "Area"), h("th", {}, "Home"), h("th", {}, "Copies"), h("th", {}, "Repositories (copies)"))),
+        h("tbody", {}, ...homedRows.map((row) =>
+          h("tr", {},
+            h("td", {}, row.title),
+            h("td", {}, row.home.join(", ")),
+            h("td", {}, String(row.copies.length)),
+            h("td", {}, row.repos.map((repo) => `${repo} (${row.copies.filter((copy) => copy.repo === repo).length})`).join(", ")),
+          ),
+        )),
+      );
+
   root.replaceChildren(
     kpis,
+    section("homes", "Copies that have a home", "Functions whose name is a signature of a home package of the map of homes, outside that home. The fix is an import from the home, or a pull request that adds the function to the home.", homed),
     section("topics", "Where the copies are", "Duplicated nodes of the cross-repo classes, by topic. Each topic is an area of a shared library. Click a bar to list its classes.", topicChart),
     section("pairs", "Which repositories share code", "Each cell is the size of the code that two repositories both have: the legend below gives the scale. Click a cell to list the classes of the pair.", heat),
     section("repos", "Repositories", "Click a column to sort and a row to list its classes. The ratio is the share of the code of the repository that is a copy.", repoTable),

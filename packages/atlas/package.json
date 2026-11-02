@@ -15,6 +15,7 @@
     "codeatlas": "./src/cli.ts"
   },
   "dependencies": {
+    "@mark1russell7/conventions": "^0.14.0",
     "@swc/core": "^1.15.0"
   },
   "devDependencies": {

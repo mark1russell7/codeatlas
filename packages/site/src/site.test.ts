@@ -12,6 +12,7 @@ const klass = (hash: string, nodes: number, members: Member[], topics: string[] 
   members,
   duplicatedNodes: nodes * (members.length - 1),
   topics,
+  homes: [],
 });
 
 const repoRow = (repo: string, crossRepoClasses: number) => ({
@@ -30,6 +31,7 @@ const ATLAS: Atlas = {
   ],
   sharedNames: [],
   purposes: [],
+  homed: [],
 };
 
 describe("matches", () => {
