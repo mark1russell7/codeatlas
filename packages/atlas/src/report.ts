@@ -34,6 +34,22 @@ export function atlasMarkdown(atlas: Atlas, options: { readonly top?: number } =
         return `| ${cls.nodes} | ${cls.members.length} | ${cls.repos.join(", ")} | ${cls.topics.join(", ")} | ${members}${more} |`;
       }),
     "",
+    "## Copies that have a home",
+    "",
+    "Functions outside a test whose name is a signature of a home of the map of homes (`conventions map`), in a repository other than the home. The fix is an import from the home, or a pull request that adds the function to the home.",
+    "",
+    ...(atlas.homed.length === 0
+      ? ["No copies."]
+      : [
+          "| Area | Home | Copies | Repositories | Names |",
+          "|---|---|---:|---|---|",
+          ...atlas.homed.map((row) => {
+            const names = [...new Set(row.copies.map((copy) => copy.name))].sort();
+            const shown = names.slice(0, 8).map((name) => `\`${name}\``).join(", ");
+            return `| ${row.title} | ${row.home.map((home) => `\`${home}\``).join(", ")} | ${row.copies.length} | ${row.repos.map((repo) => `${repo} (${row.copies.filter((copy) => copy.repo === repo).length})`).join(", ")} | ${shown}${names.length > 8 ? `, and ${names.length - 8} more` : ""} |`;
+          }),
+        ]),
+    "",
     "## Rigor candidates: clone classes and shared names by topic",
     "",
   ];

@@ -3,6 +3,7 @@
  * with one shape. The duplicated nodes of a class are its size times its members minus one: the code
  * that one shared function removes. The output is sorted, so one input gives one byte sequence.
  */
+import { HOMES, signaturesOf, type Home } from "@mark1russell7/conventions";
 import type { RepoScan, Unit } from "./scan.ts";
 
 /** The areas of direction 16: the shared rigor libraries that the atlas finds candidates for. */
@@ -62,6 +63,8 @@ export interface CloneClass {
   /** nodes × (members − 1): the nodes that one shared function removes. */
   readonly duplicatedNodes: number;
   readonly topics: readonly string[];
+  /** The areas of the map of homes whose signature names a member in a repository other than the home. */
+  readonly homes: readonly string[];
 }
 
 export interface RepoRow {
@@ -83,6 +86,17 @@ export interface SharedName {
   readonly kinds: readonly string[];
   readonly repos: readonly string[];
   readonly topics: readonly string[];
+}
+
+/** The functions of one area of the map of homes that are outside the home: the copies that the home replaces. */
+export interface HomedRow {
+  readonly area: string;
+  readonly title: string;
+  /** The packages of the home, or the repository when the home has no package. */
+  readonly home: readonly string[];
+  readonly repo: string;
+  readonly repos: readonly string[];
+  readonly copies: readonly Member[];
 }
 
 export interface PurposeRow {
@@ -108,6 +122,19 @@ export interface Atlas {
   readonly classes: readonly CloneClass[];
   readonly sharedNames: readonly SharedName[];
   readonly purposes: readonly PurposeRow[];
+  /** The areas with copies outside their home, most repositories first. */
+  readonly homed: readonly HomedRow[];
+}
+
+/** The signatures of the map of homes (@mark1russell7/conventions), as in its rule home-package. */
+const SIGNATURES = signaturesOf(HOMES);
+
+/** The name of a repository in the atlas: the part after the owner, as clone.ts names the folders. */
+const repoName = (home: Home): string => home.repo.slice(home.repo.indexOf("/") + 1).toLowerCase();
+
+/** This function gives the home whose signature is the name, when the repository is not that home. */
+export function homeOf(name: string, repo: string): Home | undefined {
+  return SIGNATURES.find((signature) => signature.pattern.test(name) && repoName(signature.home) !== repo.toLowerCase())?.home;
 }
 
 export interface AtlasOptions {
@@ -155,6 +182,7 @@ export function buildAtlas(scans: readonly RepoScan[], options: AtlasOptions = {
       members,
       duplicatedNodes: group.nodes * (members.length - 1),
       topics: topicsOf(members.flatMap((member) => [member.name, member.file])),
+      homes: [...new Set(members.flatMap((member) => homeOf(member.name, member.repo)?.area ?? []))].sort(byText),
     });
   }
   classes.sort((a, b) => b.duplicatedNodes - a.duplicatedNodes || b.repos.length - a.repos.length || byText(a.hash, b.hash));
@@ -207,6 +235,29 @@ export function buildAtlas(scans: readonly RepoScan[], options: AtlasOptions = {
     return { purpose, packages };
   });
 
+  // Each function of any size counts here, not only the clone classes: one copy of a home's function is one too many
+  const copies = new Map<Home, Member[]>();
+  for (const scan of scans) {
+    for (const unit of scan.units as readonly Unit[]) {
+      if (unit.test) continue;
+      const home = homeOf(unit.name, scan.repo);
+      if (home === undefined) continue;
+      const list = copies.get(home) ?? [];
+      list.push({ repo: scan.repo, file: unit.file, line: unit.line, name: unit.name, exported: unit.exported, test: unit.test });
+      copies.set(home, list);
+    }
+  }
+  const homed: HomedRow[] = [...copies]
+    .map(([home, list]): HomedRow => ({
+      area: home.area,
+      title: home.title,
+      home: home.packages.length === 0 ? [home.repo] : [...home.packages],
+      repo: home.repo,
+      repos: [...new Set(list.map((member) => member.repo))].sort(byText),
+      copies: list.sort(memberOrder),
+    }))
+    .sort((a, b) => b.repos.length - a.repos.length || b.copies.length - a.copies.length || byText(a.area, b.area));
+
   const nodes = repos.reduce((sum, row) => sum + row.nodes, 0);
   const duplicatedNodes = classes.reduce((sum, cls) => sum + cls.duplicatedNodes, 0);
   return {
@@ -226,6 +277,7 @@ export function buildAtlas(scans: readonly RepoScan[], options: AtlasOptions = {
     classes,
     sharedNames,
     purposes,
+    homed,
   };
 }
 

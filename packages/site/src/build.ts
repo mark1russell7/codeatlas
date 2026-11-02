@@ -69,7 +69,7 @@ export function pageHtml(script: string, atlas: Atlas, owner: string, built: str
 <header>
   <h1>codeatlas</h1>
   <p class="sub">The code that the repositories of ${escapeHtml(owner)} write again and again. The atlas scans each public repository every week. Built ${escapeHtml(built)}.</p>
-  <nav><a href="#topics">Topics</a><a href="#pairs">Pairs</a><a href="#repos">Repositories</a><a href="#classes">Classes</a><a href="#names">Names</a><a href="#purposes">Purposes</a><a href="data/atlas.json">Data</a><a href="status/">Status</a><a href="releases/">Releases</a><a href="https://github.com/${escapeHtml(owner)}/codeatlas">Source</a></nav>
+  <nav><a href="#homes">Homes</a><a href="#topics">Topics</a><a href="#pairs">Pairs</a><a href="#repos">Repositories</a><a href="#classes">Classes</a><a href="#names">Names</a><a href="#purposes">Purposes</a><a href="data/atlas.json">Data</a><a href="status/">Status</a><a href="releases/">Releases</a><a href="https://github.com/${escapeHtml(owner)}/codeatlas">Source</a></nav>
 </header>
 <main id="app" data-owner="${escapeHtml(owner)}"><p class="empty">Loading the atlas.</p></main>
 <script type="module">${script.replace(/<\/script/gi, "<\\/script")}</script>
