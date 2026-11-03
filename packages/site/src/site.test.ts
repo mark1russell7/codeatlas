@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Atlas, CloneClass, Member } from "@mark1russell7/codeatlas";
-import { compilePage, pageHtml, parseSiteArgs, readAtlas } from "./build.ts";
+import { compilePage, pageHtml, parseSiteArgs, readAtlas, scrollCueCss } from "./build.ts";
 import { matches, NO_FILTER, NO_TOPIC, pairShares, sourceUrl, stepOf, titleOf, topicRows } from "./page.ts";
 
 const member = (repo: string, name: string, test = false): Member => ({ repo, file: `src/${name}.ts`, line: 3, name, exported: true, test });
@@ -116,5 +116,12 @@ describe("the build", () => {
     expect(html).toContain("o&lt;x&gt;");
     expect(html).not.toContain("console.log('</script>')");
     expect(html).toContain("50.0% of the code is a copy");
+  });
+  it("inlines the scroll cue of site-pages before the CSS of the page", () => {
+    const html = pageHtml("", ATLAS, "o", "2026-10-29");
+    const cue = scrollCueCss();
+    expect(cue).toContain(".scroll-cue {");
+    expect(html).toContain(cue);
+    expect(html.indexOf(cue)).toBeLessThan(html.indexOf(".scroll{max-width:100%;--scroll-cue-bg:var(--surface)}"));
   });
 });

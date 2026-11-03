@@ -226,8 +226,9 @@ export async function start(): Promise<void> {
     chip.addEventListener("blur", () => tip.hide());
     names.append(chip);
   }
-  // A wide table scrolls in its own box, so the page does not scroll sideways on a phone.
-  const purposes = h("div", { class: "scroll" }, h("table", { class: "table" },
+  // A wide table scrolls in its own box, so the page does not scroll sideways on a phone. The class scroll-cue shows a shade
+  // at each edge that has more content.
+  const purposes = h("div", { class: "scroll scroll-cue" }, h("table", { class: "table" },
     h("thead", {}, h("tr", {}, h("th", {}, "Purpose"), h("th", {}, "Packages (repositories that import each)"))),
     h("tbody", {}, ...atlas.purposes.map((p) => {
       const pkgs = Object.entries(p.packages);
@@ -242,7 +243,7 @@ export async function start(): Promise<void> {
   const homedRows = atlas.homed ?? [];
   const homed = homedRows.length === 0
     ? h("p", {}, "No copies.")
-    : h("div", { class: "scroll" }, h("table", { class: "table wide" },
+    : h("div", { class: "scroll scroll-cue" }, h("table", { class: "table wide" },
         h("thead", {}, h("tr", {}, h("th", {}, "Area"), h("th", {}, "Home"), h("th", {}, "Copies"), h("th", {}, "Repositories (copies)"))),
         h("tbody", {}, ...homedRows.map((row) =>
           h("tr", {},
@@ -306,7 +307,7 @@ export async function start(): Promise<void> {
       });
     });
     const legend = h("div", { class: "legend" }, "less", ...Array.from({ length: HEAT_STEPS }, (_, k) => h("span", { class: `swatch s${k}` })), "more");
-    return h("div", {}, h("div", { class: "scroll" }, svg), legend);
+    return h("div", {}, h("div", { class: "scroll scroll-cue" }, svg), legend);
   }
 
   function repoTableOf(rows: readonly RepoRow[]): HTMLElement {
@@ -355,7 +356,7 @@ export async function start(): Promise<void> {
       }));
     }
     render();
-    return h("div", { class: "scroll" }, table);
+    return h("div", { class: "scroll scroll-cue" }, table);
   }
 
   function buildControls(): HTMLElement {

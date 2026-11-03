@@ -6,6 +6,7 @@
  * files data/atlas.json and data/atlas.md.
  */
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { join } from "node:path";
 import { transformSync } from "@swc/core";
 import type { Atlas } from "@mark1russell7/codeatlas";
@@ -63,7 +64,7 @@ export function pageHtml(script: string, atlas: Atlas, owner: string, built: str
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>codeatlas</title>
 <meta name="description" content="${escapeHtml(description)}">
-<style>${CSS}</style>
+<style>${scrollCueCss()}${CSS}</style>
 </head>
 <body>
 <header>
@@ -76,6 +77,14 @@ export function pageHtml(script: string, atlas: Atlas, owner: string, built: str
 </body>
 </html>
 `;
+}
+
+/**
+ * This function gives the text of the file `scroll-cue.css` of the installed `@mark1russell7/site-pages`. The page inlines it
+ * before its own CSS, so the rule `.scroll` sets the background of the cue.
+ */
+export function scrollCueCss(): string {
+  return readFileSync(createRequire(import.meta.url).resolve("@mark1russell7/site-pages/scroll-cue.css"), "utf8");
 }
 
 const CSS = `
@@ -109,7 +118,7 @@ h2{margin:0;font-size:18px}
 .bar-track{height:12px}
 .bar{display:block;height:12px;background:var(--accent);border-radius:0 4px 4px 0}
 .bar-value{font-variant-numeric:tabular-nums;color:var(--ink-2);font-size:13px;min-width:5ch;text-align:right}
-.scroll{overflow-x:auto;max-width:100%}
+.scroll{max-width:100%;--scroll-cue-bg:var(--surface)}
 svg .axis{font-size:11px;fill:var(--ink-2)}
 .cell{cursor:pointer;stroke:none}.cell.none{fill:var(--surface-2);cursor:default}
 .cell:hover,.cell:focus{outline:none;stroke:var(--ink);stroke-width:1.5}
