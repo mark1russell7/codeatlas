@@ -8,6 +8,8 @@ name: Pages
 on:
   push:
     branches: [main]
+  # A pull request builds the site and runs the site check, with no deploy.
+  pull_request:
   schedule:
     - cron: "40 6 * * 1"
   workflow_dispatch:
@@ -15,13 +17,14 @@ on:
 permissions: {}
 
 # One deployment at a time. A newer push cancels a deployment that waits.
+# Each pull request has its own group, so it does not cancel a deployment.
 concurrency:
-  group: pages
+  group: pages-${{ github.event_name == 'pull_request' && github.ref || 'deploy' }}
   cancel-in-progress: true
 
 jobs:
   pages:
-    uses: mark1russell7/template/.github/workflows/reusable-pages.yml@4df6a2d5a4de464ab3f8b50c20df52c234794af6 # main
+    uses: mark1russell7/template/.github/workflows/reusable-pages.yml@b0619385308bbeea892899ee265a1118d702984c # main
     # The build job of the shared workflow gets only the read permissions. Only its deploy job,
     # which runs no code of the repository, writes to Pages.
     permissions:
@@ -46,11 +49,17 @@ jobs:
       site-pages: true
       site-name: codeatlas
       roadmap: docs/ROADMAP.md
+      # The site check: a browser opens each page at 360, 400 and 1280 px, in light and dark, before the deploy.
+      # A failure stops the deploy.
+      site-check: true
+      site-check-pages: /,/releases/,/status/
+      deploy: ${{ github.event_name != 'pull_request' }}
 
   # This job examines the deployed site: the page, the atlas data and the pages of site-pages.
   # It starts no code of the repository and reads only the public site.
   served:
     needs: pages
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions: {}

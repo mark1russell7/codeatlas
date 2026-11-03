@@ -226,7 +226,8 @@ export async function start(): Promise<void> {
     chip.addEventListener("blur", () => tip.hide());
     names.append(chip);
   }
-  const purposes = h("table", { class: "table" },
+  // A wide table scrolls in its own box, so the page does not scroll sideways on a phone.
+  const purposes = h("div", { class: "scroll" }, h("table", { class: "table" },
     h("thead", {}, h("tr", {}, h("th", {}, "Purpose"), h("th", {}, "Packages (repositories that import each)"))),
     h("tbody", {}, ...atlas.purposes.map((p) => {
       const pkgs = Object.entries(p.packages);
@@ -235,13 +236,13 @@ export async function start(): Promise<void> {
         h("td", {}, pkgs.length === 0 ? "No package: each repository writes its own." : pkgs.map(([pkg, repos]) => `${pkg} (${repos.length})`).join(", ")),
       );
     })),
-  );
+  ));
 
   // An atlas of an older build has no homed list
   const homedRows = atlas.homed ?? [];
   const homed = homedRows.length === 0
     ? h("p", {}, "No copies.")
-    : h("table", { class: "table" },
+    : h("div", { class: "scroll" }, h("table", { class: "table wide" },
         h("thead", {}, h("tr", {}, h("th", {}, "Area"), h("th", {}, "Home"), h("th", {}, "Copies"), h("th", {}, "Repositories (copies)"))),
         h("tbody", {}, ...homedRows.map((row) =>
           h("tr", {},
@@ -251,7 +252,7 @@ export async function start(): Promise<void> {
             h("td", {}, row.repos.map((repo) => `${repo} (${row.copies.filter((copy) => copy.repo === repo).length})`).join(", ")),
           ),
         )),
-      );
+      ));
 
   root.replaceChildren(
     kpis,

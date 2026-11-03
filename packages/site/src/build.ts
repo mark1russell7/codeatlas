@@ -117,6 +117,7 @@ svg .axis{font-size:11px;fill:var(--ink-2)}
 .legend{display:flex;align-items:center;gap:3px;color:var(--ink-3);font-size:12px;margin-top:8px}
 .swatch{width:16px;height:10px;border-radius:2px;display:inline-block}
 .table{border-collapse:collapse;width:100%;font-size:14px}
+.table.wide{min-width:760px}
 .table th,.table td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
 .table th{font-weight:600;color:var(--ink-2);white-space:nowrap}
 .table th button{background:none;border:0;color:inherit;font:inherit;cursor:pointer;padding:0}
@@ -146,7 +147,7 @@ svg .axis{font-size:11px;fill:var(--ink-2)}
 .card li{margin:3px 0;word-break:break-all}
 code{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;color:var(--ink-2)}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
-.chip{font-family:ui-monospace,Consolas,monospace;font-size:13px;background:var(--surface-2);border-radius:6px;padding:2px 8px}
+.chip{font-family:ui-monospace,Consolas,monospace;font-size:13px;background:var(--surface-2);border-radius:6px;padding:2px 8px;max-width:100%;overflow-wrap:anywhere}
 .chip b{margin-left:6px;color:var(--ink-3);font-weight:500}
 .tip{position:absolute;display:none;z-index:10;max-width:320px;background:var(--ink);color:var(--surface);font-size:13px;padding:6px 9px;border-radius:6px;pointer-events:none}
 .empty{color:var(--ink-3)}
