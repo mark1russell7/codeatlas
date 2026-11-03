@@ -146,7 +146,7 @@ svg .axis{font-size:11px;fill:var(--ink-2)}
 .card li{margin:3px 0;word-break:break-all}
 code{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;color:var(--ink-2)}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
-.chip{font-family:ui-monospace,Consolas,monospace;font-size:13px;background:var(--surface-2);border-radius:6px;padding:2px 8px}
+.chip{font-family:ui-monospace,Consolas,monospace;font-size:13px;background:var(--surface-2);border-radius:6px;padding:2px 8px;max-width:100%;overflow-wrap:anywhere}
 .chip b{margin-left:6px;color:var(--ink-3);font-weight:500}
 .tip{position:absolute;display:none;z-index:10;max-width:320px;background:var(--ink);color:var(--surface);font-size:13px;padding:6px 9px;border-radius:6px;pointer-events:none}
 .empty{color:var(--ink-3)}
