@@ -117,7 +117,7 @@ svg .axis{font-size:11px;fill:var(--ink-2)}
 .legend{display:flex;align-items:center;gap:3px;color:var(--ink-3);font-size:12px;margin-top:8px}
 .swatch{width:16px;height:10px;border-radius:2px;display:inline-block}
 .table{border-collapse:collapse;width:100%;font-size:14px}
-.table.wide{min-width:600px}
+.table.wide{min-width:760px}
 .table th,.table td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
 .table th{font-weight:600;color:var(--ink-2);white-space:nowrap}
 .table th button{background:none;border:0;color:inherit;font:inherit;cursor:pointer;padding:0}
