@@ -242,7 +242,7 @@ export async function start(): Promise<void> {
   const homedRows = atlas.homed ?? [];
   const homed = homedRows.length === 0
     ? h("p", {}, "No copies.")
-    : h("div", { class: "scroll" }, h("table", { class: "table" },
+    : h("div", { class: "scroll" }, h("table", { class: "table wide" },
         h("thead", {}, h("tr", {}, h("th", {}, "Area"), h("th", {}, "Home"), h("th", {}, "Copies"), h("th", {}, "Repositories (copies)"))),
         h("tbody", {}, ...homedRows.map((row) =>
           h("tr", {},
