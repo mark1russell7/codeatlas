@@ -2,8 +2,8 @@
  * The probe of the home page. The site check of the Pages workflow starts it in a browser at each width, before the
  * deploy. A failed check stops the deploy.
  *
- * The probe drives the atlas. The page loads the data, the search and a topic filter the classes, a row of the table
- * picks a repository, and the button "Clear" gives the full list again.
+ * The probe drives the atlas. The page loads the data. The search and a topic filter the classes. A row of the table
+ * picks a repository. The button "Clear" gives the full list again.
  *
  * The site check reads this TypeScript file directly. It removes the types and the `export` line, and it starts the
  * result as the body of an async function.
