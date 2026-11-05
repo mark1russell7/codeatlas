@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@mark1russell7/codeatlas": "workspace:*",
-    "@mark1russell7/site-pages": "^0.1.8",
+    "@mark1russell7/site-pages": "^0.2.13",
     "@swc/core": "^1.15.0"
   },
   "devDependencies": {
