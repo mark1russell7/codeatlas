@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Atlas, CloneClass, Member } from "@mark1russell7/codeatlas";
-import { compilePage, pageHtml, parseSiteArgs, readAtlas, scrollCueCss } from "./build.ts";
+import { ATLAS_LIMIT, atlasStamps, compilePage, dataLine, pageHtml, parseSiteArgs, readAtlas, scrollCueCss } from "./build.ts";
 import { matches, NO_FILTER, NO_TOPIC, pairShares, sourceUrl, stepOf, titleOf, topicRows } from "./page.ts";
 
 const member = (repo: string, name: string, test = false): Member => ({ repo, file: `src/${name}.ts`, line: 3, name, exported: true, test });
@@ -111,17 +111,34 @@ describe("the build", () => {
     expect(js).toMatch(/export const f/);
   });
   it("writes a page with the script, and escapes the owner", () => {
-    const html = pageHtml("console.log('</script>')", ATLAS, "o<x>", "2026-10-29");
+    const html = pageHtml("console.log('</script>')", ATLAS, "o<x>", dataLine(undefined, "2026-10-29"));
     expect(html).toMatch(/^<!doctype html>/);
     expect(html).toContain("o&lt;x&gt;");
     expect(html).not.toContain("console.log('</script>')");
     expect(html).toContain("50.0% of the code is a copy");
   });
   it("inlines the scroll cue of site-pages before the CSS of the page", () => {
-    const html = pageHtml("", ATLAS, "o", "2026-10-29");
+    const html = pageHtml("", ATLAS, "o", dataLine(undefined, "2026-10-29"));
     const cue = scrollCueCss();
     expect(cue).toContain(".scroll-cue {");
     expect(html).toContain(cue);
     expect(html.indexOf(cue)).toBeLessThan(html.indexOf(".scroll{max-width:100%;--scroll-cue-bg:var(--surface)}"));
+  });
+  it("stamps the page with the run, the engine and the limit in a CI run", () => {
+    const env = { GITHUB_SERVER_URL: "https://github.com", GITHUB_REPOSITORY: "o/codeatlas", GITHUB_RUN_ID: "7" };
+    const stamps = atlasStamps(env, "0.1.0", "2026-11-05T00:00:00.000Z");
+    expect(stamps?.pages[0]).toEqual({
+      page: "index.html",
+      runs: [{ id: "7", url: "https://github.com/o/codeatlas/actions/runs/7", date: "2026-11-05T00:00:00.000Z", engines: { "@mark1russell7/codeatlas": "0.1.0" } }],
+      limit: ATLAS_LIMIT,
+    });
+    const html = pageHtml("", ATLAS, "o", dataLine(stamps?.pages[0], "2026-11-05"));
+    expect(html).toContain('href="https://github.com/o/codeatlas/actions/runs/7"');
+    expect(html).toContain("The age limit of this data is 8 days.");
+    expect(html).toContain("codeatlas 0.1.0");
+  });
+  it("gives no stamps for a build with no run, and the page says so", () => {
+    expect(atlasStamps({}, "0.1.0", "2026-11-05T00:00:00.000Z")).toBeUndefined();
+    expect(dataLine(undefined, "2026-11-05")).toContain("This build has no run.");
   });
 });

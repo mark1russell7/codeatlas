@@ -231,8 +231,8 @@ importers:
         specifier: workspace:*
         version: link:../atlas
       '@mark1russell7/site-pages':
-        specifier: ^0.1.8
-        version: 0.1.8
+        specifier: ^0.2.13
+        version: 0.2.13
       '@swc/core':
         specifier: ^1.15.0
         version: 1.16.20
@@ -453,8 +453,16 @@ packages:
     engines: {node: '>=22'}
     hasBin: true
 
-  '@mark1russell7/site-pages@0.1.8':
-    resolution: {integrity: sha512-L8X6LqQCIEPCscVqIqdNGm9U0d5BMuH357whGIMzf2iW/JiXfIMGXNsExO7MxR6/Z5dIkT0/bPvsii1vfkCEvQ==}
+  '@mark1russell7/rigor-generators@0.1.5':
+    resolution: {integrity: sha512-YkABrG6+AV4oZKWoSIayDGxKTqcTMbp/eGa+3u00X09Jv9TfpHFDeqHlEQARMBzJ/kvy/EMNIXQZMGa3Nobuzw==}
+    engines: {node: '>=22'}
+
+  '@mark1russell7/rigor-statistics@0.1.11':
+    resolution: {integrity: sha512-5tD7QqLE7Y6wWsoImXuszH3JA5VHwGDHjVzobn/JGtYgo24AFTzXlngEPxfW9A5kHD9GFXgWbkgUCNa0RlLToA==}
+    engines: {node: '>=22'}
+
+  '@mark1russell7/site-pages@0.2.13':
+    resolution: {integrity: sha512-vLoQZ3YrnTgTKqIr6JosAxS9OVAe1m0kejNq0fFVlxQVgnA9lvoqqwBDP4O77DSbkRRqcJfu9eUwIDz+cgni9w==}
     engines: {node: '>=22'}
     hasBin: true
 
@@ -1386,7 +1394,15 @@ snapshots:
 
   '@mark1russell7/cue@2.1.1': {}
 
-  '@mark1russell7/site-pages@0.1.8': {}
+  '@mark1russell7/rigor-generators@0.1.5': {}
+
+  '@mark1russell7/rigor-statistics@0.1.11':
+    dependencies:
+      '@mark1russell7/rigor-generators': 0.1.5
+
+  '@mark1russell7/site-pages@0.2.13':
+    dependencies:
+      '@mark1russell7/rigor-statistics': 0.1.11
 
   '@mark1russell7/ste-lint@0.1.2':
     dependencies:

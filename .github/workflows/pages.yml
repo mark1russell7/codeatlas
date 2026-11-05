@@ -1,7 +1,8 @@
 # Builds the atlas and the site, and publishes them to GitHub Pages at https://mark1russell7.github.io/codeatlas/,
 # with the shared Pages workflow of mark1russell7 (reusable-pages.yml of mark1russell7/template, its CI.md).
 # The build clones each public repository of the owner, scans it, and writes the atlas (data/atlas.json,
-# data/atlas.md) and the page that shows it. The schedule makes a new atlas each Monday.
+# data/atlas.md) and the page that shows it. The schedule makes a new atlas each Monday. The stamps name the run
+# and the limit of the data, and the freshness gate reads them before the deploy.
 # The Pages source of the repository is "GitHub Actions" (Settings > Pages).
 name: Pages
 
@@ -24,7 +25,7 @@ concurrency:
 
 jobs:
   pages:
-    uses: mark1russell7/template/.github/workflows/reusable-pages.yml@5b6d568175b98264391a21a9da059df7be51d85e # main
+    uses: mark1russell7/template/.github/workflows/reusable-pages.yml@5c13350fadbdcfe88afe7faba9bea06acb9ba50a # main
     # The build job of the shared workflow gets only the read permissions. Only its deploy job,
     # which runs no code of the repository, writes to Pages.
     permissions:
@@ -55,6 +56,8 @@ jobs:
       site-check-pages: /,/releases/,/status/
       # The probe drives the filters of the atlas on the home page. The check reads the TypeScript source and removes its types.
       site-check-probe: packages/site/src/check-probe.ts
+      # The gate reads these stamps, and its schedule rule reads the cron line of this file.
+      data-stamps: packages/site/dist/data-stamps.json
       deploy: ${{ github.event_name != 'pull_request' }}
 
   # This job examines the deployed site: the page, the atlas data and the pages of site-pages.
@@ -72,7 +75,7 @@ jobs:
           SITE: ${{ needs.pages.outputs.page-url }}
         run: |
           set -euo pipefail
-          for f in "" data/atlas.json data/atlas.md data/releases.json data/status.json releases/ status/; do
+          for f in "" data-stamps.json data/atlas.json data/atlas.md data/releases.json data/status.json releases/ status/; do
             # A new deployment can take some seconds to be served, so each file gets 5 tries.
             ok=0
             for i in 1 2 3 4 5; do

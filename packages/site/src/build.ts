@@ -3,11 +3,13 @@
  * node src/build.ts --atlas <atlas.json> --out <folder> [--owner <owner>] [--markdown <atlas.md>]
  *
  * The command writes the site: index.html with the page (page.ts, compiled with swc), and the data
- * files data/atlas.json and data/atlas.md.
+ * files data/atlas.json and data/atlas.md. In a CI run it also writes data-stamps.json, which the
+ * freshness gate reads. A scan is part of each build, so the date of the stamp is the date of the build.
  */
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
+import { type DataStamps, type PageStamp, renderDataStamp } from "@mark1russell7/site-pages";
 import { transformSync } from "@swc/core";
 import type { Atlas } from "@mark1russell7/codeatlas";
 
@@ -54,7 +56,29 @@ export function compilePage(source: string): string {
 
 const escapeHtml = (text: string): string => text.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] ?? c);
 
-export function pageHtml(script: string, atlas: Atlas, owner: string, built: string): string {
+/** The age limit of the atlas: the gap of 7 days of the weekly schedule, and 1 day for the scan and a second start. */
+export const ATLAS_LIMIT = {
+  days: 8,
+  reason: "Each scan clones each public repository, so the scan starts one time each week.",
+  workflow: ".github/workflows/pages.yml",
+} as const;
+
+/** This function gives the stamps of the site for a CI run, or undefined for a build with no run. */
+export function atlasStamps(env: Readonly<Record<string, string | undefined>>, version: string, now: string): DataStamps | undefined {
+  const server = env["GITHUB_SERVER_URL"];
+  const repository = env["GITHUB_REPOSITORY"];
+  const id = env["GITHUB_RUN_ID"];
+  if (server === undefined || repository === undefined || id === undefined) return undefined;
+  const run = { id, url: `${server}/${repository}/actions/runs/${id}`, date: now, engines: { "@mark1russell7/codeatlas": version } };
+  return { schema: "data-stamp/1", pages: [{ page: "index.html", runs: [run], limit: ATLAS_LIMIT }] };
+}
+
+/** This function gives the line of the data of the page: the stamp of the run, or the date of a build with no run. */
+export function dataLine(stamp: PageStamp | undefined, built: string): string {
+  return stamp === undefined ? `<p class="data-stamp">This build has no run. It scanned the repositories on ${escapeHtml(built)}.</p>` : renderDataStamp(stamp);
+}
+
+export function pageHtml(script: string, atlas: Atlas, owner: string, line: string): string {
   const t = atlas.totals;
   const description = `A duplication atlas of ${t.repos} public repositories: ${(t.ratio * 100).toFixed(1)}% of the code is a copy, in ${t.crossRepoClasses} clone classes that span repositories.`;
   return `<!doctype html>
@@ -69,7 +93,8 @@ export function pageHtml(script: string, atlas: Atlas, owner: string, built: str
 <body>
 <header>
   <h1>codeatlas</h1>
-  <p class="sub">The code that the repositories of ${escapeHtml(owner)} write again and again. The atlas scans each public repository every week. Built ${escapeHtml(built)}.</p>
+  <p class="sub">The code that the repositories of ${escapeHtml(owner)} write again and again. The atlas scans each public repository every week.</p>
+  ${line}
   <nav><a href="#homes">Homes</a><a href="#topics">Topics</a><a href="#pairs">Pairs</a><a href="#repos">Repositories</a><a href="#classes">Classes</a><a href="#names">Names</a><a href="#purposes">Purposes</a><a href="data/atlas.json">Data</a><a href="status/">Status</a><a href="releases/">Releases</a><a href="https://github.com/${escapeHtml(owner)}/codeatlas">Source</a></nav>
 </header>
 <main id="app" data-owner="${escapeHtml(owner)}"><p class="empty">Loading the atlas.</p></main>
@@ -100,6 +125,7 @@ header,main{max-width:1080px;margin:0 auto;padding:0 16px}
 header{padding-top:32px}
 h1{margin:0;font-size:28px;letter-spacing:-.01em}
 .sub{color:var(--ink-2);margin:6px 0 12px;max-width:70ch}
+.data-stamp{color:var(--ink-3);font-size:13px;margin:0 0 12px;max-width:70ch}
 nav{display:flex;flex-wrap:wrap;gap:4px 14px;padding-bottom:12px;border-bottom:1px solid var(--line)}
 nav a,a{color:var(--accent);text-decoration:none}
 a:hover{text-decoration:underline}
@@ -172,7 +198,11 @@ function main(argv: readonly string[]): number {
   const atlas = readAtlas(readFileSync(args.atlas, "utf8"));
   const script = compilePage(readFileSync(new URL("./page.ts", import.meta.url), "utf8"));
   mkdirSync(join(args.out, "data"), { recursive: true });
-  writeFileSync(join(args.out, "index.html"), pageHtml(script, atlas, args.owner, new Date().toISOString().slice(0, 10)));
+  const now = new Date().toISOString();
+  const { version } = JSON.parse(readFileSync(new URL("../../atlas/package.json", import.meta.url), "utf8")) as { version: string };
+  const stamps = atlasStamps(process.env, version, now);
+  writeFileSync(join(args.out, "index.html"), pageHtml(script, atlas, args.owner, dataLine(stamps?.pages[0], now.slice(0, 10))));
+  if (stamps !== undefined) writeFileSync(join(args.out, "data-stamps.json"), `${JSON.stringify(stamps, null, 2)}\n`);
   copyFileSync(args.atlas, join(args.out, "data", "atlas.json"));
   if (args.markdown !== undefined) copyFileSync(args.markdown, join(args.out, "data", "atlas.md"));
   console.error(`site: ${args.out} (${atlas.totals.repos} repositories, ${atlas.classes.length} classes)`);
