@@ -100,6 +100,20 @@ export interface CatalogColumns {
   };
   readonly template_use: { readonly snapshot: "text"; readonly target: "text"; readonly path: "text" };
   readonly template_ref: { readonly snapshot: "text"; readonly ref: "text"; readonly committed_at: "text"; readonly behind: "integer" };
+  readonly coverage_run: { readonly snapshot: "text"; readonly run_id: "integer"; readonly commit: "text"; readonly created_at: "text"; readonly artifacts: "text"; readonly unmatched: "integer" };
+  readonly coverage_file: {
+    readonly snapshot: "text";
+    readonly path: "text";
+    readonly statements: "integer";
+    readonly statements_covered: "integer";
+    readonly branches: "integer";
+    readonly branches_covered: "integer";
+    readonly functions: "integer";
+    readonly functions_covered: "integer";
+    readonly lines: "integer";
+    readonly lines_covered: "integer";
+  };
+  readonly coverage_function: { readonly snapshot: "text"; readonly path: "text"; readonly line: "integer"; readonly name: "text"; readonly hits: "integer" };
   readonly label: { readonly subject: "text"; readonly task: "text"; readonly by: "text"; readonly label: "text"; readonly at: "text" };
   readonly current_snapshot: SnapshotColumns;
   readonly current_file: { readonly repo: "text" } & FileColumns;
@@ -245,6 +259,20 @@ export const CATALOG_COLUMNS: CatalogColumns = {
   conventions_break: { snapshot: "text", rule: "text", n: "integer", file: "text", line: "integer?", message: "text", fixable: "integer" },
   template_use: { snapshot: "text", target: "text", path: "text" },
   template_ref: { snapshot: "text", ref: "text", committed_at: "text", behind: "integer" },
+  coverage_run: { snapshot: "text", run_id: "integer", commit: "text", created_at: "text", artifacts: "text", unmatched: "integer" },
+  coverage_file: {
+    snapshot: "text",
+    path: "text",
+    statements: "integer",
+    statements_covered: "integer",
+    branches: "integer",
+    branches_covered: "integer",
+    functions: "integer",
+    functions_covered: "integer",
+    lines: "integer",
+    lines_covered: "integer",
+  },
+  coverage_function: { snapshot: "text", path: "text", line: "integer", name: "text", hits: "integer" },
   label: { subject: "text", task: "text", by: "text", label: "text", at: "text" },
   current_snapshot: SNAPSHOT,
   current_file: { repo: "text", ...FILE },

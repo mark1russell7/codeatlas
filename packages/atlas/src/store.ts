@@ -12,6 +12,7 @@ import type { LockfileRecord } from "./lockfiles.ts";
 import type { RoadmapRecord } from "./roadmaps.ts";
 import type { StampCheck, TemplateRecords, TemplateVersions } from "./templates.ts";
 import type { ConventionsCheck } from "./conventions.ts";
+import type { CoverageRun } from "./coverage.ts";
 
 /** The version of the tables. A database of another version gets new tables. */
 export const CATALOG_SCHEMA: string = "codeatlas/2";
@@ -118,6 +119,19 @@ CREATE TABLE IF NOT EXISTS template_use (
 );
 CREATE TABLE IF NOT EXISTS template_file (
   snapshot TEXT NOT NULL REFERENCES snapshot(id), path TEXT NOT NULL, oid TEXT NOT NULL, hash TEXT NOT NULL, PRIMARY KEY (snapshot, path)
+);
+CREATE TABLE IF NOT EXISTS coverage_run (
+  snapshot TEXT PRIMARY KEY REFERENCES snapshot(id), run_id INTEGER NOT NULL, "commit" TEXT NOT NULL, created_at TEXT NOT NULL,
+  artifacts TEXT NOT NULL, unmatched INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS coverage_file (
+  snapshot TEXT NOT NULL REFERENCES snapshot(id), path TEXT NOT NULL, statements INTEGER NOT NULL, statements_covered INTEGER NOT NULL,
+  branches INTEGER NOT NULL, branches_covered INTEGER NOT NULL, functions INTEGER NOT NULL, functions_covered INTEGER NOT NULL,
+  lines INTEGER NOT NULL, lines_covered INTEGER NOT NULL, PRIMARY KEY (snapshot, path)
+);
+CREATE TABLE IF NOT EXISTS coverage_function (
+  snapshot TEXT NOT NULL REFERENCES snapshot(id), path TEXT NOT NULL, line INTEGER NOT NULL, name TEXT NOT NULL, hits INTEGER NOT NULL,
+  PRIMARY KEY (snapshot, path, line, name)
 );
 CREATE TABLE IF NOT EXISTS label (
   subject TEXT NOT NULL, task TEXT NOT NULL, "by" TEXT NOT NULL, label TEXT NOT NULL, at TEXT NOT NULL, PRIMARY KEY (subject, task, "by")
@@ -410,6 +424,24 @@ export class Catalog {
         rule.run(snapshot, r.rule, r.status, r.ignored, r.note);
         r.breaks.forEach((b, n) => broken.run(snapshot, r.rule, n, b.file, b.line, b.message, b.fixable ? 1 : 0));
       }
+    });
+  }
+
+  /** This method replaces the coverage of the snapshot `snapshot`. */
+  putCoverage(snapshot: string, run: CoverageRun): void {
+    this.#transaction(() => {
+      for (const table of ["coverage_run", "coverage_file", "coverage_function"]) this.db.prepare(`DELETE FROM ${table} WHERE snapshot = ?`).run(snapshot);
+      this.db
+        .prepare('INSERT INTO coverage_run (snapshot, run_id, "commit", created_at, artifacts, unmatched) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(snapshot, run.runId, run.commit, run.createdAt, JSON.stringify(run.artifacts), run.unmatched);
+      const file = this.db.prepare(
+        "INSERT INTO coverage_file (snapshot, path, statements, statements_covered, branches, branches_covered, functions, functions_covered, lines, lines_covered) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      );
+      for (const f of run.files) {
+        file.run(snapshot, f.path, f.statements.total, f.statements.covered, f.branches.total, f.branches.covered, f.functions.total, f.functions.covered, f.lines.total, f.lines.covered);
+      }
+      const fn = this.db.prepare("INSERT OR IGNORE INTO coverage_function (snapshot, path, line, name, hits) VALUES (?, ?, ?, ?, ?)");
+      for (const f of run.functions) fn.run(snapshot, f.path, f.line, f.name, f.hits);
     });
   }
 
