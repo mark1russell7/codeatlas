@@ -49,3 +49,15 @@ A gap is code with no allowed home. The pilot found these gaps:
 
 - File helpers for general packages. The home of file helpers is `@procedures/fs`, in the `client` monorepo. A general package must not use it. Thus the four file helpers of `ste-lint` (`resolvePath`, `findConfigFile`, `globBase`, `findFiles`) stay in `ste-lint`, with the home `none`.
 - JSON, glob and process helpers for general packages. `moveOf` blocks 10 moves to `system-io` from general packages. Examples are `globToRegExp`, `stopTree` and `packageFolders`.
+
+## The planned pairs (CA5)
+
+`planned-1.jsonl` has the owner verdicts of the 10 pairs of two open plans with the highest scores. The scores came from the catalog of 2026-11-08.
+
+- The question to the owners of the two items: merge, split or keep. A split is one shared part and two local parts.
+- A pair is right when both owners give merge or split. A pair is a negative label when both owners give keep.
+- 4 of the 10 pairs are right, all splits: 0.400 [0.168, 0.687]. The 6 others are keeps, with no dispute.
+- In each split, the shared part goes to a home: the rigor bench harness two times, `site-pages` one time and the packing engine one time.
+- The scorer uses no model tokens. The owners used tokens for the verdicts, but the atlas does not count them.
+- A keep pair shares a rule or a general word, for example `typed-scripts`, `model` or `api`. The words of the rule have a home already, so the two items do different work.
+- `split if` is a split that depends on a fact. In `CA5-P8` the other owner gave the fact, so the pair is a keep.
