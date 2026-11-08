@@ -1,8 +1,11 @@
+import { execFileSync } from "node:child_process";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { factsOfRepo } from "./blobs.ts";
 import { queryOf } from "./query.ts";
 import { Catalog } from "./store.ts";
-import { driftMarkdown, historyOf, keepListOf, localForm, pinFreshness, pinsOf, templateDrift, templateRecordsOfRepo, workflowForm } from "./templates.ts";
+import { driftMarkdown, fileOfTarget, keepListOf, localForm, pinFreshness, pinsOf, templateDrift, templateRecordsOfRepo, templateVersionsOfRepo, workflowForm } from "./templates.ts";
 import { GitRepos } from "./testing/git-repo.ts";
 
 const STAMP = `import { join } from "node:path";
@@ -160,53 +163,82 @@ ${inputs}  gate:
 });
 
 describe("pinFreshness", () => {
-  const NEW = "c".repeat(40);
   const repos = new GitRepos();
   afterAll(() => repos.removeAll());
-  const root = repos.with({ "README.md": "# a\n" });
-  const catalog = new Catalog(":memory:");
-  const pin = (ref: string, line = 1) => ({ path: ".github/workflows/ci.yml", line, target: ".github/workflows/reusable-ci.yml", ref });
-  const records = {
-    template: { pins: [], files: [], commits: [NEW, SHA, OLD] },
-    newest: { pins: [pin(NEW)], files: [], commits: [] },
-    second: { pins: [pin(SHA), pin(NEW, 2)], files: [], commits: [] },
-    third: { pins: [pin(OLD), pin(NEW, 2)], files: [], commits: [] },
-    unknown: { pins: [pin("d".repeat(40)), pin(OLD, 2)], files: [], commits: [] },
-    branch: { pins: [pin("main")], files: [], commits: [] },
+  // The template: commit A, then B changes the action that reusable-ci uses, then C changes only reusable-other
+  const CALLER = "jobs:\n  ci:\n    steps:\n      - uses: ./.github/actions/setup\n";
+  const root = repos.with({ "README.md": "# template\n" });
+  const commit = (date: string, files: Readonly<Record<string, string>>): string => {
+    for (const [path, text] of Object.entries(files)) {
+      mkdirSync(join(root, path, ".."), { recursive: true });
+      writeFileSync(join(root, path), text);
+    }
+    const env = { ...process.env, GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date };
+    const git = (...args: string[]): string => execFileSync("git", ["-C", root, "-c", "user.name=atlas", "-c", "user.email=atlas@example.com", "-c", "core.autocrlf=false", ...args], { env, encoding: "utf8" });
+    git("add", "-A");
+    git("commit", "-q", "-m", date);
+    return git("rev-parse", "HEAD").trim();
   };
-  for (const [name, record] of Object.entries(records)) {
+  const A = commit("2026-11-01T00:00:00Z", {
+    ".github/workflows/reusable-ci.yml": CALLER,
+    ".github/workflows/reusable-other.yml": "jobs: {}\n",
+    ".github/actions/setup/action.yml": "runs:\n  using: composite\n  steps: []\n",
+    "CI.md": "# CI\n",
+  });
+  const B = commit("2026-11-03T00:00:00Z", { ".github/actions/setup/action.yml": "runs:\n  using: composite\n  steps: [{ run: echo }]\n" });
+  const C = commit("2026-11-05T00:00:00Z", { ".github/workflows/reusable-other.yml": "jobs: { a: {} }\n" });
+  const UNKNOWN = "d".repeat(40);
+  const pin = (target: string, ref: string, line = 1) => ({ path: ".github/workflows/ci.yml", line, target, ref });
+  const ci = ".github/workflows/reusable-ci.yml";
+  const other = ".github/workflows/reusable-other.yml";
+  const copy = { path: "CI.md", oid: "x", hash: "y" };
+  const records = {
+    bumped: { pins: [pin(ci, B), pin(".github/actions/setup", C, 2)], files: [copy] },
+    stale: { pins: [pin(ci, A)], files: [] },
+    other: { pins: [pin(other, B), pin(ci, A, 2)], files: [] },
+    unknown: { pins: [pin(ci, UNKNOWN)], files: [] },
+  };
+  const catalog = new Catalog(":memory:");
+  const empty = repos.with({ "README.md": "# a\n" });
+  const put = (name: string, head: string, root: string) => {
     const result = factsOfRepo(name, root, catalog);
-    const snapshot = catalog.putSnapshot(name, "c0", "2026-11-08T00:00:00Z", "test", result.files, result.counts);
-    catalog.putTemplateRecords(snapshot, record);
-  }
+    return catalog.putSnapshot(name, head, "2026-11-08T00:00:00Z", "test", result.files, result.counts);
+  };
+  const template = put("template", C, empty);
+  for (const [name, record] of Object.entries(records)) catalog.putTemplateRecords(put(name, "c0", empty), record);
+  const versions = templateVersionsOfRepo(root, [A, B, C, UNKNOWN, "--output=x"], ["CI.md"]);
+  catalog.putTemplateVersions(template, versions);
   const q = queryOf(catalog.db);
   afterAll(() => catalog.close());
 
-  it("counts a repository as current when each pin is at one of the newest commits", async () => {
-    const freshness = await pinFreshness(q);
-    expect(freshness.commits).toEqual([NEW, SHA]);
-    expect(freshness.current).toEqual(["newest", "second"]);
-    expect(freshness.share).toBe(2 / 5);
-    expect(freshness.behind).toEqual([
-      { repo: "branch", ref: "main", age: null },
-      { repo: "unknown", ref: "d".repeat(40), age: null },
-      { repo: "third", ref: OLD, age: 2 },
-    ]);
+  it("reads the content of each ref, and the files that each shared workflow and action uses", () => {
+    expect(versions.versions.map((v) => v.ref)).toEqual([C, A, B]);
+    expect(versions.versions[0]?.files.map((f) => f.path)).toEqual([".github/actions/setup/action.yml", ci, other, "CI.md"]);
+    expect(versions.uses.filter((u) => u.target === ci).map((u) => u.path)).toEqual([".github/actions/setup/action.yml", ci]);
   });
 
-  it("takes the count of the newest commits as a parameter", async () => {
-    expect((await pinFreshness(q, 3)).current).toEqual(["newest", "second", "third"]);
+  it("gives the file of an action folder", () => {
+    expect(fileOfTarget(".github/actions/setup", new Set())).toBe(".github/actions/setup/action.yml");
+    expect(fileOfTarget(".github/actions/x", new Set([".github/actions/x/action.yaml"]))).toBe(".github/actions/x/action.yaml");
+    expect(fileOfTarget(ci, new Set())).toBe(ci);
+  });
+
+  it("counts a pin as current when each file that it uses is the same as at the commit of the template", async () => {
+    const freshness = await pinFreshness(q);
+    expect(freshness.commit).toBe(C);
+    expect(freshness.current).toEqual(["bumped"]);
+    expect(freshness.share).toBe(1 / 4);
+    expect(freshness.behind).toEqual([
+      { repo: "unknown", ref: UNKNOWN, days: null, files: [".github/actions/setup/action.yml", ci] },
+      { repo: "other", ref: A, days: 7, files: [".github/actions/setup/action.yml", other] },
+      { repo: "stale", ref: A, days: 7, files: [".github/actions/setup/action.yml"] },
+    ]);
   });
 
   it("writes the share and the repositories behind as Markdown", async () => {
     const markdown = driftMarkdown(await pinFreshness(q), await templateDrift(q));
-    expect(markdown).toContain("Current: **2 of 5** repositories (40%)");
-    expect(markdown).toContain("| third | `bbbbbbb` | 2 | 0 |");
-    expect(markdown).toContain("| branch | `main` | more than the history | 0 |");
-  });
-
-  it("reads the first-parent history of a repository", () => {
-    expect(historyOf(root, 30)).toHaveLength(1);
-    expect(historyOf(root, 0)).toEqual([]);
+    expect(markdown).toContain("Current: **1 of 4** repositories (25%)");
+    expect(markdown).toContain(`| stale | \`${A.slice(0, 7)}\` | 7 | \`.github/actions/setup/action.yml\` |`);
+    expect(markdown).toContain("| unknown | `ddddddd` | not known |");
   });
 });

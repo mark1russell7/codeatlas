@@ -26,13 +26,13 @@ export function repoNames(output: string): string[] {
 
 /**
  * This function clones each repository into `into/<name>`, and gives the names that did not clone. A repository
- * of `depths` gets that count of commits of history. Each other repository gets one commit.
+ * of `options` gets those arguments of `git clone`. Each other repository gets `--depth 1`.
  */
 export function clonePublic(
   owner: string,
   into: string,
   log: (line: string) => void = console.error,
-  depths: Readonly<Record<string, number>> = {},
+  options: Readonly<Record<string, readonly string[]>> = {},
 ): { cloned: string[]; failed: string[] } {
   if (!isSafeName(owner)) throw new Error(`The owner "${owner}" is not a GitHub name.`);
   const names = repoNames(execFileSync("gh", listArgs(owner), { encoding: "utf8" }));
@@ -48,7 +48,7 @@ export function clonePublic(
     }
     try {
       // "--" ends the options: git reads the URL and the folder only as arguments
-      execFileSync("git", ["clone", "--quiet", "--depth", String(depths[name] ?? 1), "--", `https://github.com/${owner}/${name}.git`, target], { stdio: ["ignore", "ignore", "pipe"] });
+      execFileSync("git", ["clone", "--quiet", ...(options[name] ?? ["--depth", "1"]), "--", `https://github.com/${owner}/${name}.git`, target], { stdio: ["ignore", "ignore", "pipe"] });
       cloned.push(name);
     } catch {
       failed.push(name);

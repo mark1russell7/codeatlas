@@ -8,7 +8,7 @@ import { CLASS_MIN_NODES, type FactsSummary, type Unread } from "./summary.ts";
 import type { FileFacts, MarkerKind } from "./facts.ts";
 import type { ManifestRecord } from "./manifests.ts";
 import type { LockfileRecord } from "./lockfiles.ts";
-import type { TemplateRecords } from "./templates.ts";
+import type { TemplateRecords, TemplateVersions } from "./templates.ts";
 
 /** The version of the tables. A database of another version gets new tables. */
 export const CATALOG_SCHEMA: string = "codeatlas/2";
@@ -76,8 +76,12 @@ CREATE TABLE IF NOT EXISTS template_pin (
   snapshot TEXT NOT NULL REFERENCES snapshot(id), path TEXT NOT NULL, line INTEGER NOT NULL, target TEXT NOT NULL, ref TEXT NOT NULL,
   PRIMARY KEY (snapshot, path, line)
 );
-CREATE TABLE IF NOT EXISTS template_commit (
-  snapshot TEXT NOT NULL REFERENCES snapshot(id), ordinal INTEGER NOT NULL, sha TEXT NOT NULL, PRIMARY KEY (snapshot, ordinal)
+CREATE TABLE IF NOT EXISTS template_version (
+  snapshot TEXT NOT NULL REFERENCES snapshot(id), ref TEXT NOT NULL, committed_at TEXT NOT NULL, path TEXT NOT NULL, oid TEXT NOT NULL,
+  PRIMARY KEY (snapshot, ref, path)
+);
+CREATE TABLE IF NOT EXISTS template_use (
+  snapshot TEXT NOT NULL REFERENCES snapshot(id), target TEXT NOT NULL, path TEXT NOT NULL, PRIMARY KEY (snapshot, target, path)
 );
 CREATE TABLE IF NOT EXISTS template_file (
   snapshot TEXT NOT NULL REFERENCES snapshot(id), path TEXT NOT NULL, oid TEXT NOT NULL, hash TEXT NOT NULL, PRIMARY KEY (snapshot, path)
@@ -201,7 +205,8 @@ export class Catalog {
       this.db.prepare("DELETE FROM lockfile WHERE snapshot = ?").run(id);
       this.db.prepare("DELETE FROM template_pin WHERE snapshot = ?").run(id);
       this.db.prepare("DELETE FROM template_file WHERE snapshot = ?").run(id);
-      this.db.prepare("DELETE FROM template_commit WHERE snapshot = ?").run(id);
+      this.db.prepare("DELETE FROM template_version WHERE snapshot = ?").run(id);
+      this.db.prepare("DELETE FROM template_use WHERE snapshot = ?").run(id);
       this.db.prepare("DELETE FROM snapshot WHERE id = ?").run(id);
       this.db
         .prepare('INSERT INTO snapshot (id, repo, "commit", scanned_at, scanner, files, parsed, reused, errors) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
@@ -298,13 +303,22 @@ export class Catalog {
     this.#transaction(() => {
       this.db.prepare("DELETE FROM template_pin WHERE snapshot = ?").run(snapshot);
       this.db.prepare("DELETE FROM template_file WHERE snapshot = ?").run(snapshot);
-      this.db.prepare("DELETE FROM template_commit WHERE snapshot = ?").run(snapshot);
-      const commit = this.db.prepare("INSERT INTO template_commit (snapshot, ordinal, sha) VALUES (?, ?, ?)");
-      records.commits.forEach((sha, ordinal) => commit.run(snapshot, ordinal, sha));
       const pin = this.db.prepare("INSERT INTO template_pin (snapshot, path, line, target, ref) VALUES (?, ?, ?, ?, ?)");
       const file = this.db.prepare("INSERT INTO template_file (snapshot, path, oid, hash) VALUES (?, ?, ?, ?)");
       for (const p of records.pins) pin.run(snapshot, p.path, p.line, p.target, p.ref);
       for (const f of records.files) file.run(snapshot, f.path, f.oid, f.hash);
+    });
+  }
+
+  /** This method replaces the content of the pins of the template snapshot `snapshot`. */
+  putTemplateVersions(snapshot: string, records: TemplateVersions): void {
+    this.#transaction(() => {
+      this.db.prepare("DELETE FROM template_version WHERE snapshot = ?").run(snapshot);
+      this.db.prepare("DELETE FROM template_use WHERE snapshot = ?").run(snapshot);
+      const version = this.db.prepare("INSERT INTO template_version (snapshot, ref, committed_at, path, oid) VALUES (?, ?, ?, ?, ?)");
+      const use = this.db.prepare("INSERT INTO template_use (snapshot, target, path) VALUES (?, ?, ?)");
+      for (const v of records.versions) for (const f of v.files) version.run(snapshot, v.ref, v.committedAt, f.path, f.oid);
+      for (const u of records.uses) use.run(snapshot, u.target, u.path);
     });
   }
 

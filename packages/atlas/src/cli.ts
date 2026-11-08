@@ -35,7 +35,7 @@ import { buildAtlas } from "./atlas.ts";
 import { cacheOf, factsKey, factsOfRepo, treeOf, type BlobFacts, type FactsLine } from "./blobs.ts";
 import { manifestsOfRepo } from "./manifests.ts";
 import { lockfilesOfRepo } from "./lockfiles.ts";
-import { driftMarkdown, keepListOfRepo, pinFreshness, TEMPLATE_HISTORY, TEMPLATE_REPO, templateDrift, templateRecordsOfRepo } from "./templates.ts";
+import { driftMarkdown, keepListOfRepo, pinFreshness, TEMPLATE_CLONE, TEMPLATE_REPO, templateDrift, templateRecordsOfRepo, templateVersionsOfRepo } from "./templates.ts";
 import { queryOf } from "./query.ts";
 import { agreementOf, type AgreementFile, type DraftLabel } from "./agreement.ts";
 import { verdictOf, type PersonAnswer } from "./verdict.ts";
@@ -115,8 +115,8 @@ function main(argv: readonly string[]): number | Promise<number> {
       console.error(USAGE);
       return 2;
     }
-    // The template gets a history, so the drift knows the age of each pin
-    const { failed } = clonePublic(owner, into, console.error, { [TEMPLATE_REPO]: TEMPLATE_HISTORY });
+    // The template gets its history, so the drift reads the content of each pin
+    const { failed } = clonePublic(owner, into, console.error, { [TEMPLATE_REPO]: TEMPLATE_CLONE });
     for (const name of failed) console.log(`::warning::${name} did not clone`);
     return 0;
   }
@@ -229,17 +229,24 @@ function catalog(argv: readonly string[]): number {
   const templateRoot = args.repos.find((repo) => repo.name === TEMPLATE_REPO)?.path;
   const keep = (templateRoot === undefined ? undefined : keepListOfRepo(templateRoot)) ?? [];
   if (templateRoot !== undefined && keep.length === 0) console.error("catalog: the stamp of the template has no list KEEP, so the scan compares no files");
+  let templateSnapshot: string | undefined;
   for (const repo of args.repos) {
     const tree = treeOf(repo.path);
     const scan = factsOfRepo(repo.name, repo.path, db, tree);
     const snapshot = db.putSnapshot(repo.name, headOf(repo.path), scannedAt, FACTS_VERSION, scan.files, scan.counts);
     db.putManifests(snapshot, manifestsOfRepo(repo.path, tree));
     db.putLockfiles(snapshot, lockfilesOfRepo(repo.path, tree));
-    db.putTemplateRecords(snapshot, templateRecordsOfRepo(repo.path, keep, tree, repo.name === TEMPLATE_REPO ? TEMPLATE_HISTORY : 0));
+    db.putTemplateRecords(snapshot, templateRecordsOfRepo(repo.path, keep, tree));
+    if (repo.name === TEMPLATE_REPO) templateSnapshot = snapshot;
     totals.parsed += scan.counts.parsed;
     totals.reused += scan.counts.reused;
     totals.errors += scan.counts.errors;
     totals.bytesParsed += scan.counts.bytesParsed;
+  }
+  // The content of each pin: the files of the template at each ref that a repository pins
+  if (templateRoot !== undefined && templateSnapshot !== undefined) {
+    const refs = (db.db.prepare("SELECT DISTINCT ref FROM current_template_pin").all() as { ref: string }[]).map((row) => row.ref);
+    db.putTemplateVersions(templateSnapshot, templateVersionsOfRepo(templateRoot, refs, keep));
   }
   const ms = performance.now() - started;
   const summary = db.summary({ ...totals, ms });

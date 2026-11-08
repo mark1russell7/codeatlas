@@ -43,12 +43,11 @@ export { LOCK_FIELDS, MAX_LOCK_BYTES, bareVersion, lockfileOf, lockfilesOfRepo }
 export type { LockfileFacts, LockfileRecord, ResolvedFact } from "./lockfiles.ts";
 export {
   DRIFT_STATES,
-  FRESH_COMMITS,
   STAMP_PATH,
-  TEMPLATE_HISTORY,
+  TEMPLATE_CLONE,
   TEMPLATE_REPO,
   driftMarkdown,
-  historyOf,
+  fileOfTarget,
   keepListOf,
   keepListOfRepo,
   localForm,
@@ -56,8 +55,9 @@ export {
   pinsOf,
   templateDrift,
   templateRecordsOfRepo,
+  templateVersionsOfRepo,
   workflowForm,
 } from "./templates.ts";
-export type { DriftState, PinDrift, PinFreshness, RepoDrift, TemplateDrift, TemplateFileRecord, TemplatePin, TemplateRecords } from "./templates.ts";
+export type { DriftState, PinDrift, PinFreshness, StaleRepo, TemplateVersion, TemplateVersions, RepoDrift, TemplateDrift, TemplateFileRecord, TemplatePin, TemplateRecords } from "./templates.ts";
 export { QUERY_SET_LIMITS, QUERY_SET_VERSION, querySet } from "./query-set.ts";
 export type { ExactClass, QuerySet, QuerySetLimits, RepoCommit } from "./query-set.ts";

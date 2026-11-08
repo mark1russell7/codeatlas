@@ -20,11 +20,11 @@ export const TEMPLATE_REPO = "template";
 /** The path of the stamp of the template. Its export `KEEP` is the list of the files of a new repository. */
 export const STAMP_PATH = "scripts/stamp/stamp.ts";
 
-/** The count of the commits of the history of the template that the catalog keeps. The clone of the template gets this depth. */
-export const TEMPLATE_HISTORY = 30;
-
-/** A repository is current when each of its pins is at one of this count of the newest commits of the template. */
-export const FRESH_COMMITS = 2;
+/**
+ * The arguments of the clone of the template: all of its history, with no blobs. The scan reads the tree of each
+ * pinned commit, and a tree gives the blob of each file.
+ */
+export const TEMPLATE_CLONE: readonly string[] = ["--filter=blob:none"];
 
 /** One pin of a shared workflow or action of the template, in a `uses:` line of a workflow. */
 export interface TemplatePin {
@@ -51,8 +51,22 @@ export interface TemplateFileRecord {
 export interface TemplateRecords {
   readonly pins: readonly TemplatePin[];
   readonly files: readonly TemplateFileRecord[];
-  /** The commits of the first-parent history of HEAD, the newest first. Only the scan of the template reads them. */
-  readonly commits: readonly string[];
+}
+
+/** The files of the template at one ref: the pinned commit of a repository, or the commit of the template. */
+export interface TemplateVersion {
+  readonly ref: string;
+  /** The commit time of the ref, in ISO 8601 form. */
+  readonly committedAt: string;
+  /** Each workflow and action of `.github/`, and each file of `KEEP`, with its blob. */
+  readonly files: readonly { readonly path: string; readonly oid: string }[];
+}
+
+/** The template records that tell the content of each pin. Only the scan of the template makes them. */
+export interface TemplateVersions {
+  readonly versions: readonly TemplateVersion[];
+  /** Each file that a shared workflow or action uses, at the commit of the template. A target uses itself. */
+  readonly uses: readonly { readonly target: string; readonly path: string }[];
 }
 
 interface SwcNode {
@@ -180,23 +194,13 @@ export function workflowForm(text: string): string {
   return JSON.stringify(sorted(workflow));
 }
 
-/** This function gives the first-parent history of HEAD of `root`, the newest first, at most `count` commits. */
-export function historyOf(root: string, count: number): string[] {
-  if (count <= 0) return [];
-  try {
-    return execFileSync("git", ["-C", root, "log", "--first-parent", "--format=%H", "-n", String(count)], { encoding: "utf8" }).split("\n").filter(Boolean);
-  } catch {
-    return [];
-  }
-}
-
 const kept = (keep: readonly string[], path: string): boolean => keep.some((entry) => (entry.endsWith("/") ? path.startsWith(entry) : path === entry));
 
 /**
- * This function gives the template records of one repository: the pins of its workflows, its files of `keep`, and
- * `history` commits of its history. The worktree must be a clean checkout of HEAD.
+ * This function gives the template records of one repository: each pin in its workflows, and each file of `keep`
+ * that it has. The worktree must be a clean checkout of HEAD.
  */
-export function templateRecordsOfRepo(root: string, keep: readonly string[], tree: readonly TreeEntry[] = treeOf(root), history = 0): TemplateRecords {
+export function templateRecordsOfRepo(root: string, keep: readonly string[], tree: readonly TreeEntry[] = treeOf(root)): TemplateRecords {
   const pins: TemplatePin[] = [];
   const files: TemplateFileRecord[] = [];
   for (const entry of tree) {
@@ -207,7 +211,7 @@ export function templateRecordsOfRepo(root: string, keep: readonly string[], tre
     if (workflow) pins.push(...pinsOf(entry.path, text));
     if (copy) files.push({ path: entry.path, oid: entry.blob, hash: createHash("sha256").update(workflow ? workflowForm(text) : text).digest("hex") });
   }
-  return { pins, files, commits: historyOf(root, history) };
+  return { pins, files };
 }
 
 /** The states of a copied file against the template. */
@@ -278,55 +282,146 @@ export async function templateDrift(q: CatalogQuery, template: string = TEMPLATE
   };
 }
 
+/** A ref that git can read safely: no `-` at the start, so git does not read it as an option. */
+const SAFE_REF = /^[A-Za-z0-9_][\w.-]*$/;
+
+/** A `uses:` line with a local path of a shared workflow or action of the template. */
+const LOCAL_USE = /^[ \t]*(?:-[ \t]*)?uses:[ \t]*["']?\.\/(\.github\/[\w./-]+?)["']?[ \t]*(?:#.*)?$/gm;
+
+const SHARED = /^\.github\/(?:workflows\/[^/]+\.ya?ml|actions\/.+\/action\.ya?ml)$/;
+
+/** This function gives the file of a target: a workflow is a file, and an action is a folder with its `action.yml`. */
+export function fileOfTarget(target: string, paths: ReadonlySet<string>): string {
+  if (/\.ya?ml$/.test(target)) return target;
+  const folder = target.replace(/\/+$/, "");
+  return paths.has(`${folder}/action.yaml`) && !paths.has(`${folder}/action.yml`) ? `${folder}/action.yaml` : `${folder}/action.yml`;
+}
+
+/**
+ * This function gives the content of each ref of `refs` in the template at `root`, and of its HEAD. It also gives
+ * each file that each shared workflow and action uses at HEAD. A ref that git cannot read gives no version.
+ */
+export function templateVersionsOfRepo(root: string, refs: readonly string[], keep: readonly string[]): TemplateVersions {
+  const git = (...args: string[]): string => execFileSync("git", ["-C", root, ...args], { encoding: "utf8", maxBuffer: 1 << 26, stdio: ["ignore", "pipe", "ignore"] });
+  const head = git("rev-parse", "HEAD").trim();
+  const versions: TemplateVersion[] = [];
+  for (const ref of new Set([head, ...refs])) {
+    if (!SAFE_REF.test(ref)) continue;
+    try {
+      const committedAt = git("log", "-1", "--format=%cI", "--end-of-options", ref).trim();
+      const files = git("ls-tree", "-r", "--end-of-options", ref)
+        .split("\n")
+        .flatMap((line) => {
+          const match = /^\d+ blob ([0-9a-f]+)\t(.+)$/.exec(line);
+          return match?.[1] !== undefined && match[2] !== undefined && (SHARED.test(match[2]) || kept(keep, match[2])) ? [{ path: match[2], oid: match[1] }] : [];
+        });
+      versions.push({ ref, committedAt, files });
+    } catch {
+      // A ref that is not in the history of the template: its content is not known
+    }
+  }
+  const paths = new Set((versions[0]?.files ?? []).map((f) => f.path));
+  const direct = new Map<string, string[]>();
+  for (const path of paths) {
+    if (!SHARED.test(path)) continue;
+    const text = readFileSync(join(root, path), "utf8");
+    direct.set(path, [...text.matchAll(LOCAL_USE)].flatMap((m) => (m[1] === undefined ? [] : [fileOfTarget(m[1], paths)])));
+  }
+  const uses: { target: string; path: string }[] = [];
+  for (const target of direct.keys()) {
+    const seen = new Set<string>([target]);
+    const queue = [target];
+    for (let next = queue.pop(); next !== undefined; next = queue.pop()) {
+      for (const used of direct.get(next) ?? []) {
+        if (seen.has(used)) continue;
+        seen.add(used);
+        queue.push(used);
+      }
+    }
+    for (const path of [...seen].sort(byText)) uses.push({ target, path });
+  }
+  return { versions, uses };
+}
+
+/** One repository that is not current, with the template files that differ from the commit of the template. */
+export interface StaleRepo {
+  readonly repo: string;
+  /** The oldest pin with a file that differs. */
+  readonly ref: string;
+  /** The age of the commit of `ref` in days at the time of the scan, or `null` when the catalog does not know the ref. */
+  readonly days: number | null;
+  readonly files: readonly string[];
+}
+
 /** The share of the repositories that pin the template and are current. */
 export interface PinFreshness {
-  /** The newest commits of the template that count as current, the newest first. */
-  readonly commits: readonly string[];
+  /** The commit of the template that the pins are compared with. */
+  readonly commit: string | null;
   readonly current: readonly string[];
-  /**
-   * Each repository that is not current, with its oldest pin. `age` is the count of newer commits of the template,
-   * or `null` when the catalog does not keep the commit of the pin.
-   */
-  readonly behind: readonly { readonly repo: string; readonly ref: string; readonly age: number | null }[];
+  readonly behind: readonly StaleRepo[];
   /** The count of the current repositories over the count of the repositories that pin the template. It is zero when no repository pins it. */
   readonly share: number;
 }
 
+const DAY_MS = 86_400_000;
+
 /**
- * This function gives the share of the current repositories. A repository is current when each pin is at one of
- * the `last` newest commits of the template. A pin to a branch or tag name is not current. The oldest pin comes first.
+ * This function gives the share of the current repositories. A repository uses the files of its pinned workflows
+ * and actions, and its copies of the files of `KEEP`. It is current when each of these files is the same at each
+ * pin and at the commit of the template. The oldest repository comes first.
  */
-export async function pinFreshness(q: CatalogQuery, last: number = FRESH_COMMITS, template: string = TEMPLATE_REPO): Promise<PinFreshness> {
-  const history = await q
-    .selectFrom("current_snapshot as s")
-    .innerJoin("template_commit as c", "c.snapshot", "s.id")
-    .where("s.repo", "=", template)
-    .select(["c.ordinal as ordinal", "c.sha as sha"])
-    .orderBy("ordinal")
-    .execute();
-  const ages = new Map(history.map((row) => [row.sha, row.ordinal]));
-  const commits = history.slice(0, last).map((row) => row.sha);
-  const pins = await q.selectFrom("current_template_pin").select(["repo", "ref"]).where("repo", "!=", template).execute();
-  const refsOf = new Map<string, Set<string>>();
-  for (const pin of pins) refsOf.set(pin.repo, (refsOf.get(pin.repo) ?? new Set<string>()).add(pin.ref));
-  // An unknown ref is older than each commit of the history that the catalog keeps
-  const age = (ref: string): number => ages.get(ref) ?? Number.POSITIVE_INFINITY;
+export async function pinFreshness(q: CatalogQuery, template: string = TEMPLATE_REPO): Promise<PinFreshness> {
+  const snapshot = await q.selectFrom("current_snapshot").select(["id", "commit", "scanned_at"]).where("repo", "=", template).executeTakeFirst();
+  const id = snapshot?.id ?? "";
+  const rows = await q.selectFrom("template_version").select(["ref", "committed_at", "path", "oid"]).where("snapshot", "=", id).execute();
+  const versions = new Map<string, { committedAt: string; oids: Map<string, string> }>();
+  for (const row of rows) {
+    const version = versions.get(row.ref) ?? { committedAt: row.committed_at, oids: new Map<string, string>() };
+    version.oids.set(row.path, row.oid);
+    versions.set(row.ref, version);
+  }
+  const main = versions.get(snapshot?.commit ?? "");
+  const paths = new Set(main?.oids.keys() ?? []);
+  const usesOf = new Map<string, string[]>();
+  for (const row of await q.selectFrom("template_use").select(["target", "path"]).where("snapshot", "=", id).execute()) usesOf.set(row.target, [...(usesOf.get(row.target) ?? []), row.path]);
+  const copies = new Map<string, string[]>();
+  for (const row of await q.selectFrom("current_template_file").select(["repo", "path"]).where("repo", "!=", template).execute()) copies.set(row.repo, [...(copies.get(row.repo) ?? []), row.path]);
+  const pinsOfRepo = new Map<string, Map<string, Set<string>>>();
+  for (const pin of await q.selectFrom("current_template_pin").select(["repo", "ref", "target"]).where("repo", "!=", template).execute()) {
+    const refs = pinsOfRepo.get(pin.repo) ?? new Map<string, Set<string>>();
+    const file = fileOfTarget(pin.target, paths);
+    pinsOfRepo.set(pin.repo, refs.set(pin.ref, (refs.get(pin.ref) ?? new Set<string>()).add(file)));
+  }
+  const scanned = Date.parse(snapshot?.scanned_at ?? "");
+  const daysOf = (ref: string): number | null => {
+    const at = Date.parse(versions.get(ref)?.committedAt ?? "");
+    return Number.isNaN(at) || Number.isNaN(scanned) ? null : Math.floor((scanned - at) / DAY_MS);
+  };
+  // An unknown ref is older than each known ref
+  const age = (ref: string): number => daysOf(ref) ?? Number.POSITIVE_INFINITY;
   const current: string[] = [];
-  const behind: { repo: string; ref: string; age: number | null }[] = [];
-  for (const [repo, refs] of refsOf) {
-    const stale = [...refs].filter((ref) => !commits.includes(ref));
-    if (stale.length === 0) {
+  const behind: StaleRepo[] = [];
+  for (const [repo, refs] of pinsOfRepo) {
+    const stale = new Map<string, string[]>();
+    for (const [ref, targets] of refs) {
+      const used = new Set([...targets].flatMap((target) => usesOf.get(target) ?? [target]));
+      for (const path of copies.get(repo) ?? []) used.add(path);
+      const version = versions.get(ref);
+      const differ = [...used].filter((path) => version === undefined || version.oids.get(path) !== main?.oids.get(path));
+      if (differ.length > 0) stale.set(ref, differ);
+    }
+    if (stale.size === 0) {
       current.push(repo);
       continue;
     }
-    const oldest = stale.sort((a, b) => age(b) - age(a) || byText(a, b))[0] ?? "";
-    behind.push({ repo, ref: oldest, age: ages.get(oldest) ?? null });
+    const ref = [...stale.keys()].sort((a, b) => age(b) - age(a) || byText(a, b))[0] ?? "";
+    behind.push({ repo, ref, days: daysOf(ref), files: [...new Set([...stale.values()].flat())].sort(byText) });
   }
   return {
-    commits,
+    commit: snapshot?.commit ?? null,
     current: current.sort(byText),
-    behind: behind.sort((a, b) => age(b.ref) - age(a.ref) || byText(a.repo, b.repo)),
-    share: refsOf.size === 0 ? 0 : current.length / refsOf.size,
+    behind: behind.sort((a, b) => (b.days ?? Number.POSITIVE_INFINITY) - (a.days ?? Number.POSITIVE_INFINITY) || byText(a.repo, b.repo)),
+    share: pinsOfRepo.size === 0 ? 0 : current.length / pinsOfRepo.size,
   };
 }
 
@@ -336,16 +431,16 @@ const short = (ref: string): string => (/^[0-9a-f]{40}$/.test(ref) ? ref.slice(0
 export function driftMarkdown(freshness: PinFreshness, drift: TemplateDrift): string {
   const total = freshness.current.length + freshness.behind.length;
   const percent = Math.round(freshness.share * 100);
+  const at = freshness.commit === null ? "the template" : `\`${short(freshness.commit)}\` of the template`;
   const lines = [
     "## Drift from the template",
     "",
-    `Current: **${freshness.current.length} of ${total}** repositories (${percent}%) pin only the ${freshness.commits.length} newest commits of the template (${freshness.commits.map(short).join(", ") || "none known"}).`,
+    `Current: **${freshness.current.length} of ${total}** repositories (${percent}%). Each template file that a current repository uses is the same at its pins and at ${at}.`,
     "",
   ];
   if (freshness.behind.length > 0) {
-    lines.push("| Repository | Oldest pin | Newer commits of the template | Changed copies |", "| --- | --- | ---: | ---: |");
-    const changed = new Map(drift.repos.map((r) => [r.repo, r.files.filter((f) => f.state === "changed").length]));
-    for (const b of freshness.behind) lines.push(`| ${b.repo} | \`${short(b.ref)}\` | ${b.age ?? "more than the history"} | ${changed.get(b.repo) ?? 0} |`);
+    lines.push("| Repository | Oldest pin with a change | Age in days | Files that differ |", "| --- | --- | ---: | --- |");
+    for (const b of freshness.behind) lines.push(`| ${b.repo} | \`${short(b.ref)}\` | ${b.days ?? "not known"} | ${b.files.map((f) => `\`${f}\``).join(", ")} |`);
     lines.push("");
   }
   const files = new Map<string, number>();
