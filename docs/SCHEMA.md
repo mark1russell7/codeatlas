@@ -172,21 +172,21 @@ From each `package.json` and its lockfile: the package, the dependency name, the
 - The query `versionDrift` gives each dependency that the current lockfiles resolve to two versions or more.
 - A lockfile of npm (`package-lock.json`) is not read yet.
 
-### `template_pin`, `template_file`, `template_version`, `template_use` and `stamp_rule`
+### `template_pin`, `template_file`, `template_version`, `template_use` and `stamp_check`
 
 The template makes a new repository with its stamp. The stamp copies the files of its list `KEEP` and pins each shared workflow and action to a commit of the template.
 
 - The table `template_pin` has each `uses: mark1russell7/template/<path>@<ref>` line of the workflows and actions of a snapshot: the path, the line, the target and the ref.
 - The table `template_file` has each file of `KEEP` that a snapshot has: the path, the blob and a hash of the text.
-- The table `stamp_rule` has the rule of the stamp for each file of `KEEP`, which the scan reads from the syntax tree of the stamp. A `whole` file is a copy. A `pinned` file is a workflow with its pins. A `merged` file is a JSON copy where the stamp sets some fields for each repository. A row with the path `""` is a fix of the conventions that the stamp starts.
-- The hash of a copy is the hash of its form by its rule. A `whole` file gives its text. A `merged` file loses the fields that the stamp sets.
-- A `pinned` workflow gives its parsed YAML, with sorted keys. Each pin gets the local form `uses: ./<path>`. A call of a shared workflow loses its `with` and `secrets`, and a step of a shared action loses its `with`. A job that runs only in the template goes. When the stamp starts the fix `runner-budget`, the minute of each schedule goes.
+- The hash of a workflow is the hash of its parsed YAML, with sorted keys. Each pin gets the local form `uses: ./<path>`. A call of a shared workflow loses its `with` and `secrets`, and a step of a shared action loses its `with`. A job that runs only in the template goes.
+- The table `stamp_check` has the commit of the template for each snapshot where `stamp --check` of the template gave a result. The table `stamp_check_file` has each file of `KEEP` that the stamp changes, with its state and the JSON fields that differ.
+- The scan starts `node scripts/stamp/main.ts --check <repository> --ref <commit>` of the template checkout on each repository that pins the template. Thus the stamp applies its own rules for each file. The catalog job installs the packages of the template for it.
 - The table `template_version` has the content of each ref that a repository pins, and of the commit of the template. It has the blob of each workflow and action of `.github/` and of each file of `KEEP`, and the commit time of the ref. The clone of the template has all of its history and no blobs.
 - The table `template_use` has each file that a shared workflow or action uses, through its `uses: ./.github/...` lines. A target uses itself.
 - The scan reads `KEEP` from `scripts/stamp/stamp.ts` of the template checkout. Without the template in the scan, only the pins count.
 - The query `templateDrift` gives each repository that pins the template. It gives each pin with a mark for the commit of the template, and each file of `KEEP` as `same`, `changed` or `missing`.
 - The query `pinFreshness` gives the pin freshness. A repository uses its pinned workflows and actions, and the files that they use. It is current when each of these files is the same at each pin and at the commit of the template. Thus a pin to an old commit with no real change is current.
-- The query `stampFreshness` gives the stamp freshness. A repository is current when each of its copies of `KEEP` is the same as the template by the rule of the stamp. A file with no rule is not known, and it does not count.
+- The query `stampFreshness` gives the stamp freshness. A repository is current when `stamp --check` changes no file. A repository with no result of the check does not count.
 - For each repository that is not current, `pinFreshness` gives the files that differ and the age in days of the oldest pin with a change. The command `codeatlas drift` writes it, and the catalog job adds it to the summary.
 
 ### `home`

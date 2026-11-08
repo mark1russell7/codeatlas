@@ -29,7 +29,7 @@
  * The command drift writes the drift of each repository from the template, and the share of the current repositories.
  * The command mcp serves the tools of agents over a catalog as MCP tools. The command tool calls one of them.
  */
-import { closeSync, openSync, readFileSync, readdirSync, statSync, writeFileSync, writeSync } from "node:fs";
+import { closeSync, existsSync, openSync, readFileSync, readdirSync, statSync, writeFileSync, writeSync } from "node:fs";
 import { join } from "node:path";
 import { buildAtlas } from "./atlas.ts";
 import { cacheOf, factsKey, factsOfRepo, treeOf, type BlobFacts, type FactsLine } from "./blobs.ts";
@@ -39,8 +39,9 @@ import {
   driftMarkdown,
   keepListOfRepo,
   pinFreshness,
+  STAMP_MAIN,
+  stampCheckOfRepo,
   stampFreshness,
-  stampRulesOfRepo,
   TEMPLATE_CLONE,
   TEMPLATE_REPO,
   templateDrift,
@@ -225,6 +226,30 @@ function facts(argv: readonly string[]): number {
   return report(gateVerdict(summary, unread));
 }
 
+/**
+ * This function starts `stamp --check` of the template on each repository that pins it, and keeps each result. A
+ * repository with no result does not count in the stamp freshness.
+ */
+function stampChecks(db: Catalog, templateRoot: string, repos: readonly { readonly path: string; readonly snapshot: string }[]): void {
+  if (!existsSync(join(templateRoot, STAMP_MAIN))) {
+    console.error(`catalog: the template has no ${STAMP_MAIN}, so the stamp freshness is not known`);
+    return;
+  }
+  const sha = headOf(templateRoot);
+  if (sha === null) {
+    console.error("catalog: the template checkout has no commit, so the stamp freshness is not known");
+    return;
+  }
+  const errors: string[] = [];
+  for (const repo of repos) {
+    const check = stampCheckOfRepo(templateRoot, repo.path, sha);
+    if ("error" in check) errors.push(check.error);
+    else db.putStampCheck(repo.snapshot, check);
+  }
+  const first = errors[0] === undefined ? "" : ` (first: ${errors[0]})`;
+  console.error(`catalog: stamp --check on ${repos.length} repositories, ${errors.length} with no result${first}`);
+}
+
 function catalog(argv: readonly string[]): number {
   const args = parseBuildArgs(argv, subfolders, "catalog.sqlite");
   if ("error" in args) {
@@ -240,18 +265,18 @@ function catalog(argv: readonly string[]): number {
   const templateRoot = args.repos.find((repo) => repo.name === TEMPLATE_REPO)?.path;
   const keep = (templateRoot === undefined ? undefined : keepListOfRepo(templateRoot)) ?? [];
   if (templateRoot !== undefined && keep.length === 0) console.error("catalog: the stamp of the template has no list KEEP, so the scan compares no files");
-  // The rules of the stamp for each file of KEEP: the form of each copy that the scan compares
-  const rules = templateRoot === undefined ? undefined : stampRulesOfRepo(templateRoot, keep);
-  if (rules !== undefined && keep.length > 0 && rules.rules.length === 0) console.error("catalog: the stamp of the template has no loop over KEEP, so the state of each copy is not known");
   let templateSnapshot: string | undefined;
+  const pinning: { readonly path: string; readonly snapshot: string }[] = [];
   for (const repo of args.repos) {
     const tree = treeOf(repo.path);
     const scan = factsOfRepo(repo.name, repo.path, db, tree);
     const snapshot = db.putSnapshot(repo.name, headOf(repo.path), scannedAt, FACTS_VERSION, scan.files, scan.counts);
     db.putManifests(snapshot, manifestsOfRepo(repo.path, tree));
     db.putLockfiles(snapshot, lockfilesOfRepo(repo.path, tree));
-    db.putTemplateRecords(snapshot, templateRecordsOfRepo(repo.path, keep, tree, rules));
+    const records = templateRecordsOfRepo(repo.path, keep, tree);
+    db.putTemplateRecords(snapshot, records);
     if (repo.name === TEMPLATE_REPO) templateSnapshot = snapshot;
+    else if (records.pins.length > 0) pinning.push({ path: repo.path, snapshot });
     totals.parsed += scan.counts.parsed;
     totals.reused += scan.counts.reused;
     totals.errors += scan.counts.errors;
@@ -261,7 +286,7 @@ function catalog(argv: readonly string[]): number {
   if (templateRoot !== undefined && templateSnapshot !== undefined) {
     const refs = (db.db.prepare("SELECT DISTINCT ref FROM current_template_pin").all() as { ref: string }[]).map((row) => row.ref);
     db.putTemplateVersions(templateSnapshot, templateVersionsOfRepo(templateRoot, refs, keep));
-    if (rules !== undefined) db.putStampRules(templateSnapshot, rules);
+    stampChecks(db, templateRoot, pinning);
   }
   const ms = performance.now() - started;
   const summary = db.summary({ ...totals, ms });
