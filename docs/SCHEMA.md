@@ -198,9 +198,11 @@ A fact about a subject that tells of a problem or a risk.
 
 | Column | Type | Meaning |
 | --- | --- | --- |
-| `subject`, `task` | key | |
-| `label` | JSON | The true answer. |
-| `by`, `at` | text, time | |
+| `subject`, `task`, `by` | key | The `hash_renamed` of a function, the task, and the source of the label. |
+| `label` | JSON | The answer of the source. |
+| `at` | time | |
+
+The sample file in the repository holds the draw: its seed, its rule, the size of each task and the items. The command `codeatlas sample` writes it from a catalog. Each source labels blind. Two drafts and an audit by a person give the true answer of each item, and the key keeps each source apart.
 
 ### `run` and `measure`
 
