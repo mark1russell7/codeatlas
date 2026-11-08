@@ -32,9 +32,7 @@
 import { closeSync, existsSync, openSync, readFileSync, readdirSync, statSync, writeFileSync, writeSync } from "node:fs";
 import { join } from "node:path";
 import { buildAtlas } from "./atlas.ts";
-import { cacheOf, factsKey, factsOfRepo, treeOf, type BlobFacts, type FactsLine } from "./blobs.ts";
-import { manifestsOfRepo } from "./manifests.ts";
-import { lockfilesOfRepo } from "./lockfiles.ts";
+import { cacheOf, factsKey, factsOfRepo, type BlobFacts, type FactsLine } from "./blobs.ts";
 import {
   driftMarkdown,
   keepListOfRepo,
@@ -45,7 +43,6 @@ import {
   TEMPLATE_CLONE,
   TEMPLATE_REPO,
   templateDrift,
-  templateRecordsOfRepo,
   templateVersionsOfRepo,
 } from "./templates.ts";
 import { queryOf } from "./query.ts";
@@ -60,6 +57,7 @@ import { clonePublic } from "./clone.ts";
 import { buildCorpus, corpusMarkdown, corpusOfRepo } from "./corpus.ts";
 import { atlasMarkdown } from "./report.ts";
 import { mcpCommand, toolCommand } from "./tools-cli.ts";
+import { scanRepoInto } from "./rescan.ts";
 import { FACTS_VERSION } from "./facts.ts";
 import { headOf, scanRepo, type RepoScan } from "./scan.ts";
 
@@ -268,19 +266,13 @@ function catalog(argv: readonly string[]): number {
   let templateSnapshot: string | undefined;
   const pinning: { readonly path: string; readonly snapshot: string }[] = [];
   for (const repo of args.repos) {
-    const tree = treeOf(repo.path);
-    const scan = factsOfRepo(repo.name, repo.path, db, tree);
-    const snapshot = db.putSnapshot(repo.name, headOf(repo.path), scannedAt, FACTS_VERSION, scan.files, scan.counts);
-    db.putManifests(snapshot, manifestsOfRepo(repo.path, tree));
-    db.putLockfiles(snapshot, lockfilesOfRepo(repo.path, tree));
-    const records = templateRecordsOfRepo(repo.path, keep, tree);
-    db.putTemplateRecords(snapshot, records);
+    const { snapshot, records, counts } = scanRepoInto(db, repo.name, repo.path, keep, scannedAt);
     if (repo.name === TEMPLATE_REPO) templateSnapshot = snapshot;
     else if (records.pins.length > 0) pinning.push({ path: repo.path, snapshot });
-    totals.parsed += scan.counts.parsed;
-    totals.reused += scan.counts.reused;
-    totals.errors += scan.counts.errors;
-    totals.bytesParsed += scan.counts.bytesParsed;
+    totals.parsed += counts.parsed;
+    totals.reused += counts.reused;
+    totals.errors += counts.errors;
+    totals.bytesParsed += counts.bytesParsed;
   }
   // The content of each pin: the files of the template at each ref that a repository pins
   if (templateRoot !== undefined && templateSnapshot !== undefined) {
