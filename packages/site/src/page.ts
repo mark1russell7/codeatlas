@@ -445,7 +445,7 @@ export async function start(): Promise<void> {
   function changeTable(changes: readonly RepoChange[], history: boolean): HTMLElement {
     const head = history ? ["Repository", "First", "Now", "Change"] : ["Repository", "Now"];
     const signed = (n: number): string => `${n > 0 ? "+" : ""}${(n * 100).toFixed(1)} pts`;
-    return h("div", { class: "scroll" },
+    return h("div", { class: "scroll scroll-cue" },
       h("table", { class: "table" },
         h("thead", {}, h("tr", {}, ...head.map((title, i) => h("th", i === 0 ? {} : { class: "num" }, title)))),
         h("tbody", {}, ...changes.map((row) =>
@@ -496,7 +496,7 @@ export async function start(): Promise<void> {
 
   function levelTable(rows: readonly LevelRow[]): HTMLElement {
     const max = Math.max(0.0001, ...rows.map((r) => r.ratio));
-    return h("div", { class: "scroll" },
+    return h("div", { class: "scroll scroll-cue" },
       h("table", { class: "table" },
         h("thead", {}, h("tr", {}, h("th", {}, "Level"), h("th", { class: "num" }, "Classes"), h("th", { class: "num" }, "Functions"), h("th", { class: "num" }, "Copied nodes"), h("th", { class: "num" }, "Share"))),
         h("tbody", {}, ...rows.map((r) =>
@@ -572,12 +572,12 @@ export async function start(): Promise<void> {
       more.hidden = shown.length === list.length;
     }
     render();
-    return h("div", {}, h("div", { class: "filters" }, pick), count, h("div", { class: "scroll" }, h("table", { class: "table sortable" }, h("thead", {}, head), body)), more);
+    return h("div", {}, h("div", { class: "filters" }, pick), count, h("div", { class: "scroll scroll-cue" }, h("table", { class: "table sortable" }, h("thead", {}, head), body)), more);
   }
 
   function markerView(table: MarkerTable): HTMLElement {
     if (table.rows.length === 0) return h("p", { class: "empty" }, "No repository has a marker.");
-    return h("div", { class: "scroll" },
+    return h("div", { class: "scroll scroll-cue" },
       h("table", { class: "table" },
         h("thead", {}, h("tr", {}, h("th", {}, "Repository"), ...table.kinds.map((k) => h("th", { class: "num" }, k)), h("th", { class: "num" }, "All"))),
         h("tbody", {}, ...table.rows.map((r) =>
