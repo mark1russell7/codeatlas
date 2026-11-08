@@ -247,6 +247,8 @@ The rule for `other`: if a draft puts more than 10% of the items of the task `pu
 - The audit size of a task is `wilsonSampleSize` of its target and the expected agreement `AUDIT_EXPECTED` (0.97). The sample file keeps the largest.
 - If the audit agrees with the drafts at a Wilson lower end at or above the target of the task, the agreed drafts are the truth. If not, the person labels each item of the task.
 - The person also marks the sentence of each audited item as right or wrong. The site reports that share, and no gate reads it.
+- The command `codeatlas verdict` reads the answers of the person and writes the verdict file (`verdictOf`). A task with a missing answer does not pass.
+- The verdict file keeps the labels of the truth of each task that passes. An answer of the person replaces the label of the drafts.
 
 ### `run` and `measure`
 

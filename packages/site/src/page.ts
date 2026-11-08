@@ -2,7 +2,7 @@
  * The page of the codeatlas site. The build compiles this file with swc and puts it into index.html
  * as a module. The functions above `start` are pure, so the tests run them without a browser.
  */
-import type { Atlas, CloneClass, CloneLevel, ComplexFunction, FunctionPlace, Member, QuerySet, RepoRow, Trend } from "@mark1russell7/codeatlas";
+import type { Atlas, CloneClass, CloneLevel, ComplexFunction, FunctionPlace, HomeCandidate, Member, QuerySet, RepoRow, Trend } from "@mark1russell7/codeatlas";
 
 /** The choices of the filter row of the clone classes. An empty string is "all". */
 export interface Filter {
@@ -351,11 +351,13 @@ export async function start(): Promise<void> {
   const exactBox = h("div", { class: "classes" }, loading());
   const complexBox = h("div", {}, loading());
   const markersBox = h("div", {}, loading());
+  // The table of the atlas stays until the query set gives the copies with their sizes
+  const homesBox = h("div", { class: "classes" }, homed);
   void loadQueries();
 
   root.replaceChildren(
     kpis,
-    section("homes", "Copies that have a home", "Functions whose name is a signature of a home package of the map of homes, outside that home. The fix is an import from the home, or a pull request that adds the function to the home.", homed),
+    section("homes", "Copies that have a home", "Functions whose name is a signature of a home package of the map of homes, outside that home. The size is the nodes that the imports remove. The fix is an import from the home, or a pull request that adds the function to the home.", homesBox),
     section("topics", "Where the copies are", "Duplicated nodes of the cross-repo classes, by topic. Each topic is an area of a shared library. Click a bar to list its classes.", topicChart),
     section("pairs", "Which repositories share code", "Each cell is the size of the code that two repositories both have: the legend below gives the scale. Click a cell to list the classes of the pair.", heat),
     section("trend", "The trend", "The share of the code that is a copy, at each build. A class keeps its first function, and each other function counts as a copy.", trendBox),
@@ -490,8 +492,26 @@ export async function start(): Promise<void> {
             ),
           )),
     );
+    // A query set of an older build has no homes
+    if (set.homes !== undefined) homesBox.replaceChildren(homeCards(set.homes, link));
     complexBox.replaceChildren(complexTable(set.complex, set.limits.complexMin, link));
     markersBox.replaceChildren(markerView(markerTable(set)));
+  }
+
+  function homeCards(rows: readonly HomeCandidate[], link: (f: FunctionPlace) => HTMLElement): HTMLElement {
+    if (rows.length === 0) return h("p", { class: "empty" }, "No function is outside its home.");
+    return h("div", {},
+      ...rows.map((row) =>
+        h("details", { class: "card" },
+          h("summary", {},
+            h("span", { class: "card-title" }, row.title),
+            h("span", { class: "card-meta" }, `${row.copies.length} copies · ${int(row.nodes)} nodes · ${row.repos.length} repos · ${row.classes} classes`),
+          ),
+          h("p", { class: "cell-sub" }, `Home: ${row.home.join(", ")} (${row.state})`),
+          h("ul", {}, ...row.copies.map((c) => h("li", {}, link(c), " ", h("code", {}, c.name), h("span", { class: "cell-sub" }, ` ${c.nodes} nodes`)))),
+        ),
+      ),
+    );
   }
 
   function levelTable(rows: readonly LevelRow[]): HTMLElement {
