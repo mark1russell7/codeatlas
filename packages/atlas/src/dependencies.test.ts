@@ -49,6 +49,13 @@ describe("rangeKind", () => {
     ];
     expect(cases.map(([range]) => [range, rangeKind(range)])).toEqual(cases);
   });
+
+  it("gives the kind of a long crafted range", () => {
+    expect(rangeKind(`9.9.9${"0".repeat(50_000)}y`)).toBe("tag");
+    expect(rangeKind(`${".git#".repeat(20_000)}x`)).toBe("git");
+    expect(rangeKind("1.2.3+build.5")).toBe("semver");
+    expect(rangeKind("https://x.org/r.git#v1")).toBe("git");
+  });
 });
 
 describe("manifestOf", () => {
