@@ -93,6 +93,12 @@ jobs:
           set -euo pipefail
           node packages/atlas/src/cli.ts drift --db "$RUNNER_TEMP/catalog.sqlite" --markdown "$RUNNER_TEMP/drift.md"
           tee -a "$GITHUB_STEP_SUMMARY" < "$RUNNER_TEMP/drift.md"
+      # The rules of the conventions that each repository breaks
+      - name: Conventions breaks
+        run: |
+          set -euo pipefail
+          node packages/atlas/src/cli.ts breaks --db "$RUNNER_TEMP/catalog.sqlite" --markdown "$RUNNER_TEMP/breaks.md"
+          tee -a "$GITHUB_STEP_SUMMARY" < "$RUNNER_TEMP/breaks.md"
       - name: Save the catalog for the next run
         if: github.event_name != 'pull_request'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

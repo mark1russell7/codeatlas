@@ -189,6 +189,18 @@ The template makes a new repository with its stamp. The stamp copies the files o
 - The query `stampFreshness` gives the stamp freshness. A repository is current when `stamp --check` changes no file. A repository with no result of the check does not count.
 - For each repository that is not current, `pinFreshness` gives the files that differ and the age in days of the oldest pin with a change. The command `codeatlas drift` writes it, and the catalog job adds it to the summary.
 
+### `conventions_check`, `conventions_rule` and `conventions_break`
+
+The scan starts each rule of `@mark1russell7/conventions` on the checkout of each repository, with `runChecks` in the scan process.
+
+- The table `conventions_check` has the version of the conventions for each snapshot with a result.
+- The table `conventions_rule` has the status of each rule: `pass`, `break`, `off`, `skipped` or `error`. It also has the count of the ignored breaks, and the note of the rule.
+- The table `conventions_break` has each break: the rule, the file, the line, the message, and a mark when `conventions fix` can write the fix.
+- The environment of the rules is empty, so the variables of the CI job of the scan do not change them. The rules that examine a change have no base, so they skip.
+- The version of the conventions is the version in the lockfile of codeatlas. A new rule comes into the catalog with an update of that version.
+- The query `conventionsBreaks` gives the clean repositories, the breaks of each rule and the breaks of each repository. A repository is clean when it has no break and no rule throws.
+- The command `codeatlas breaks` writes it, and the catalog job adds it to the summary. The tool `atlas.rescan` checks the repository again too.
+
 ### `home`
 
 The areas of the map of homes, from `conventions map`: the area, its home packages, its home repository and its signatures.

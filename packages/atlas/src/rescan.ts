@@ -8,6 +8,7 @@ import { FACTS_VERSION } from "./facts.ts";
 import { lockfilesOfRepo } from "./lockfiles.ts";
 import { manifestsOfRepo } from "./manifests.ts";
 import { headOf } from "./scan.ts";
+import { conventionsCheckOfRepo } from "./conventions.ts";
 import type { Catalog } from "./store.ts";
 import { TEMPLATE_REPO, templateRecordsOfRepo, type TemplateRecords } from "./templates.ts";
 
@@ -17,11 +18,13 @@ export interface RepoScanResult {
   readonly commit: string | null;
   readonly records: TemplateRecords;
   readonly counts: ScanCounts;
+  /** The error of the conventions check, or null when the check has a result. */
+  readonly conventions: string | null;
 }
 
 /**
  * This function scans the repository `name` at the clean checkout `root` into the catalog. It writes its snapshot,
- * its manifests, its lockfiles and its template records. `keep` is the list of the files that the stamp copies.
+ * its manifests, its lockfiles, its template records and its conventions check. `keep` is the list of the files that the stamp copies.
  */
 export function scanRepoInto(db: Catalog, name: string, root: string, keep: readonly string[], scannedAt: string): RepoScanResult {
   const tree = treeOf(root);
@@ -32,7 +35,9 @@ export function scanRepoInto(db: Catalog, name: string, root: string, keep: read
   db.putLockfiles(snapshot, lockfilesOfRepo(root, tree));
   const records = templateRecordsOfRepo(root, keep, tree);
   db.putTemplateRecords(snapshot, records);
-  return { snapshot, commit, records, counts: scan.counts };
+  const conventions = conventionsCheckOfRepo(root);
+  if (!("error" in conventions)) db.putConventionsCheck(snapshot, conventions);
+  return { snapshot, commit, records, counts: scan.counts, conventions: "error" in conventions ? conventions.error : null };
 }
 
 /** The answer of `atlas.rescan`. */
@@ -70,7 +75,7 @@ const originOf = (root: string): string | undefined => {
 /**
  * This function scans the repository `repo` again from the clean checkout `root`. The repository must be in the
  * catalog, and the remote `origin` of the checkout must have its name. Thus a rescan cannot add a new repository.
- * The list `KEEP` comes from the template snapshot. The stamp check and the content of new pins wait for the next catalog run.
+ * The list `keep` comes from the template snapshot. The stamp check and the content of new pins wait for the next catalog run.
  */
 export function rescanRepo(db: Catalog, repo: string, root: string, scannedAt: string = new Date().toISOString()): RescanResult {
   const before = db.db.prepare('SELECT "commit" AS "commit" FROM current_snapshot WHERE repo = ?').get(repo) as { commit: string | null } | undefined;

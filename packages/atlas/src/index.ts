@@ -32,8 +32,8 @@ export { TREND_VERSION, addPoint, trendPoint } from "./trend.ts";
 export type { RepoPoint, Trend, TrendPoint } from "./trend.ts";
 export { homeCandidates } from "./candidates.ts";
 export type { HomeCandidate, HomeCopy } from "./candidates.ts";
-export { CATALOG_READ_EFFECTS, NAME_MATCHES, TOOL_ROW_LIMIT, atlasTools, catalogRepos, findFunctions } from "./tools.ts";
-export type { CatalogRepo, CopyCounts, FindOptions, FoundFunction, NameMatch } from "./tools.ts";
+export { CATALOG_READ_EFFECTS, CATALOG_WRITE_EFFECTS, NAME_MATCHES, TOOL_ROW_LIMIT, atlasTools, catalogRepos, findFunctions } from "./tools.ts";
+export type { AtlasToolsOptions, CatalogRepo, CopyCounts, FindOptions, FoundFunction, NameMatch } from "./tools.ts";
 export { MCP_INSTRUCTIONS, mcpCommand, toolCommand } from "./tools-cli.ts";
 export { DEPENDENCY_FIELDS, manifestOf, manifestsOfRepo, rangeKind } from "./manifests.ts";
 export type { DependencyFact, DependencyField, ManifestFacts, ManifestRecord, RangeKind } from "./manifests.ts";
@@ -62,5 +62,9 @@ export {
   workflowForm,
 } from "./templates.ts";
 export type { DriftState, PinDrift, PinFreshness, StaleRepo, StampCheck, StampFileCheck, StampFreshness, TemplateVersion, TemplateVersions, RepoDrift, TemplateDrift, TemplateFileRecord, TemplatePin, TemplateRecords } from "./templates.ts";
+export { CONVENTIONS_VERSION, conventionsBreaks, conventionsCheckOfRepo, conventionsMarkdown } from "./conventions.ts";
+export type { ConventionsBreak, ConventionsBreaks, ConventionsCheck, ConventionsRule, RuleBreaks, RuleStatus } from "./conventions.ts";
+export { repoOfRemote, rescanRepo, scanRepoInto } from "./rescan.ts";
+export type { RepoScanResult, RescanResult } from "./rescan.ts";
 export { QUERY_SET_LIMITS, QUERY_SET_VERSION, querySet } from "./query-set.ts";
 export type { ExactClass, QuerySet, QuerySetLimits, RepoCommit } from "./query-set.ts";

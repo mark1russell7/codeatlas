@@ -58,6 +58,7 @@ import { buildCorpus, corpusMarkdown, corpusOfRepo } from "./corpus.ts";
 import { atlasMarkdown } from "./report.ts";
 import { mcpCommand, toolCommand } from "./tools-cli.ts";
 import { scanRepoInto } from "./rescan.ts";
+import { conventionsBreaks, conventionsMarkdown } from "./conventions.ts";
 import { FACTS_VERSION } from "./facts.ts";
 import { headOf, scanRepo, type RepoScan } from "./scan.ts";
 
@@ -112,8 +113,9 @@ const USAGE = `Usage:
   codeatlas queries --db <catalog.sqlite> --out <queries.json>
   codeatlas facts [--out facts.jsonl] [--markdown facts.md] [--cache <facts.jsonl>] [--repos-dir <folder>] [<name>=<path> ...]
   codeatlas drift --db <catalog.sqlite> [--out drift.json] [--markdown drift.md]
+  codeatlas breaks --db <catalog.sqlite> [--out breaks.json] [--markdown breaks.md]
   codeatlas clone --owner <owner> --into <folder>
-  codeatlas mcp --db <catalog.sqlite>
+  codeatlas mcp --db <catalog.sqlite> [--write]
   codeatlas tool <name> [<json input>] --db <catalog.sqlite>`;
 
 function main(argv: readonly string[]): number | Promise<number> {
@@ -138,6 +140,7 @@ function main(argv: readonly string[]): number | Promise<number> {
   if (command === "verdict") return verdict(rest);
   if (command === "trend") return trend(rest);
   if (command === "drift") return drift(rest);
+  if (command === "breaks") return breaks(rest);
   if (command === "queries") return queries(rest);
   if (command === "mcp") return mcpCommand(rest);
   if (command === "tool") return toolCommand(rest);
@@ -265,8 +268,10 @@ function catalog(argv: readonly string[]): number {
   if (templateRoot !== undefined && keep.length === 0) console.error("catalog: the stamp of the template has no list KEEP, so the scan compares no files");
   let templateSnapshot: string | undefined;
   const pinning: { readonly path: string; readonly snapshot: string }[] = [];
+  const unchecked: string[] = [];
   for (const repo of args.repos) {
-    const { snapshot, records, counts } = scanRepoInto(db, repo.name, repo.path, keep, scannedAt);
+    const { snapshot, records, counts, conventions } = scanRepoInto(db, repo.name, repo.path, keep, scannedAt);
+    if (conventions !== null) unchecked.push(`${repo.name}: ${conventions}`);
     if (repo.name === TEMPLATE_REPO) templateSnapshot = snapshot;
     else if (records.pins.length > 0) pinning.push({ path: repo.path, snapshot });
     totals.parsed += counts.parsed;
@@ -274,6 +279,8 @@ function catalog(argv: readonly string[]): number {
     totals.errors += counts.errors;
     totals.bytesParsed += counts.bytesParsed;
   }
+  const firstUnchecked = unchecked[0] === undefined ? "" : ` (first: ${unchecked[0]})`;
+  console.error(`catalog: conventions check on ${args.repos.length} repositories, ${unchecked.length} with no result${firstUnchecked}`);
   // The content of each pin: the files of the template at each ref that a repository pins
   if (templateRoot !== undefined && templateSnapshot !== undefined) {
     const refs = (db.db.prepare("SELECT DISTINCT ref FROM current_template_pin").all() as { ref: string }[]).map((row) => row.ref);
@@ -424,6 +431,29 @@ async function drift(argv: readonly string[]): Promise<number> {
     if (markdown !== undefined) writeFileSync(markdown, driftMarkdown(freshness, stamp));
     const line = (current: number, behind: number): string => `${current} of ${current + behind}`;
     console.error(`drift: pins ${line(freshness.current.length, freshness.behind.length)} current, copies ${line(stamp.current.length, stamp.behind.length)} current`);
+    return 0;
+  } finally {
+    catalog.close();
+  }
+}
+
+/** This function writes the conventions breaks of the catalog `--db` as JSON `--out` and Markdown `--markdown`. */
+async function breaks(argv: readonly string[]): Promise<number> {
+  const option = (name: string): string | undefined => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined);
+  const db = option("--db");
+  if (db === undefined) {
+    console.error(USAGE);
+    return 2;
+  }
+  const catalog = readOnlyCatalog(db);
+  try {
+    const result = await conventionsBreaks(queryOf(catalog));
+    const out = option("--out");
+    const markdown = option("--markdown");
+    if (out !== undefined) writeFileSync(out, `${JSON.stringify(result)}\n`);
+    if (markdown !== undefined) writeFileSync(markdown, conventionsMarkdown(result));
+    const total = result.broken.reduce((sum, r) => sum + r.breaks, 0);
+    console.error(`breaks: ${result.clean.length} of ${result.checked} repositories clean, ${total} breaks of ${result.rules.length} rules`);
     return 0;
   } finally {
     catalog.close();

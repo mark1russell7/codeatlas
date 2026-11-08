@@ -85,6 +85,17 @@ export interface CatalogColumns {
   readonly template_version: { readonly snapshot: "text"; readonly ref: "text"; readonly committed_at: "text"; readonly path: "text"; readonly oid: "text" };
   readonly stamp_check: { readonly snapshot: "text"; readonly template: "text" };
   readonly stamp_check_file: { readonly snapshot: "text"; readonly path: "text"; readonly state: "text"; readonly fields: "text" };
+  readonly conventions_check: { readonly snapshot: "text"; readonly version: "text" };
+  readonly conventions_rule: { readonly snapshot: "text"; readonly rule: "text"; readonly status: "text"; readonly ignored: "integer"; readonly note: "text?" };
+  readonly conventions_break: {
+    readonly snapshot: "text";
+    readonly rule: "text";
+    readonly n: "integer";
+    readonly file: "text";
+    readonly line: "integer?";
+    readonly message: "text";
+    readonly fixable: "integer";
+  };
   readonly template_use: { readonly snapshot: "text"; readonly target: "text"; readonly path: "text" };
   readonly label: { readonly subject: "text"; readonly task: "text"; readonly by: "text"; readonly label: "text"; readonly at: "text" };
   readonly current_snapshot: SnapshotColumns;
@@ -191,6 +202,9 @@ export const CATALOG_COLUMNS: CatalogColumns = {
   template_version: { snapshot: "text", ref: "text", committed_at: "text", path: "text", oid: "text" },
   stamp_check: { snapshot: "text", template: "text" },
   stamp_check_file: { snapshot: "text", path: "text", state: "text", fields: "text" },
+  conventions_check: { snapshot: "text", version: "text" },
+  conventions_rule: { snapshot: "text", rule: "text", status: "text", ignored: "integer", note: "text?" },
+  conventions_break: { snapshot: "text", rule: "text", n: "integer", file: "text", line: "integer?", message: "text", fixable: "integer" },
   template_use: { snapshot: "text", target: "text", path: "text" },
   label: { subject: "text", task: "text", by: "text", label: "text", at: "text" },
   current_snapshot: SNAPSHOT,

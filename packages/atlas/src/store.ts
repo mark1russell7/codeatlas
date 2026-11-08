@@ -9,6 +9,7 @@ import type { FileFacts, MarkerKind } from "./facts.ts";
 import type { ManifestRecord } from "./manifests.ts";
 import type { LockfileRecord } from "./lockfiles.ts";
 import type { StampCheck, TemplateRecords, TemplateVersions } from "./templates.ts";
+import type { ConventionsCheck } from "./conventions.ts";
 
 /** The version of the tables. A database of another version gets new tables. */
 export const CATALOG_SCHEMA: string = "codeatlas/2";
@@ -86,6 +87,17 @@ CREATE TABLE IF NOT EXISTS stamp_check (
 );
 CREATE TABLE IF NOT EXISTS stamp_check_file (
   snapshot TEXT NOT NULL REFERENCES snapshot(id), path TEXT NOT NULL, state TEXT NOT NULL, fields TEXT NOT NULL, PRIMARY KEY (snapshot, path)
+);
+CREATE TABLE IF NOT EXISTS conventions_check (
+  snapshot TEXT PRIMARY KEY REFERENCES snapshot(id), version TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS conventions_rule (
+  snapshot TEXT NOT NULL REFERENCES snapshot(id), rule TEXT NOT NULL, status TEXT NOT NULL, ignored INTEGER NOT NULL, note TEXT,
+  PRIMARY KEY (snapshot, rule)
+);
+CREATE TABLE IF NOT EXISTS conventions_break (
+  snapshot TEXT NOT NULL REFERENCES snapshot(id), rule TEXT NOT NULL, n INTEGER NOT NULL, file TEXT NOT NULL, line INTEGER,
+  message TEXT NOT NULL, fixable INTEGER NOT NULL, PRIMARY KEY (snapshot, rule, n)
 );
 CREATE TABLE IF NOT EXISTS template_use (
   snapshot TEXT NOT NULL REFERENCES snapshot(id), target TEXT NOT NULL, path TEXT NOT NULL, PRIMARY KEY (snapshot, target, path)
@@ -216,6 +228,9 @@ export class Catalog {
       this.db.prepare("DELETE FROM template_use WHERE snapshot = ?").run(id);
       this.db.prepare("DELETE FROM stamp_check WHERE snapshot = ?").run(id);
       this.db.prepare("DELETE FROM stamp_check_file WHERE snapshot = ?").run(id);
+      this.db.prepare("DELETE FROM conventions_check WHERE snapshot = ?").run(id);
+      this.db.prepare("DELETE FROM conventions_rule WHERE snapshot = ?").run(id);
+      this.db.prepare("DELETE FROM conventions_break WHERE snapshot = ?").run(id);
       this.db.prepare("DELETE FROM snapshot WHERE id = ?").run(id);
       this.db
         .prepare('INSERT INTO snapshot (id, repo, "commit", scanned_at, scanner, files, parsed, reused, errors) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
@@ -339,6 +354,20 @@ export class Catalog {
       this.db.prepare("INSERT INTO stamp_check (snapshot, template) VALUES (?, ?)").run(snapshot, check.template);
       const file = this.db.prepare("INSERT OR REPLACE INTO stamp_check_file (snapshot, path, state, fields) VALUES (?, ?, ?, ?)");
       for (const f of check.files) file.run(snapshot, f.path, f.state, JSON.stringify(f.fields));
+    });
+  }
+
+  /** This method replaces the result of the conventions check for the snapshot `snapshot`. */
+  putConventionsCheck(snapshot: string, check: ConventionsCheck): void {
+    this.#transaction(() => {
+      for (const table of ["conventions_check", "conventions_rule", "conventions_break"]) this.db.prepare(`DELETE FROM ${table} WHERE snapshot = ?`).run(snapshot);
+      this.db.prepare("INSERT INTO conventions_check (snapshot, version) VALUES (?, ?)").run(snapshot, check.version);
+      const rule = this.db.prepare("INSERT INTO conventions_rule (snapshot, rule, status, ignored, note) VALUES (?, ?, ?, ?, ?)");
+      const broken = this.db.prepare("INSERT INTO conventions_break (snapshot, rule, n, file, line, message, fixable) VALUES (?, ?, ?, ?, ?, ?, ?)");
+      for (const r of check.rules) {
+        rule.run(snapshot, r.rule, r.status, r.ignored, r.note);
+        r.breaks.forEach((b, n) => broken.run(snapshot, r.rule, n, b.file, b.line, b.message, b.fixable ? 1 : 0));
+      }
     });
   }
 
