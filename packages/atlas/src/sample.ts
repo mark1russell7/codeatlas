@@ -66,6 +66,19 @@ export function drawSample(population: readonly SampleItem[], seed: string, size
   return random(seed).sample(population, Math.min(size, population.length));
 }
 
+/**
+ * The plan of the sample of functions that the review of 2026-11-08 accepted. One judgment gives the home and the
+ * purpose of a class, so one sample serves both tasks. A new plan gets a new seed.
+ */
+export const SAMPLE_PLAN: { readonly seed: string; readonly size: number; readonly tasks: readonly TaskTarget[] } = {
+  seed: "codeatlas/functions/1",
+  size: 130,
+  tasks: [
+    { task: "home", target: 0.9, expected: 0.95 },
+    { task: "purpose", target: 0.85, expected: 0.92 },
+  ],
+};
+
 /** The precision target of one task of Layer 2, and the precision that the pilot expects. */
 export interface TaskTarget {
   readonly task: string;
