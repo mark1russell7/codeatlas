@@ -24,6 +24,8 @@ export { CLONE_LEVELS, cloneClasses, complexFunctions, copiesOf, duplication, im
 export type { CloneLevel, CloneOptions, HashClass, ComplexFunction, Duplication, FunctionPlace, ImportPlace, LevelDuplication, MarkerCount } from "./queries.ts";
 export { agreementOf, OTHER_LIMIT } from "./agreement.ts";
 export type { AgreementFile, ConfusionCell, DraftLabel, OtherCheck, TaskAgreement } from "./agreement.ts";
+export { verdictOf } from "./verdict.ts";
+export type { PersonAnswer, TaskVerdict, TruthLabel, VerdictFile } from "./verdict.ts";
 export { AUDIT_EXPECTED, SAMPLE_PLAN, SAMPLE_VERSION, auditOf, drawSample, populationOf, sampleFile, sizedTasks } from "./sample.ts";
 export type { SampleFile, SampleItem, SizedTask, TaskTarget } from "./sample.ts";
 export { TREND_VERSION, addPoint, trendPoint } from "./trend.ts";
