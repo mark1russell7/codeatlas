@@ -97,6 +97,7 @@ export interface CatalogColumns {
     readonly fixable: "integer";
   };
   readonly template_use: { readonly snapshot: "text"; readonly target: "text"; readonly path: "text" };
+  readonly template_ref: { readonly snapshot: "text"; readonly ref: "text"; readonly committed_at: "text"; readonly behind: "integer" };
   readonly label: { readonly subject: "text"; readonly task: "text"; readonly by: "text"; readonly label: "text"; readonly at: "text" };
   readonly current_snapshot: SnapshotColumns;
   readonly current_file: { readonly repo: "text" } & FileColumns;
@@ -206,6 +207,7 @@ export const CATALOG_COLUMNS: CatalogColumns = {
   conventions_rule: { snapshot: "text", rule: "text", status: "text", ignored: "integer", note: "text?" },
   conventions_break: { snapshot: "text", rule: "text", n: "integer", file: "text", line: "integer?", message: "text", fixable: "integer" },
   template_use: { snapshot: "text", target: "text", path: "text" },
+  template_ref: { snapshot: "text", ref: "text", committed_at: "text", behind: "integer" },
   label: { subject: "text", task: "text", by: "text", label: "text", at: "text" },
   current_snapshot: SNAPSHOT,
   current_file: { repo: "text", ...FILE },

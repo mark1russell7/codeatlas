@@ -38,6 +38,7 @@ import {
   driftMarkdown,
   keepListOfRepo,
   pinFreshness,
+  pinLag,
   STAMP_MAIN,
   stampCheckOfRepo,
   stampFreshness,
@@ -471,13 +472,14 @@ async function drift(argv: readonly string[]): Promise<number> {
   const catalog = readOnlyCatalog(db);
   try {
     const q = queryOf(catalog);
-    const [freshness, stamp, all] = [await pinFreshness(q), await stampFreshness(q), await templateDrift(q)];
+    const [freshness, stamp, lag, all] = [await pinFreshness(q), await stampFreshness(q), await pinLag(q), await templateDrift(q)];
     const out = option("--out");
     const markdown = option("--markdown");
-    if (out !== undefined) writeFileSync(out, `${JSON.stringify({ pins: freshness, stamp, drift: all })}\n`);
-    if (markdown !== undefined) writeFileSync(markdown, driftMarkdown(freshness, stamp));
+    if (out !== undefined) writeFileSync(out, `${JSON.stringify({ pins: freshness, stamp, lag, drift: all })}\n`);
+    if (markdown !== undefined) writeFileSync(markdown, driftMarkdown(freshness, stamp, lag));
     const line = (current: number, behind: number): string => `${current} of ${current + behind}`;
-    console.error(`drift: pins ${line(freshness.current.length, freshness.behind.length)} current, copies ${line(stamp.current.length, stamp.behind.length)} current`);
+    const median = lag.median === null ? "not known" : `${lag.median.behind} commits, ${lag.median.days} days`;
+    console.error(`drift: pins ${line(freshness.current.length, freshness.behind.length)} current, copies ${line(stamp.current.length, stamp.behind.length)} current, median pin lag ${median}`);
     return 0;
   } finally {
     catalog.close();
