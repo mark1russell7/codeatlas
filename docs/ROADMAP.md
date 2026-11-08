@@ -7,10 +7,10 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 ## In progress
 
 | ID | Status | Priority | Title |
-| CA17 | in progress | P1 | The query set on the site: quality, features and duplication |
 | --- | --- | --- | --- |
 | CA12 | in progress | P1 | A hand-labeled sample, for the precision and recall of each judgment category |
 | CA2 | in progress | P2 | The trend: the catalog of each week as history, by repository |
+| CA17 | in progress | P1 | The query set on the site: quality, features and duplication |
 
 ## Next
 
