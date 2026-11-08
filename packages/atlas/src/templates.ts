@@ -239,7 +239,7 @@ export function stampRulesOfRepo(root: string, keep: readonly string[]): StampRu
  */
 export function copyForm(path: string, text: string, rules: StampRules | undefined): string {
   const rule = rules?.rules.find((r) => r.path === path);
-  if (rule === undefined) return WORKFLOW.test(path) ? workflowForm(text) : text;
+  if (rule === undefined) return isSharedFile(path) ? workflowForm(text) : text;
   if (rule.rule === "pinned") return workflowForm(text, { schedules: rules?.fixes.includes(SCHEDULE_FIX) ?? false });
   if (rule.rule === "merged") {
     try {
@@ -265,7 +265,19 @@ export function keepListOfRepo(root: string): string[] | undefined {
 
 // Each part has one way to match, so a long line cannot make the pattern backtrack
 const PIN = /^[ \t]*(?:-[ \t]*)?uses:[ \t]*["']?mark1russell7\/template\/([\w./-]+)@([\w.-]+)/;
-const WORKFLOW = /^\.github\/(?:workflows\/[^/]+|actions\/.+\/action)\.ya?ml$/;
+const yaml = (name: string | undefined): boolean => name !== undefined && (name.endsWith(".yml") || name.endsWith(".yaml"));
+
+/**
+ * This function tells if `path` is a shared file of the template: a workflow of `.github/workflows/`, or the
+ * `action.yml` of an action of `.github/actions/`. It uses no regular expression, because its input comes from callers.
+ */
+const isSharedFile = (path: string): boolean => {
+  const parts = path.split("/");
+  if (parts[0] !== ".github") return false;
+  if (parts[1] === "workflows") return parts.length === 3 && yaml(parts[2]);
+  const last = parts.at(-1);
+  return parts[1] === "actions" && parts.length >= 4 && (last === "action.yml" || last === "action.yaml");
+};
 
 /** This function gives each pin of a shared workflow or action of the template in the text of one workflow. */
 export function pinsOf(path: string, text: string): TemplatePin[] {
@@ -359,7 +371,7 @@ export function templateRecordsOfRepo(root: string, keep: readonly string[], tre
   const pins: TemplatePin[] = [];
   const files: TemplateFileRecord[] = [];
   for (const entry of tree) {
-    const workflow = WORKFLOW.test(entry.path);
+    const workflow = isSharedFile(entry.path);
     const copy = kept(keep, entry.path);
     if ((!workflow && !copy) || entry.bytes > MAX_BYTES) continue;
     const text = readFileSync(join(root, entry.path), "utf8").replace(/\r\n/g, "\n");
@@ -443,12 +455,13 @@ const SAFE_REF = /^[A-Za-z0-9_][\w.-]*$/;
 /** A `uses:` line with a local path of a shared workflow or action of the template. */
 const LOCAL_USE = /^[ \t]*(?:-[ \t]*)?uses:[ \t]*["']?\.\/(\.github\/[\w./-]+?)["']?[ \t]*(?:#.*)?$/gm;
 
-const SHARED = /^\.github\/(?:workflows\/[^/]+\.ya?ml|actions\/.+\/action\.ya?ml)$/;
 
 /** This function gives the file of a target: a workflow is a file, and an action is a folder with its `action.yml`. */
 export function fileOfTarget(target: string, paths: ReadonlySet<string>): string {
-  if (/\.ya?ml$/.test(target)) return target;
-  const folder = target.replace(/\/+$/, "");
+  if (yaml(target)) return target;
+  let end = target.length;
+  while (end > 0 && target[end - 1] === "/") end--;
+  const folder = target.slice(0, end);
   return paths.has(`${folder}/action.yaml`) && !paths.has(`${folder}/action.yml`) ? `${folder}/action.yaml` : `${folder}/action.yml`;
 }
 
@@ -468,7 +481,7 @@ export function templateVersionsOfRepo(root: string, refs: readonly string[], ke
         .split("\n")
         .flatMap((line) => {
           const match = /^\d+ blob ([0-9a-f]+)\t(.+)$/.exec(line);
-          return match?.[1] !== undefined && match[2] !== undefined && (SHARED.test(match[2]) || kept(keep, match[2])) ? [{ path: match[2], oid: match[1] }] : [];
+          return match?.[1] !== undefined && match[2] !== undefined && (isSharedFile(match[2]) || kept(keep, match[2])) ? [{ path: match[2], oid: match[1] }] : [];
         });
       versions.push({ ref, committedAt, files });
     } catch {
@@ -478,7 +491,7 @@ export function templateVersionsOfRepo(root: string, refs: readonly string[], ke
   const paths = new Set((versions[0]?.files ?? []).map((f) => f.path));
   const direct = new Map<string, string[]>();
   for (const path of paths) {
-    if (!SHARED.test(path)) continue;
+    if (!isSharedFile(path)) continue;
     const text = readFileSync(join(root, path), "utf8");
     direct.set(path, [...text.matchAll(LOCAL_USE)].flatMap((m) => (m[1] === undefined ? [] : [fileOfTarget(m[1], paths)])));
   }
