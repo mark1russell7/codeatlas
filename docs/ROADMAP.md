@@ -30,7 +30,7 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 
 | ID | Status | Priority | Title |
 | --- | --- | --- | --- |
-| CA14 | done 2026-11-08 | P1 | Layer 2 on 999 functions with copies or shared names: 136 moves to check, owner precision 0.18 on 50 of them |
+| CA14 | done 2026-11-08 | P1 | Layer 2 on 999 functions with copies or shared names: 136 moves to check, owner precision 0.16 and owner recall 0.62 |
 | CA13 | done 2026-11-08 | P1 | Layer 2 pilot on 3 repositories: 50,300 tokens for each 1000 lines, and the precision against the 3-rater majority, provisional |
 | CA16 | done 2026-11-08 | P2 | Tools for agents: query the catalog and scan again, fast and cheap |
 | CA3 | done 2026-11-08 | P2 | The rigor candidates: for each topic, the classes that a shared library removes |

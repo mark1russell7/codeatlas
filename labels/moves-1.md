@@ -1,6 +1,6 @@
 # Moves to check: the first run of Layer 2 on the functions with copies or shared names
 
-This file lists the moves of `subset-1.jsonl` to a published home. A label is not a proof. The owners checked 50 of the first 157 moves, and 9 of them were right (`owners-1.jsonl`).
+This file lists the moves of `subset-1.jsonl` to a published home. A label is not a proof. The owners checked 50 of the first 157 moves, and 8 of them were right (`owners-1.jsonl`). The owners also found 5 copies that are not in the list (`missed-1.jsonl`).
 
 The file has no move of a function whose file imports the home. Such a function calls the home for its general part, and the rest is local policy. `moveOf` gives it the kind `uses the home`.
 

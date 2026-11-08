@@ -36,8 +36,8 @@ export interface FactLabel extends RaterLabel {
 
 /**
  * The kind of a move of code to its home. `pr` is a pull request to the home. `planned` goes to the gap list of a
- * planned home. `blocked by the rule` is a move that the dependency rules forbid. `uses the home` is code whose file
- * already imports the home, so its own part is local policy. `none` is no move.
+ * planned home. `blocked by the rule` is a move that the dependency rules forbid. `uses the home` is code whose body
+ * calls a function of the home, so its own part is local policy. `none` is no move.
  */
 export type MoveKind = "pr" | "planned" | "blocked by the rule" | "uses the home" | "none";
 
@@ -47,8 +47,8 @@ export interface MoveCaller {
   readonly app: boolean;
   /** The name of the package. A package of the home is in its home, also in another repository of the home. */
   readonly name?: string;
-  /** The packages that the file of the code imports. */
-  readonly imports?: readonly string[];
+  /** The packages whose imported functions the body of the code calls. An import that the body does not call is not in it. */
+  readonly calls?: readonly string[];
 }
 
 /**
@@ -62,15 +62,15 @@ const HOME_OF_AREA = new Map(HOMES.map((home) => [home.area, home] as const));
 /**
  * This function gives the kind of the move of code in `caller` to the home of the area `area`. A label that names a
  * home must also obey the dependency rules. Thus a general package gets no move to a home in a monorepo. Code whose
- * file imports a package of the home gets no pull request. The owners of the first moves found that such code uses
- * the home for its general part. Its own part is local policy.
+ * body calls a function of the home gets no pull request. The owners found that such code uses the home for its
+ * general part. An import that the body does not call is not a use: such a function can be a full copy.
  */
 export function moveOf(caller: MoveCaller, area: string): MoveKind {
   const home = HOME_OF_AREA.get(area);
   if (home === undefined) return "none";
   const repo = home.repo.slice(home.repo.indexOf("/") + 1);
   if (repo === caller.repo || (caller.name !== undefined && home.packages.includes(caller.name))) return "none";
-  if (caller.imports?.some((name) => home.packages.includes(name)) === true) return "uses the home";
+  if (caller.calls?.some((name) => home.packages.includes(name)) === true) return "uses the home";
   if (home.state === "planned" || home.state === "none") return "planned";
   if (MONOREPOS.has(repo) && !MONOREPOS.has(caller.repo) && !caller.app) return "blocked by the rule";
   return "pr";
@@ -295,16 +295,7 @@ export async function homeFacts(q: CatalogQuery, items: readonly SampleItem[]): 
     return best;
   };
   const packageOf = (repo: string, path: string): string | undefined => manifestOf(repo, path)?.name;
-  const imported = await q
-    .selectFrom("current_file as f")
-    .innerJoin("import as i", "i.blob", "f.blob")
-    .where("f.path", "in", [...new Set(items.map((item) => item.path))])
-    .where("i.package", "is not", null)
-    .select(["f.repo as repo", "f.path as path", "i.package as package"])
-    .distinct()
-    .execute();
-  const importsOf = new Map<string, string[]>();
-  for (const row of imported) if (row.package !== null) importsOf.set(`${row.repo}/${row.path}`, [...(importsOf.get(`${row.repo}/${row.path}`) ?? []), row.package]);
+  const callsOf = await packageCallsOf(q, items);
   const copies = await q
     .selectFrom("current_file as f")
     .innerJoin("symbol as s", "s.blob", "f.blob")
@@ -333,11 +324,71 @@ export async function homeFacts(q: CatalogQuery, items: readonly SampleItem[]): 
       const [area, fact] = [...found][0]!;
       const item = placeOf.get(subject)!;
       const manifest = manifestOf(item.repo, item.path);
-      const imports = importsOf.get(`${item.repo}/${item.path}`) ?? [];
-      const move = moveOf({ repo: item.repo, app: manifest?.app ?? false, imports, ...(manifest === undefined ? {} : { name: manifest.name }) }, area);
+      const calls = callsOf.get(placeKey(item)) ?? [];
+      const move = moveOf({ repo: item.repo, app: manifest?.app ?? false, calls, ...(manifest === undefined ? {} : { name: manifest.name }) }, area);
       return { subject, task: "home", label: area, fact, move };
     })
     .sort((a, b) => (a.subject < b.subject ? -1 : 1));
+}
+
+/** One function at its place: the repository, the path of its file and its qualified name. */
+export interface FunctionPlace {
+  readonly repo: string;
+  readonly path: string;
+  readonly name: string;
+}
+
+/** This function gives the key of a function place in the result of `packageCallsOf`. */
+export function placeKey(place: FunctionPlace): string {
+  return `${place.repo}/${place.path}#${place.name}`;
+}
+
+/**
+ * This function gives the packages whose imported functions the body of each function calls, by `placeKey`. A call
+ * site is in the body when its caller is the function or a function inside it. A call `a.b()` counts the import `a`.
+ */
+export async function packageCallsOf(q: CatalogQuery, places: readonly FunctionPlace[]): Promise<Map<string, string[]>> {
+  const result = new Map<string, string[]>();
+  if (places.length === 0) return result;
+  const paths = [...new Set(places.map((place) => place.path))];
+  const imports = await q
+    .selectFrom("current_file as f")
+    .innerJoin("import as i", "i.blob", "f.blob")
+    .where("f.path", "in", paths)
+    .where("i.package", "is not", null)
+    .select(["f.repo as repo", "f.path as path", "i.package as package", "i.names as names"])
+    .execute();
+  const packageOfLocal = new Map<string, Map<string, string>>();
+  for (const row of imports) {
+    const file = `${row.repo}/${row.path}`;
+    const locals = packageOfLocal.get(file) ?? new Map<string, string>();
+    for (const name of JSON.parse(row.names) as { local: string }[]) locals.set(name.local, row.package!);
+    packageOfLocal.set(file, locals);
+  }
+  const calls = await q
+    .selectFrom("current_file as f")
+    .innerJoin("call_site as c", "c.blob", "f.blob")
+    .where("f.path", "in", paths)
+    .select(["f.repo as repo", "f.path as path", "c.caller as caller", "c.callee as callee"])
+    .execute();
+  const callsOfFile = new Map<string, { caller: string; callee: string }[]>();
+  for (const row of calls) {
+    const file = `${row.repo}/${row.path}`;
+    callsOfFile.set(file, [...(callsOfFile.get(file) ?? []), row]);
+  }
+  for (const place of places) {
+    const file = `${place.repo}/${place.path}`;
+    const locals = packageOfLocal.get(file);
+    if (locals === undefined) continue;
+    const called = new Set<string>();
+    for (const call of callsOfFile.get(file) ?? []) {
+      if (call.caller !== place.name && !call.caller.startsWith(`${place.name}.`)) continue;
+      const found = locals.get(call.callee.split(".")[0]!);
+      if (found !== undefined) called.add(found);
+    }
+    if (called.size > 0) result.set(placeKey(place), [...called].sort());
+  }
+  return result;
 }
 
 /** This function writes the reference and the precision of each labeler as Markdown. */

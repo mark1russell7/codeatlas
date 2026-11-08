@@ -3,7 +3,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { factsOfRepo } from "./blobs.ts";
 import { manifestsOfRepo } from "./manifests.ts";
 import { queryOf } from "./query.ts";
-import { homeFacts, labelsOfLine, moveOf, TEST_SUPPORT, precisionOf, raterOfText, REFERENCE_NOTE, referenceMarkdown, referenceOf, type Rater } from "./reference.ts";
+import { homeFacts, labelsOfLine, moveOf, packageCallsOf, TEST_SUPPORT, precisionOf, raterOfText, REFERENCE_NOTE, referenceMarkdown, referenceOf, type Rater } from "./reference.ts";
 import type { SampleFile, SampleItem } from "./sample.ts";
 import { Catalog } from "./store.ts";
 import { GitRepos } from "./testing/git-repo.ts";
@@ -135,31 +135,33 @@ describe("moveOf and the rows of the map", () => {
 });
 
 describe("moveOf and the verdicts of the owners", () => {
-  // The fixtures: 8 moves of the first run that their owners judged wrong. Each file imports a package of the home
-  // and calls it for the general part. The rest of each function is local policy.
-  const judgedWrong = [
-    { repo: "client", path: "scripts/server-request.ts", name: "fitOf", area: "statistics", imports: ["@mark1russell7/rigor-statistics"] },
-    { repo: "systems", path: "packages/site/src/lib/stamps.ts", name: "runOf", area: "repo-structure", imports: ["@mark1russell7/site-pages"] },
-    { repo: "systems", path: "packages/site/src/lib/stamps.ts", name: "siteDataStamps", area: "repo-structure", imports: ["@mark1russell7/site-pages"] },
-    { repo: "systems", path: "packages/harness/src/verdict.ts", name: "spreadOf", area: "statistics", imports: ["@mark1russell7/rigor-statistics"] },
-    { repo: "systems", path: "packages/kind/src/quiet.ts", name: "baselineOf", area: "statistics", imports: ["@mark1russell7/rigor-statistics"] },
-    { repo: "layout-contract", path: "packages/joint/src/joint-measures.ts", name: "spearman", area: "statistics", imports: ["@mark1russell7/rigor-statistics"] },
-    { repo: "layout-contract", path: "packages/joint/src/analysis.ts", name: "bootstrap", area: "statistics", imports: ["@mark1russell7/rigor-statistics"] },
-    { repo: "typeset", path: "packages/corpus/src/generate.ts", name: "fingerprint", area: "random", imports: ["@mark1russell7/rigor-generators"] },
+  // The fixtures: 6 moves of the first run that their owners judged wrong. The body of each calls a function of the
+  // home for the general part. The rest of each function is local policy.
+  const callsTheHome = [
+    { repo: "client", name: "fitOf", area: "statistics", calls: ["@mark1russell7/rigor-statistics"] },
+    { repo: "systems", name: "spreadOf", area: "statistics", calls: ["@mark1russell7/rigor-statistics"] },
+    { repo: "systems", name: "baselineOf", area: "statistics", calls: ["@mark1russell7/rigor-statistics"] },
+    { repo: "layout-contract", name: "spearman", area: "statistics", calls: ["@mark1russell7/rigor-statistics"] },
+    { repo: "layout-contract", name: "bootstrap", area: "statistics", calls: ["@mark1russell7/rigor-statistics"] },
+    { repo: "typeset", name: "fingerprint", area: "random", calls: ["@mark1russell7/rigor-generators"] },
   ] as const;
+  // The fixtures: 6 functions of highways in a file that imports the home. The owner found that each is a full copy,
+  // because its body calls no function of the home.
+  const fullCopies = ["countOverlaps", "utf8", "inflate", "crossingPoint", "polylineLength", "regionBounds"];
 
-  it("gives no pull request for code whose file imports the home", () => {
-    for (const m of judgedWrong) {
+  it("gives no pull request for code whose body calls the home", () => {
+    for (const m of callsTheHome) {
       expect(moveOf({ repo: m.repo, app: false }, m.area), m.name).toBe("pr");
-      expect(moveOf({ repo: m.repo, app: false, imports: [...m.imports, "node:fs"] }, m.area), m.name).toBe("uses the home");
+      expect(moveOf({ repo: m.repo, app: false, calls: [...m.calls, "node:fs"] }, m.area), m.name).toBe("uses the home");
     }
   });
 
-  it("gives a pull request when the file imports only other packages", () => {
-    expect(moveOf({ repo: "lag", app: false, imports: ["node:fs", "@mark1russell7/conventions"] }, "statistics")).toBe("pr");
-    expect(moveOf({ repo: "lag", app: false, imports: [] }, "statistics")).toBe("pr");
+  it("gives a pull request when the body calls only other packages", () => {
+    for (const name of fullCopies) expect(moveOf({ repo: "highways", app: false, calls: [] }, "geometry"), name).toBe("pr");
+    expect(moveOf({ repo: "lag", app: false, calls: ["node:fs", "@mark1russell7/conventions"] }, "statistics")).toBe("pr");
   });
 });
+
 
 describe("homeFacts", () => {
   it("finds the files of test support, and no other file", () => {
@@ -192,20 +194,35 @@ describe("homeFacts", () => {
     catalog.close();
   });
 
-  it("gives the move uses the home when the file of the item imports the home", async () => {
+  it("gives the move uses the home when the body of the item calls the home, and not for an import alone", async () => {
     const catalog = new Catalog(":memory:");
-    const body = "export function spread(values: number[]): number {\n  let low = values[0] ?? 0;\n  let high = low;\n  for (const v of values) {\n    if (v < low) low = v;\n    if (v > high) high = v;\n  }\n  return high - low;\n}\n";
+    // The same shape at two places: the home has a local `sorted`, and the app imports `sorted` from the home
+    const body = "export function spread(values: number[]): number {\n  const s = sorted(values);\n  let low = s[0] ?? 0;\n  let high = low;\n  for (const v of s) {\n    if (v > high) high = v;\n  }\n  return high - low;\n}\n";
+    const local = "function sorted(values: number[]): number[] {\n  return [...values].sort((a, b) => a - b);\n}\n";
     const put = (name: string, files: Readonly<Record<string, string>>): void => {
       const root = repos.with(files);
       const scan = factsOfRepo(name, root, catalog);
       const snapshot = catalog.putSnapshot(name, "c0", "2026-11-08T00:00:00Z", "test", scan.files, scan.counts);
       catalog.putManifests(snapshot, manifestsOfRepo(root));
     };
-    put("rigor", { "packages/statistics/package.json": '{"name":"@mark1russell7/rigor-statistics"}', "packages/statistics/src/spread.ts": body });
-    put("app", { "package.json": '{"name":"app"}', "src/a.ts": `import { median } from "@mark1russell7/rigor-statistics";\nexport const m = median;\n${body.replace("spread", "range")}` });
+    put("rigor", { "packages/statistics/package.json": '{"name":"@mark1russell7/rigor-statistics"}', "packages/statistics/src/spread.ts": local + body });
+    put("app", {
+      "package.json": '{"name":"app"}',
+      "src/a.ts": `import { sorted } from "@mark1russell7/rigor-statistics";\n${body.replace("spread", "range")}`,
+      "src/b.ts": `import { median } from "@mark1russell7/rigor-statistics";\nexport const m = median;\n${local}${body.replace("spread", "width")}`,
+    });
     const q = queryOf(catalog.db);
-    const subject = (await q.selectFrom("current_file as f").innerJoin("symbol as s", "s.blob", "f.blob").select("s.hash_renamed as h").where("f.repo", "=", "app").where("s.name", "=", "range").executeTakeFirstOrThrow()).h!;
-    expect((await homeFacts(q, [item(subject, "app", "src/a.ts")])).map((f) => f.move)).toEqual(["uses the home"]);
+    const subjectOf = async (name: string): Promise<string> =>
+      (await q.selectFrom("current_file as f").innerJoin("symbol as s", "s.blob", "f.blob").select("s.hash_renamed as h").where("f.repo", "=", "app").where("s.name", "=", name).executeTakeFirstOrThrow()).h!;
+    const range = await subjectOf("range");
+    const width = await subjectOf("width");
+    expect(range).toBe(width);
+    expect(await packageCallsOf(q, [{ repo: "app", path: "src/a.ts", name: "range" }, { repo: "app", path: "src/b.ts", name: "width" }])).toEqual(
+      new Map([["app/src/a.ts#range", ["@mark1russell7/rigor-statistics"]]]),
+    );
+    expect((await homeFacts(q, [{ ...item(range, "app", "src/a.ts"), name: "range" }])).map((f) => f.move)).toEqual(["uses the home"]);
+    expect((await homeFacts(q, [{ ...item(width, "app", "src/b.ts"), name: "width" }])).map((f) => f.move)).toEqual(["pr"]);
     catalog.close();
   });
+
 });

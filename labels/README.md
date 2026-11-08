@@ -8,6 +8,8 @@ This folder holds the hand-labeled sample of Layer 2. `docs/SCHEMA.md` gives the
 | `homes.json` | The map of homes of `@mark1russell7/conventions` 0.15.0 (`conventions map --json`). The task `home` labels an area of this map. |
 | `draft-a.jsonl`, `draft-b.jsonl` | The two blind drafts of the 130 items: the area, the category and the sentence of each. |
 | `rater-c.jsonl` | A third blind model rater of the 97 items of the audit: the home, the category and a verdict on the sentence. It is not a person. |
+| `owners-1.jsonl` | The verdicts of the owners of the copies on 50 moves of `moves-1.md`, each with its reason. |
+| `missed-1.jsonl` | The copies that the owners found and the atlas did not list. |
 | `pilot-1.jsonl` | The labels of the first pilot of Layer 2 (CA13): 172 functions of `otel-ts`, `page-lifecycle-tracker` and `ste-lint`, from one blind model. |
 
 The command `codeatlas sample` wrote `sample.json` from the catalog of the CI run 42455568174, at the commit `1b710df` of this repository. The function of an item is at its `repo`, `commit`, `path` and lines `line` to `endLine`.
@@ -34,11 +36,13 @@ The pilot labels each function of three repositories with the population rule of
 - `moveOf` gives 154 pull requests, 127 moves to planned homes, 13 moves that the dependency rules block, and 705 cases with no move.
 - Three of the blocked moves (`canonicalJson` two times, `stableStringify`) have a home now: `@mark1russell7/rigor-generators` 0.1.7. Thus the file has 157 pull requests and 10 blocked moves.
 - That was 12.2 pull requests for each 100k tokens. The owners of the copies then checked the moves, and the precision of the raters did not hold.
-- The owner precision: the owners checked 50 of the 157 moves with a test or a read of the home. 9 were right: 0.180 [0.098, 0.308]. 2 more were right in part, 3 are right after a change of the home, and 4 are real copies with another home. 32 were wrong. `owners-1.jsonl` has each verdict with its reason.
+- The owner precision: the owners checked 50 of the 157 moves with a test or a read of the home. 8 were right: 0.160 [0.083, 0.285]. 2 more were right in part, 4 are right after a change of the home, and 4 are real copies with another home. 32 were wrong. `owners-1.jsonl` has each verdict with its reason.
 - The precision of the 3 raters (0.900) and the owner precision measure different things. A rater sees only the function. An owner sees the home too. Report both, each with its count.
 - The main cause of the wrong moves: 21 of the 157 functions are in a file that imports the home. They call the home for the general part, and the rest is local policy. All 8 of them with a verdict were wrong. `moveOf` now gives them the kind `uses the home`, and no pull request.
-- Thus the file has 136 pull requests, 21 functions that use the home, and 10 blocked moves. The owners checked 42 of the 136, and 9 were right: 0.214 [0.117, 0.359].
-- At that precision, about 29 of the 136 are right, from 16 to 49. That is about 2.3 correct pull requests for each 100k tokens.
+- Thus the file has 136 pull requests, 21 functions that use the home, and 10 blocked moves. The owners checked 42 of the 136, and 8 were right: 0.190 [0.100, 0.333].
+- At that precision, about 26 of the 136 are right, from 14 to 45. That is about 2.0 correct pull requests for each 100k tokens.
+- The owner recall: the owners found 5 copies that the atlas did not list. Each is a formula inside a larger function, with no function of its own. Layer 1 hashes functions, so it does not see them.
+- Of the 13 real copies that the owners moved, the atlas listed 8: 0.615 [0.355, 0.823]. This recall is only for the code of the owners that answered. `missed-1.jsonl` has the 5 copies.
 - `moves-1.md` lists the 136 moves by repository. The owner of each copy checks each move with a test before a pull request.
 - The labels have a text kind. There are 157 plain string helpers in 25 repositories, 12 Markdown parsers, 7 text measurement functions and 3 functions for English word forms.
 - No two of the 157 plain string helpers have the same shape. Thus 157 is a count by purpose, not a count of clones.
