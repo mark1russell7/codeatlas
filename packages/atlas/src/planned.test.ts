@@ -80,6 +80,17 @@ describe("plannedPairs", () => {
 
   });
 
+  it("marks a step of a shared rollout, and keeps it out of the tables", () => {
+    const steps = ["north", "south", "east"].map((repo) => item(repo, "C1", "The conventions check in CI"));
+    const rollout = plannedPairs([...steps, item("west", "W1", "The conventions check of the site in CI")]);
+    expect(rollout.length).toBe(6);
+    expect(rollout.every((p) => p.rollout)).toBe(true);
+    expect(plannedPairs(steps.slice(0, 2)).map((p) => p.rollout)).toEqual([false]);
+    const markdown = plannedMarkdown(rollout);
+    expect(markdown).toContain("A step of a shared rollout: 6.");
+    expect(markdown).not.toContain("`north` C1");
+  });
+
   it("escapes each backslash and each pipe of a title in a table cell", () => {
     const odd = plannedPairs([item("north", "A1", "Split a|b at C:\\temp paths"), item("south", "B1", "Split a|b at C:\\temp paths")]);
     expect(plannedMarkdown(odd)).toContain("a\\|b at C:\\\\temp");

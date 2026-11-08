@@ -7,7 +7,7 @@ import { wordsOf } from "./atlas.ts";
 import type { CatalogQuery } from "./query.ts";
 import type { StatusClass } from "./roadmaps.ts";
 
-export const PLANNED_VERSION: string = "planned/1";
+export const PLANNED_VERSION: string = "planned/2";
 
 /** The words that tell nothing about the thing that an item makes. */
 export const PLAN_STOP_WORDS: ReadonlySet<string> = new Set(
@@ -39,6 +39,11 @@ export interface PlannedPair {
   readonly kind: "both open" | "one done";
   /** True when a title names the repository of the other item: a plan that uses the other, and not a second copy. */
   readonly names: boolean;
+  /**
+   * True when the title words of an item are in the titles of `rolloutRepos` or more repositories. Such an item is a
+   * step of a shared rollout, as a rule of the template. Each repository does it, so it is not a copy.
+   */
+  readonly rollout: boolean;
 }
 
 /** The limits of `plannedPairs`. */
@@ -47,6 +52,8 @@ export interface PlannedOptions {
   readonly minScore?: number;
   /** The fewest shared words of a pair. The default is 2. */
   readonly minShared?: number;
+  /** The fewest repositories with the same title words for a rollout. The default is 3. */
+  readonly rolloutRepos?: number;
 }
 
 /** This function gives the words of a title that tell what the item makes: 3 letters or more, no number, no stop word. */
@@ -66,6 +73,10 @@ export function plannedPairs(items: readonly PlanItem[], options: PlannedOptions
   const minShared = options.minShared ?? 2;
   const sorted = [...items].sort(placeOrder);
   const words = sorted.map((item) => planWords(item.title));
+  const keys = words.map((list) => [...new Set(list)].sort().join(" "));
+  const reposOfKey = new Map<string, Set<string>>();
+  sorted.forEach((item, i) => reposOfKey.set(keys[i]!, (reposOfKey.get(keys[i]!) ?? new Set<string>()).add(item.repo)));
+  const rolloutRepos = options.rolloutRepos ?? 3;
   const df = new Map<string, number>();
   for (const list of words) for (const word of new Set(list)) df.set(word, (df.get(word) ?? 0) + 1);
   const vectors = words.map((list) => {
@@ -98,6 +109,7 @@ export function plannedPairs(items: readonly PlanItem[], options: PlannedOptions
         b,
         kind: a.statusClass === "done" || b.statusClass === "done" ? "one done" : "both open",
         names,
+        rollout: reposOfKey.get(keys[i]!)!.size >= rolloutRepos || reposOfKey.get(keys[j]!)!.size >= rolloutRepos,
       });
     }
   }
@@ -120,11 +132,11 @@ const cell = (text: string): string => {
 
 /** This function writes the pairs as a Markdown section: the pairs of two open plans first, then the others. */
 export function plannedMarkdown(pairs: readonly PlannedPair[], limit = 40): string {
-  const open = pairs.filter((p) => p.kind === "both open" && !p.names);
+  const open = pairs.filter((p) => p.kind === "both open" && !p.names && !p.rollout);
   const lines = [
     "## Planned duplication",
     "",
-    `- Pairs: **${pairs.length}**. Two open plans: ${open.length}. One plan done: ${pairs.filter((p) => p.kind === "one done").length}. A title that names the other repository: ${pairs.filter((p) => p.names).length}.`,
+    `- Pairs: **${pairs.length}**. Two open plans: ${open.length}. One plan done: ${pairs.filter((p) => p.kind === "one done").length}. A title that names the other repository: ${pairs.filter((p) => p.names).length}. A step of a shared rollout: ${pairs.filter((p) => p.rollout).length}.`,
     "- The score is the cosine of the words of the two titles. A high score is a question for the two owners, not a proof.",
   ];
   const table = (title: string, rows: readonly PlannedPair[]): void => {
@@ -136,6 +148,6 @@ export function plannedMarkdown(pairs: readonly PlannedPair[], limit = 40): stri
     }
   };
   table("Two open plans", open);
-  table("One plan is done", pairs.filter((p) => p.kind === "one done" && !p.names));
+  table("One plan is done", pairs.filter((p) => p.kind === "one done" && !p.names && !p.rollout));
   return `${lines.join("\n")}\n`;
 }

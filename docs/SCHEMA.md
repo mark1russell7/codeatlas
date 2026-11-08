@@ -182,6 +182,7 @@ The plans of each repository, from each `ROADMAP.md` that git keeps. The parse i
 - The query `plannedDuplication` (CA5) gives each pair of items of two repositories with words in common. The score is the cosine of the TF-IDF vectors of the two titles.
 - A pair of two done items is history, so the query does not give it. A pair with one done item tells that one plan can use the other.
 - A title that names the repository of the other item is a plan that uses the other. Such a pair is not a copy.
+- An item whose title words are in the titles of 3 or more repositories is a step of a shared rollout, as a rule of the template. Each repository does it, so its pairs are not in the tables.
 
 ### `template_pin`, `template_file`, `template_version`, `template_use` and `stamp_check`
 
