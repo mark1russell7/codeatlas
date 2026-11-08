@@ -109,6 +109,9 @@ describe("moveOf", () => {
     expect(moveOf({ repo: "client", app: false }, "system-io")).toBe("none");
     expect(moveOf(general, "prose")).toBe("none");
     expect(moveOf(general, "none")).toBe("none");
+    // A home package in another repository of the area is in its home
+    expect(moveOf({ repo: "otel-ts", app: false, name: "@mark1russell7/otel-ts" }, "browser-monitoring")).toBe("none");
+    expect(moveOf({ repo: "otel-ts", app: false }, "browser-monitoring")).toBe("pr");
   });
 });
 
