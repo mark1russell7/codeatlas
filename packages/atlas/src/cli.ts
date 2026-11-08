@@ -6,6 +6,8 @@
  * - `codeatlas corpus [--out corpus.json] [--markdown corpus.md] [--repos-dir <folder>] [<name>=<path> ...]`
  * - `codeatlas catalog [--out catalog.sqlite] [--markdown catalog.md] [--repos-dir <folder>] [<name>=<path> ...]`
  * - `codeatlas facts [--out facts.jsonl] [--markdown facts.md] [--cache <facts.jsonl>] [--repos-dir <folder>] [<name>=<path> ...]`
+ * - `codeatlas sample --db <catalog.sqlite> --out <sample.json>`
+ * - `codeatlas agreement --sample <sample.json> --a <a.jsonl> --b <b.jsonl> --out <agreement.json>`
  * - `codeatlas trend --db <catalog.sqlite> [--previous <trend.json>] --out <trend.json>`
  * - `codeatlas clone --owner <owner> --into <folder>`
  *
@@ -14,6 +16,8 @@
  *
  * The command catalog writes the same facts into a SQLite database. Its blobs are the cache of the next run.
  * The command facts writes the Layer 1a facts of each blob as JSON Lines. A cache from an earlier output saves each parse of a known blob.
+ * The command sample draws the seeded sample of functions of `SAMPLE_PLAN` from a catalog, for the labels of Layer 2.
+ * The command agreement compares two drafts of labels of the sample, and writes the kappa, the confusion and the audit.
  * The command trend adds the point of a catalog to the trend file of the last build.
  * The command queries writes the answers of the query set of a catalog as JSON, for the site.
  */
@@ -22,6 +26,8 @@ import { join } from "node:path";
 import { buildAtlas } from "./atlas.ts";
 import { cacheOf, factsKey, factsOfRepo, type BlobFacts, type FactsLine } from "./blobs.ts";
 import { queryOf } from "./query.ts";
+import { agreementOf, type DraftLabel } from "./agreement.ts";
+import { populationOf, sampleFile, SAMPLE_PLAN, type SampleFile } from "./sample.ts";
 import { Catalog } from "./store.ts";
 import { addPoint, trendPoint } from "./trend.ts";
 import { querySet } from "./query-set.ts";
@@ -76,6 +82,8 @@ const USAGE = `Usage:
   codeatlas build [--out atlas.json] [--markdown atlas.md] [--min-nodes 40] [--repos-dir <folder>] [<name>=<path> ...]
   codeatlas corpus [--out corpus.json] [--markdown corpus.md] [--repos-dir <folder>] [<name>=<path> ...]
   codeatlas catalog [--out catalog.sqlite] [--markdown catalog.md] [--repos-dir <folder>] [<name>=<path> ...]
+  codeatlas sample --db <catalog.sqlite> --out <sample.json>
+  codeatlas agreement --sample <sample.json> --a <a.jsonl> --b <b.jsonl> --out <agreement.json>
   codeatlas trend --db <catalog.sqlite> [--previous <trend.json>] --out <trend.json>
   codeatlas queries --db <catalog.sqlite> --out <queries.json>
   codeatlas facts [--out facts.jsonl] [--markdown facts.md] [--cache <facts.jsonl>] [--repos-dir <folder>] [<name>=<path> ...]
@@ -97,6 +105,8 @@ function main(argv: readonly string[]): number | Promise<number> {
   if (command === "corpus") return corpus(rest);
   if (command === "facts") return facts(rest);
   if (command === "catalog") return catalog(rest);
+  if (command === "sample") return sample(rest);
+  if (command === "agreement") return agreement(rest);
   if (command === "trend") return trend(rest);
   if (command === "queries") return queries(rest);
   if (command !== "build") {
@@ -209,6 +219,52 @@ function catalog(argv: readonly string[]): number {
   if (args.markdown !== undefined) writeFileSync(args.markdown, factsMarkdown(summary));
   console.error(`catalog: ${summary.repos} repositories, ${summary.files} files, ${summary.parsed} parsed, ${summary.reused} from the cache (${known} blobs known), ${summary.errors} errors, ${Math.round(ms)} ms`);
   return report(gateVerdict(summary, unread));
+}
+
+/** This function draws the sample of `SAMPLE_PLAN` from the catalog `--db`, and writes the sample file `--out`. */
+async function sample(argv: readonly string[]): Promise<number> {
+  const db = argv.includes("--db") ? argv[argv.indexOf("--db") + 1] : undefined;
+  const out = argv.includes("--out") ? argv[argv.indexOf("--out") + 1] : undefined;
+  if (db === undefined || out === undefined) {
+    console.error(USAGE);
+    return 2;
+  }
+  const catalog = new Catalog(db);
+  try {
+    const population = await populationOf(queryOf(catalog.db));
+    const file = sampleFile(population, SAMPLE_PLAN.seed, SAMPLE_PLAN.tasks, SAMPLE_PLAN.size);
+    writeFileSync(out, `${JSON.stringify(file, null, 1)}
+`);
+    console.error(`sample: ${file.size} of ${file.population} classes, seed ${file.seed}, ${file.tasks.map((task) => `${task.task} n=${task.n}`).join(", ")}`);
+    return 0;
+  } finally {
+    catalog.close();
+  }
+}
+
+/** This function compares the drafts `--a` and `--b` of the sample `--sample`, and writes the agreement file `--out`. */
+function agreement(argv: readonly string[]): number {
+  const arg = (name: string): string | undefined => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined);
+  const [samplePath, a, b, out] = [arg("--sample"), arg("--a"), arg("--b"), arg("--out")];
+  if (samplePath === undefined || a === undefined || b === undefined || out === undefined) {
+    console.error(USAGE);
+    return 2;
+  }
+  const draft = (path: string): DraftLabel[] =>
+    readFileSync(path, "utf8")
+      .split("\n")
+      .filter((line) => line.trim() !== "")
+      .map((line) => JSON.parse(line) as DraftLabel);
+  const file = agreementOf(JSON.parse(readFileSync(samplePath, "utf8")) as SampleFile, draft(a), draft(b));
+  writeFileSync(out, `${JSON.stringify(file, null, 1)}\n`);
+  const pct = (x: number): string => `${(100 * x).toFixed(1)}%`;
+  console.error(`agreement: other ${pct(file.other.a)} and ${pct(file.other.b)} (limit ${pct(file.other.limit)}, ${file.other.pass ? "pass" : "fail"})`);
+  for (const task of file.tasks) {
+    const k = task.kappa.kappa === undefined ? "none" : task.kappa.kappa.toFixed(3);
+    console.error(`agreement: ${task.task} n=${task.n} kappa ${k} [${task.interval.low.toFixed(3)}, ${task.interval.high.toFixed(3)}], ${task.disagree.length} disagree, audit ${task.audit.length}`);
+  }
+  console.error(`agreement: the person labels ${file.person.length} items`);
+  return file.other.pass ? 0 : 1;
 }
 
 /** This function adds the point of the catalog `--db` to the trend `--previous`, and writes the trend `--out`. */

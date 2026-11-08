@@ -9,7 +9,6 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 | ID | Status | Priority | Title |
 | --- | --- | --- | --- |
 | CA12 | in progress | P1 | A hand-labeled sample, for the precision and recall of each judgment category |
-| CA17 | in progress | P1 | The query set on the site: quality, features and duplication |
 
 ## Next
 
@@ -35,6 +34,7 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 
 | ID | Status | Priority | Title |
 | --- | --- | --- | --- |
+| CA17 | done 2026-11-08 | P1 | The query set on the site: quality, features and duplication |
 | CA2 | done 2026-11-08 | P2 | The trend: the catalog of each week as history, by repository |
 | CA10 | done 2026-11-08 | P1 | Layer 3: the algebra, a SQLite schema with a typed query layer |
 | CA9 | done 2026-11-08 | P1 | Layer 1 in CI over all public repositories, into one SQLite database |

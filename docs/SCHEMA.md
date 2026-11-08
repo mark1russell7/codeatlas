@@ -198,9 +198,48 @@ A fact about a subject that tells of a problem or a risk.
 
 | Column | Type | Meaning |
 | --- | --- | --- |
-| `subject`, `task` | key | |
-| `label` | JSON | The true answer. |
-| `by`, `at` | text, time | |
+| `subject`, `task`, `by` | key | The `hash_renamed` of a function, the task, and the source of the label. |
+| `label` | JSON | The answer of the source. |
+| `at` | time | |
+
+The sample file in the repository holds the draw: its seed, its rule, the size of each task and the items. The command `codeatlas sample` writes it from a catalog. Each source labels blind. Two drafts and an audit by a person give the true answer of each item, and the key keeps each source apart.
+
+#### The label sets
+
+These rules are fixed before the first draft. A change of a rule gives a new version of the label sets, and all drafts of the sample run again.
+
+The task `home` labels the first `n` items of the sample, and the task `purpose` labels its first `n` items. The sample file gives each `n`.
+
+A label of the task `home` is `{ "area": <id> }`. The id is the area of `conventions map` that covers the main job of the function. The function can be in that home now, or outside it. The id `none` tells that no area covers the job: the code belongs to its own repository. The labels file records the version of `@mark1russell7/conventions` that gave the map.
+
+A label of the task `purpose` is `{ "category": <id>, "sentence": <text> }`. The sentence tells the purpose of the function in 25 words or fewer. The category is one of the 13 below. A function with two or more jobs gets the category of the reason that it exists: its main output.
+
+| Category | Definition | Example |
+| --- | --- | --- |
+| `parse` | It makes structured values from text or bytes. | A function that reads a version string into its major, minor and patch numbers. |
+| `format-text` | It makes text for a person or a file from values. | A function that writes the results as a Markdown table. |
+| `validate` | It examines a value against rules, and reports or throws on a break. | A function that throws a `TypeError` when a stored record has no path. |
+| `transform-data` | It changes the form of data in memory, with no domain calculation. | A function that groups the rows by repository and sorts each group. |
+| `compute` | It calculates a value: numbers, geometry, statistics, hashes or an algorithm. | A function that gives a quantile, or the positions of the boxes of a layout. |
+| `file-io` | It reads or writes files and folders. | A function that writes a JSON file atomically. |
+| `process-io` | It starts processes, runs commands, or reads the environment of the process. | A function that runs `git log` and gives its lines. |
+| `network-io` | It sends or receives data over a network: HTTP, WebSocket or a socket. | A function that fetches a page, with a retry on a timeout. |
+| `state-control` | It controls state, time or order: state machines, queues, schedules, retries, events and life cycles. | A function that runs a loop with a backoff until a check passes. |
+| `config-build` | It makes or reads the configuration, the build, the CI or the structure of a project. | A function that writes a `tsconfig.json` from presets. |
+| `ui-render` | It makes or changes a user interface: DOM, SVG, canvas or terminal output. | A function that draws a chart as SVG elements. |
+| `test-support` | Its job is a test: fixtures, fakes, input generators or assertions. | A fake shell that a test gives to the code under test. |
+| `other` | No category above tells its job. | A function whose job is none of the above. |
+
+The rule for `other`: if a draft puts more than 10% of the items of the task `purpose` in `other`, the list is not complete. The list then gets a new version, and both drafts run again before a reader sees the agreement.
+
+#### The drafts and the audit
+
+- Two drafts label each item blind. Each draft reads the items in its own order, and neither draft sees the other draft or a result.
+- The agreement of the two drafts is Cohen's kappa of each task, with a bootstrap interval over the items. A confusion table shows each pair of labels that the drafts mix. Both come from `@mark1russell7/rigor-statistics`.
+- A person labels each item where the drafts disagree, and a seeded audit of the agreed items (`auditOf`).
+- The audit size of a task is `wilsonSampleSize` of its target and the expected agreement `AUDIT_EXPECTED` (0.97). The sample file keeps the largest.
+- If the audit agrees with the drafts at a Wilson lower end at or above the target of the task, the agreed drafts are the truth. If not, the person labels each item of the task.
+- The person also marks the sentence of each audited item as right or wrong. The site reports that share, and no gate reads it.
 
 ### `run` and `measure`
 
