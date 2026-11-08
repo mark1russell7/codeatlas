@@ -138,6 +138,8 @@ We tried two changes of `homeHas` on the 47 labels. Neither change is in the cod
 - At 30 or fewer modules, 12 of 34 hits are right, 0.353 [0.215, 0.521]. That is the same as no rule.
 - The labels give the rule its limit. Thus the rates are in-sample, and a new sample is necessary to test the rule.
 - `homeHas` stays as it is: it gives 3 leads for the owners to read.
+- There is no new round of labels. Each owner answer from the normal work goes into `homehas-1.jsonl` with the same fields.
+- At about 100 labels, we test the two changes again on the new labels only.
 
 ## The owner verdicts of the class members (CA14)
 
