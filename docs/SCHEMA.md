@@ -184,6 +184,7 @@ The plans of each repository, from each `ROADMAP.md` that git keeps. The parse i
 - A title that names the repository of the other item is a plan that uses the other. Such a pair is not a copy.
 - An item whose title words are in the titles of 3 or more repositories is a step of a shared rollout, as a rule of the template. Each repository does it, so its pairs are not in the tables.
 - A pair whose shared words are all words of one rule of the conventions or one home of the map is `explained`. The owners judged such pairs as two plans, so they are not in the tables.
+- `homeHas` names up to 3 modules of the home repositories with 2 or more shared words of the pair, and 1 or more in the path. A home can already have the shared part.
 
 ### `template_pin`, `template_file`, `template_version`, `template_use` and `stamp_check`
 

@@ -8,7 +8,7 @@ import { wordsOf } from "./atlas.ts";
 import type { CatalogQuery } from "./query.ts";
 import type { StatusClass } from "./roadmaps.ts";
 
-export const PLANNED_VERSION: string = "planned/3";
+export const PLANNED_VERSION: string = "planned/4";
 
 /** The words that tell nothing about the thing that an item makes. */
 export const PLAN_STOP_WORDS: ReadonlySet<string> = new Set(
@@ -50,6 +50,26 @@ export interface PlannedPair {
    * a rule or of a home. The owners judged such pairs as two different plans, so they are not a question for the owners.
    */
   readonly explained: string | null;
+  /**
+   * The modules of a home that already have a part of the plan, the best first. A module counts when its path and
+   * exported names have 2 or more shared words. Its path must have 1 or more of them.
+   */
+  readonly homeHas: readonly HomeMatch[];
+}
+
+/** A module of a home repository, with its exported names. */
+export interface HomeModule {
+  readonly repo: string;
+  readonly path: string;
+  readonly names: readonly string[];
+}
+
+/** A module of a home with shared words of a pair. */
+export interface HomeMatch {
+  readonly repo: string;
+  readonly path: string;
+  /** The shared words of the pair that the module has. */
+  readonly words: readonly string[];
 }
 
 /** A rule or a home whose words explain a pair: the two plans share only these words. */
@@ -81,7 +101,43 @@ export interface PlannedOptions {
   readonly rolloutRepos?: number;
   /** The rules and homes that explain a pair. The default is none. */
   readonly explainers?: readonly Explainer[];
+  /** The modules of the homes, for `homeHas`. The default is none. */
+  readonly homeModules?: readonly HomeModule[];
+  /** The most modules in `homeHas`. The default is 3. */
+  readonly homeTop?: number;
 }
+
+const PATH_STOP_WORDS: ReadonlySet<string> = new Set(["src", "index", "mts", "tsx", "lib", "util", "utils", "core", "types"]);
+
+/** The words of a path after its last `src/`, without the words that every path has. */
+const pathWords = (path: string): string[] => {
+  const at = path.lastIndexOf("src/");
+  return planWords(at < 0 ? path : path.slice(at + 4)).filter((word) => !PATH_STOP_WORDS.has(word) && word !== "ts");
+};
+
+/** This function gives a function that finds the modules of a home with the shared words of a pair. */
+function homeMatcher(modules: readonly HomeModule[], top: number): (shared: readonly string[]) => HomeMatch[] {
+  const indexed = modules.map((m) => {
+    const path = new Set(pathWords(m.path).map(stem));
+    const all = new Set([...path, ...planWords(m.names.join(" ")).map(stem)]);
+    return { module: m, path, all };
+  });
+  const df = new Map<string, number>();
+  for (const { path } of indexed) for (const word of path) df.set(word, (df.get(word) ?? 0) + 1);
+  const idf = (word: string): number => Math.log((1 + indexed.length) / (1 + (df.get(word) ?? 0))) + 1;
+  return (shared) => {
+    const words = [...new Set(shared.map(stem))];
+    const hits: { score: number; match: HomeMatch }[] = [];
+    for (const { module, path, all } of indexed) {
+      const had = words.filter((word) => all.has(word));
+      if (had.length < 2 || !had.some((word) => path.has(word))) continue;
+      hits.push({ score: had.reduce((sum, word) => sum + idf(word), 0), match: { repo: module.repo, path: module.path, words: had } });
+    }
+    hits.sort((x, y) => y.score - x.score || byText(x.match.repo, y.match.repo) || byText(x.match.path, y.match.path));
+    return hits.slice(0, top).map((hit) => hit.match);
+  };
+}
+
 
 /** This function gives the words of a title that tell what the item makes: 3 letters or more, no number, no stop word. */
 export function planWords(title: string): string[] {
@@ -107,6 +163,7 @@ export function plannedPairs(items: readonly PlanItem[], options: PlannedOptions
   const explainers = (options.explainers ?? []).map((e) => ({ name: e.name, words: new Set(planWords(e.text).map(stem)) }));
   const explainedBy = (shared: readonly string[]): string | null =>
     explainers.find((e) => shared.every((word) => e.words.has(stem(word))))?.name ?? null;
+  const homeHas = homeMatcher(options.homeModules ?? [], options.homeTop ?? 3);
   const df = new Map<string, number>();
   for (const list of words) for (const word of new Set(list)) df.set(word, (df.get(word) ?? 0) + 1);
   const vectors = words.map((list) => {
@@ -142,6 +199,7 @@ export function plannedPairs(items: readonly PlanItem[], options: PlannedOptions
         names,
         rollout: reposOfKey.get(keys[i]!)!.size >= rolloutRepos || reposOfKey.get(keys[j]!)!.size >= rolloutRepos,
         explained: explainedBy(words),
+        homeHas: homeHas(words),
       });
     }
   }
@@ -149,14 +207,42 @@ export function plannedPairs(items: readonly PlanItem[], options: PlannedOptions
 }
 
 /**
+ * This function gives the modules of the home repositories of the map. Each module is a source file with its exported
+ * names. Tests and site packages are not modules.
+ */
+export async function homeModulesOf(q: CatalogQuery, repos: readonly string[] = HOMES.map((home) => home.repo.slice(home.repo.indexOf("/") + 1))): Promise<HomeModule[]> {
+  if (repos.length === 0) return [];
+  const rows = await q
+    .selectFrom("current_file as f")
+    .innerJoin("symbol as s", "s.blob", "f.blob")
+    .where("f.test", "=", 0)
+    .where("s.exported", "=", 1)
+    .where("f.repo", "in", [...new Set(repos)])
+    .select(["f.repo as repo", "f.path as path", "s.name as name"])
+    .orderBy("repo")
+    .orderBy("path")
+    .orderBy("name")
+    .execute();
+  const modules = new Map<string, { repo: string; path: string; names: string[] }>();
+  for (const row of rows) {
+    if (!row.path.includes("src/") || /(^|\/)site\//.test(row.path)) continue;
+    const key = `${row.repo}:${row.path}`;
+    const module = modules.get(key) ?? { repo: row.repo, path: row.path, names: [] };
+    if (!module.names.includes(row.name)) module.names.push(row.name);
+    modules.set(key, module);
+  }
+  return [...modules.values()];
+}
+
+/**
  * This function gives the planned pairs of the roadmap items of the current snapshots of the catalog. The default
- * explainers are the rules and the homes of `explainersOf`.
+ * explainers are the rules and the homes of `explainersOf`. The default home modules are those of `homeModulesOf`.
  */
 export async function plannedDuplication(q: CatalogQuery, options: PlannedOptions = {}): Promise<PlannedPair[]> {
   const rows = await q.selectFrom("current_roadmap_item").select(["repo", "path", "id", "title", "status_class"]).execute();
   return plannedPairs(
     rows.map((row) => ({ repo: row.repo, path: row.path, id: row.id, title: row.title, statusClass: row.status_class as StatusClass })),
-    { explainers: explainersOf(), ...options },
+    { explainers: explainersOf(), homeModules: options.homeModules ?? (await homeModulesOf(q)), ...options },
   );
 }
 
@@ -174,13 +260,15 @@ export function plannedMarkdown(pairs: readonly PlannedPair[], limit = 40): stri
     "",
     `- Pairs: **${pairs.length}**. Two open plans: ${open.length}. One plan done: ${pairs.filter((p) => p.kind === "one done").length}. A title that names the other repository: ${pairs.filter((p) => p.names).length}. A step of a shared rollout: ${pairs.filter((p) => p.rollout).length}. Shared words of a rule or a home only: ${pairs.filter((p) => p.explained !== null).length}.`,
     "- The score is the cosine of the words of the two titles. A high score is a question for the two owners, not a proof.",
+    `- A module of a home with shared words of the pair: ${open.filter((p) => p.homeHas.length > 0).length} of the ${open.length} pairs of two open plans. Show it to the owners with the pair.`,
   ];
   const table = (title: string, rows: readonly PlannedPair[]): void => {
     if (rows.length === 0) return;
-    lines.push("", `### ${title}`, "", "| Score | Item | Other item | Shared words |", "| ---: | --- | --- | --- |");
+    lines.push("", `### ${title}`, "", "| Score | Item | Other item | Shared words | The home has |", "| ---: | --- | --- | --- | --- |");
     for (const p of rows.slice(0, limit)) {
       const item = (i: PlanItem): string => `\`${i.repo}\` ${i.id} (${i.statusClass}): ${cell(i.title)}`;
-      lines.push(`| ${p.score.toFixed(3)} | ${item(p.a)} | ${item(p.b)} | ${p.shared.slice(0, 6).join(", ")} |`);
+      const has = p.homeHas.map((m) => `\`${m.repo}\` ${cell(m.path)}`).join("<br>");
+      lines.push(`| ${p.score.toFixed(3)} | ${item(p.a)} | ${item(p.b)} | ${p.shared.slice(0, 6).join(", ")} | ${has} |`);
     }
   };
   table("Two open plans", open);

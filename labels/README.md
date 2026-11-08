@@ -10,7 +10,8 @@ This folder holds the hand-labeled sample of Layer 2. `docs/SCHEMA.md` gives the
 | `rater-c.jsonl` | A third blind model rater of the 97 items of the audit: the home, the category and a verdict on the sentence. It is not a person. |
 | `owners-1.jsonl` | The verdicts of the owners of the copies on 50 moves of `moves-1.md`, each with its reason. |
 | `missed-1.jsonl` | The copies that the owners found and the atlas did not list. |
-| `members-1.jsonl` | The other copies of each clone class of the subset, with their moves. The lists named only one copy of each class. |
+| `members-1.jsonl` | The other copies of each clone class of the subset, with their moves, and the owner verdict of each `pr` move. The lists named only one copy of each class. |
+| `planned-1.jsonl`, `planned-2.jsonl` | The owner verdicts of the planned pairs of CA5, round 1 and round 2. |
 | `owner-homes-1.jsonl` | The home of each of the 50 functions with an owner verdict, from that verdict. It is a labeled sample for CA12. |
 | `pilot-1.jsonl` | The labels of the first pilot of Layer 2 (CA13): 172 functions of `otel-ts`, `page-lifecycle-tracker` and `ste-lint`, from one blind model. |
 
@@ -87,3 +88,26 @@ A gap is code with no allowed home. The pilot found these gaps:
 - The filter `explained` comes from these keeps. A pair is explained when one rule or one home has each of its shared words.
 - On the 10 pairs, the filter explains 5 of the 6 keeps and none of the 4 splits. The 10 pairs made the filter, so this is not an independent test.
 - Of the 36 other pairs of two open plans, the filter explains 5. The 31 others go to their owners.
+
+### Round 2
+
+`planned-2.jsonl` has the owner verdicts of the 31 other pairs of two open plans.
+
+- 13 pairs are right, all splits: 0.419 [0.264, 0.592]. 18 are keeps. With round 1, 17 of 41 are right: 0.415.
+- In 3 pairs the two owners did not agree. The field `tieBreak` gives the verdict of a maintainer or of this repository, with the reason.
+- The shared parts go to the rigor bench harness, `rigor-statistics`, `strategy-space`, `layout-contract` and `site-pages`.
+- In 9 of the 13 splits, a home already had the shared part, or a part of it. The owners did not know this.
+- Thus the field `homeHas` of `planned/4` names the modules of a home with shared words of the pair.
+- A module counts when its path and its exported names have 2 or more shared words, and its path has 1 or more.
+- For 5 of the 9 splits, the right module is in the first 3 of `homeHas`. The 4 splits with a new part get no module.
+- `homeHas` does not find a module that has only one shared word, for example the explorer of `site-pages` for `CA5-P19`.
+
+## The owner verdicts of the class members (CA14)
+
+The field `owner` of `members-1.jsonl` has the verdict of the owner of each of the 26 `pr` moves.
+
+- 18 are moves to the home of the atlas: 0.692 [0.500, 0.835].
+- 4 are a right merge with the wrong home. The writers of a corpus manifest go to `layout-contract`, not `rigor-generators`.
+- 3 are keeps, and 1 is wrong: a frozen copy that a test uses as the oracle of the home.
+- Thus 22 of the 26 are real copies: 0.846 [0.665, 0.938].
+- The owners found 4 more copies of the manifest writer with a different shape. They are near copies, for CA6.
