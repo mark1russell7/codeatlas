@@ -96,6 +96,17 @@ describe("the dependencies of the catalog", () => {
     ]);
   });
 
+  it("scans a snapshot again over its manifests", () => {
+    const again = new Catalog(":memory:");
+    for (let i = 0; i < 2; i++) {
+      const result = factsOfRepo("a", roots.a, again);
+      const snapshot = again.putSnapshot("a", "c0", "2026-11-08T00:00:00Z", "test", result.files, result.counts);
+      again.putManifests(snapshot, manifestsOfRepo(roots.a));
+    }
+    expect(again.db.prepare("SELECT count(*) AS n FROM current_manifest").get()).toEqual({ n: 2 });
+    again.close();
+  });
+
   it("gives each dependency that the registry does not resolve", async () => {
     expect(await pinnedDependencies(q)).toEqual([{ repo: "a", path: "package.json", field: "dependencies", name: "left", range: "github:o/left#abc", kind: "github", private: false }]);
   });
