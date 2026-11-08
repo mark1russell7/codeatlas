@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { callerOf } from "@procedures/client";
 import { createMcpHost } from "@procedures/mcp-server";
 import { queryOf } from "./query.ts";
-import { readOnlyCatalog } from "./store.ts";
+import { Catalog, readOnlyCatalog } from "./store.ts";
 import { atlasTools } from "./tools.ts";
 
 const VERSION = (JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }).version;
@@ -15,24 +15,30 @@ const VERSION = (JSON.parse(readFileSync(new URL("../package.json", import.meta.
 export const MCP_INSTRUCTIONS: string =
   "The tools answer questions of the codeatlas catalog of the public repositories. Ask them before you read code again. " +
   "Before you write a helper, call atlas.find with its name: it gives the copies of each function and the home of its name. " +
-  "atlas.copies gives the copies of one function, atlas.homes gives the functions outside their homes, and atlas.importers gives the users of a package.";
+  "atlas.copies gives the copies of one function, atlas.homes gives the functions outside their homes, and atlas.importers gives the users of a package. " +
+  "With --write, atlas.rescan scans one repository again from a local clone after a change, so the answers are current.";
 
 const flag = (argv: readonly string[], name: string): string | undefined => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined);
 
-/** This function serves the tools over the catalog `--db` as MCP tools on the standard input and output, until the input ends. */
+/**
+ * This function serves the tools over the catalog `--db` as MCP tools on the standard input and output, until the
+ * input ends. With `--write`, the host can write the catalog, and it serves `atlas.rescan` too.
+ */
 export async function mcpCommand(argv: readonly string[]): Promise<number> {
   const db = flag(argv, "--db");
   if (db === undefined) {
-    console.error("Usage: codeatlas mcp --db <catalog.sqlite>");
+    console.error("Usage: codeatlas mcp --db <catalog.sqlite> [--write]");
     return 2;
   }
-  const catalog = readOnlyCatalog(db);
+  const write = argv.includes("--write");
+  const writable = write ? new Catalog(db) : undefined;
+  const catalog = writable?.db ?? readOnlyCatalog(db);
   try {
-    const tools = atlasTools(queryOf(catalog));
+    const tools = atlasTools(queryOf(catalog), { writable });
     const host = createMcpHost({
       modules: [tools.module],
       surface: { namespaces: ["atlas"] },
-      readOnly: true,
+      readOnly: !write,
       name: "codeatlas",
       version: VERSION,
       instructions: MCP_INSTRUCTIONS,
@@ -43,7 +49,8 @@ export async function mcpCommand(argv: readonly string[]): Promise<number> {
     await host.closed;
     return 0;
   } finally {
-    catalog.close();
+    if (writable === undefined) catalog.close();
+    else writable.close();
   }
 }
 

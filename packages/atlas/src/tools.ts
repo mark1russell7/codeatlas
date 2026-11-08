@@ -1,7 +1,8 @@
 /**
  * The tools of agents over the catalog (CA16) are typed procedures of `@procedures/client`. They answer questions of the
  * catalog, so an agent asks the catalog in place of reading the code again. `codeatlas mcp` serves them as MCP
- * tools, and `codeatlas tool` calls one of them from the command line. Each tool reads the catalog and changes nothing.
+ * tools, and `codeatlas tool` calls one of them from the command line. Each tool reads the catalog and changes nothing,
+ * except `atlas.rescan`. It is only in the package when the host gives a catalog that it can write.
  */
 import { createProcedure, definePackage, type Effects, type PackageDefinition } from "@procedures/client";
 import { sql } from "kysely";
@@ -10,9 +11,14 @@ import { homeOf } from "./atlas.ts";
 import { homeCandidates, type HomeCandidate } from "./candidates.ts";
 import { CLONE_LEVELS, copiesOf, importersOf, type CloneLevel, type FunctionPlace, type ImportPlace } from "./queries.ts";
 import type { CatalogQuery } from "./query.ts";
+import { rescanRepo, type RescanResult } from "./rescan.ts";
+import type { Catalog } from "./store.ts";
 
 /** The effects of each tool: it reads the catalog and changes nothing. */
 export const CATALOG_READ_EFFECTS: Effects = Object.freeze({ reads: Object.freeze(["catalog"]), writes: Object.freeze([]), idempotent: true, destructive: false });
+
+/** The effects of `atlas.rescan`: it reads a checkout and writes the catalog. A second call with no new commit changes nothing. */
+export const CATALOG_WRITE_EFFECTS: Effects = Object.freeze({ reads: Object.freeze(["catalog", "fs"]), writes: Object.freeze(["catalog"]), idempotent: true, destructive: false });
 
 /** The most rows that one answer of a tool gives. A larger answer costs the tokens of the agent. */
 export const TOOL_ROW_LIMIT = 200;
@@ -209,11 +215,47 @@ const ImportersOutput: z.ZodType<{ importers: ImportPlace[] }> = z.object({
   importers: z.array(z.object({ repo: z.string(), path: z.string(), line: z.number(), kind: z.string() })),
 });
 
-const meta = (description: string) => ({ description, args: [], shorts: {}, output: "json", effects: CATALOG_READ_EFFECTS });
+const meta = (description: string, effects: Effects = CATALOG_READ_EFFECTS) => ({ description, args: [], shorts: {}, output: "json", effects });
+
+const RescanInput = z.object({
+  repo: z.string().min(1).describe("The name of a repository of the catalog, for example codeatlas"),
+  path: z.string().min(1).describe("The absolute path of a clean clone of the repository. Its remote origin must have the name of the repository"),
+});
+
+const RescanOutput: z.ZodType<RescanResult> = z.object({
+  repo: z.string(),
+  commit: z.string().nullable(),
+  before: z.string().nullable().describe("The commit of the snapshot before the rescan"),
+  files: z.number(),
+  parsed: z.number().describe("The blobs that the rescan parsed. The other files come from the cache"),
+  reused: z.number(),
+  errors: z.number(),
+  ms: z.number(),
+});
+
+/** The options of `atlasTools`. */
+export interface AtlasToolsOptions {
+  /** A catalog that the tools can write. With it, the package has `atlas.rescan`. */
+  readonly writable?: Catalog | undefined;
+}
 
 /** This function gives the package of the tools over the catalog that `q` reads. */
-export function atlasTools(q: CatalogQuery): PackageDefinition {
+export function atlasTools(q: CatalogQuery, options: AtlasToolsOptions = {}): PackageDefinition {
+  const writable = options.writable;
+  const rescan =
+    writable === undefined
+      ? []
+      : [
+          createProcedure()
+            .path(["atlas", "rescan"])
+            .input(RescanInput)
+            .output(RescanOutput)
+            .meta(meta("Scan one repository of the catalog again from a local clone. Only new blobs are parsed", CATALOG_WRITE_EFFECTS))
+            .handler(async (input) => rescanRepo(writable, input.repo, input.path))
+            .build(),
+        ];
   return definePackage("codeatlas", [
+    ...rescan,
     createProcedure()
       .path(["atlas", "repos"])
       .input(z.object({}))

@@ -33,7 +33,7 @@ The scan reads the files that git keeps, so build output and `node_modules` stay
 
 ## Tools for agents
 
-An agent can ask the catalog in place of reading the code again. The tools read the catalog and change nothing.
+An agent can ask the catalog in place of reading the code again. The tools read the catalog and change nothing, except `atlas.rescan`.
 
 | Tool | Answer |
 | --- | --- |
@@ -42,6 +42,7 @@ An agent can ask the catalog in place of reading the code again. The tools read 
 | `atlas.copies` | The copies of one function at one clone level. |
 | `atlas.homes` | The functions outside their homes of the map of homes. |
 | `atlas.importers` | Each import of a specifier. |
+| `atlas.rescan` | A new scan of one repository of the catalog from a local clone. Only new blobs are parsed. |
 
 Each catalog run of CI keeps its catalog for 14 days as the artifact `catalog`. Download it, then serve the tools or call one:
 
@@ -50,6 +51,8 @@ gh run download --repo mark1russell7/codeatlas --name catalog --dir .
 node packages/atlas/src/cli.ts mcp --db catalog.sqlite
 node packages/atlas/src/cli.ts tool find '{"name":"median"}' --db catalog.sqlite
 ```
+
+The server has `atlas.rescan` only with `--write`, because that tool writes the catalog. The repository must be in the catalog already, and the remote `origin` of the clone must have its name. Thus a rescan cannot add a repository. The stamp check and the content of new pins wait for the next catalog run.
 
 To add the tools to Claude Code, start `claude mcp add codeatlas -- node <repo>/packages/atlas/src/cli.ts mcp --db <catalog.sqlite>`.
 

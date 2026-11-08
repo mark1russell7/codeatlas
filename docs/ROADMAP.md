@@ -23,7 +23,6 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 | ID | Status | Priority | Title |
 | --- | --- | --- | --- |
 | CA15 | later | P2 | Layer 2 fan-out over all public repositories |
-| CA16 | in progress | P2 | Tools for agents: query the catalog and scan again, fast and cheap |
 | CA18 | later | P2 | Gates: freshness of each repository, cost per 1000 lines, precision of each category |
 | CA4 | later | P2 | The private repositories: a local scan into a separate private database |
 | CA5 | later | P2 | Planned duplication: two roadmap items in two repositories that make the same thing |
@@ -33,6 +32,7 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 
 | ID | Status | Priority | Title |
 | --- | --- | --- | --- |
+| CA16 | done 2026-11-08 | P2 | Tools for agents: query the catalog and scan again, fast and cheap |
 | CA3 | done 2026-11-08 | P2 | The rigor candidates: for each topic, the classes that a shared library removes |
 | CA17 | done 2026-11-08 | P1 | The query set on the site: quality, features and duplication |
 | CA2 | done 2026-11-08 | P2 | The trend: the catalog of each week as history, by repository |
