@@ -82,6 +82,7 @@ export interface CatalogColumns {
   readonly resolution: { readonly oid: "text"; readonly manifest: "text"; readonly field: "text"; readonly name: "text"; readonly specifier: "text"; readonly version: "text" };
   readonly template_pin: TemplatePinColumns;
   readonly template_file: TemplateFileColumns;
+  readonly template_commit: { readonly snapshot: "text"; readonly ordinal: "integer"; readonly sha: "text" };
   readonly label: { readonly subject: "text"; readonly task: "text"; readonly by: "text"; readonly label: "text"; readonly at: "text" };
   readonly current_snapshot: SnapshotColumns;
   readonly current_file: { readonly repo: "text" } & FileColumns;
@@ -184,6 +185,7 @@ export const CATALOG_COLUMNS: CatalogColumns = {
   resolution: { oid: "text", manifest: "text", field: "text", name: "text", specifier: "text", version: "text" },
   template_pin: TEMPLATE_PIN,
   template_file: TEMPLATE_FILE,
+  template_commit: { snapshot: "text", ordinal: "integer", sha: "text" },
   label: { subject: "text", task: "text", by: "text", label: "text", at: "text" },
   current_snapshot: SNAPSHOT,
   current_file: { repo: "text", ...FILE },

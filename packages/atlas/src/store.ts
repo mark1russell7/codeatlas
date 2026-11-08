@@ -76,6 +76,9 @@ CREATE TABLE IF NOT EXISTS template_pin (
   snapshot TEXT NOT NULL REFERENCES snapshot(id), path TEXT NOT NULL, line INTEGER NOT NULL, target TEXT NOT NULL, ref TEXT NOT NULL,
   PRIMARY KEY (snapshot, path, line)
 );
+CREATE TABLE IF NOT EXISTS template_commit (
+  snapshot TEXT NOT NULL REFERENCES snapshot(id), ordinal INTEGER NOT NULL, sha TEXT NOT NULL, PRIMARY KEY (snapshot, ordinal)
+);
 CREATE TABLE IF NOT EXISTS template_file (
   snapshot TEXT NOT NULL REFERENCES snapshot(id), path TEXT NOT NULL, oid TEXT NOT NULL, hash TEXT NOT NULL, PRIMARY KEY (snapshot, path)
 );
@@ -198,6 +201,7 @@ export class Catalog {
       this.db.prepare("DELETE FROM lockfile WHERE snapshot = ?").run(id);
       this.db.prepare("DELETE FROM template_pin WHERE snapshot = ?").run(id);
       this.db.prepare("DELETE FROM template_file WHERE snapshot = ?").run(id);
+      this.db.prepare("DELETE FROM template_commit WHERE snapshot = ?").run(id);
       this.db.prepare("DELETE FROM snapshot WHERE id = ?").run(id);
       this.db
         .prepare('INSERT INTO snapshot (id, repo, "commit", scanned_at, scanner, files, parsed, reused, errors) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
@@ -294,6 +298,9 @@ export class Catalog {
     this.#transaction(() => {
       this.db.prepare("DELETE FROM template_pin WHERE snapshot = ?").run(snapshot);
       this.db.prepare("DELETE FROM template_file WHERE snapshot = ?").run(snapshot);
+      this.db.prepare("DELETE FROM template_commit WHERE snapshot = ?").run(snapshot);
+      const commit = this.db.prepare("INSERT INTO template_commit (snapshot, ordinal, sha) VALUES (?, ?, ?)");
+      records.commits.forEach((sha, ordinal) => commit.run(snapshot, ordinal, sha));
       const pin = this.db.prepare("INSERT INTO template_pin (snapshot, path, line, target, ref) VALUES (?, ?, ?, ?, ?)");
       const file = this.db.prepare("INSERT INTO template_file (snapshot, path, oid, hash) VALUES (?, ?, ?, ?)");
       for (const p of records.pins) pin.run(snapshot, p.path, p.line, p.target, p.ref);

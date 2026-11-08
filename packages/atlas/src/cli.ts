@@ -10,6 +10,7 @@
  * - `codeatlas agreement --sample <sample.json> --a <a.jsonl> --b <b.jsonl> --out <agreement.json>`
  * - `codeatlas verdict --sample <sample.json> --a <a.jsonl> --agreement <agreement.json> --answers <answers.jsonl> --out <verdict.json>`
  * - `codeatlas trend --db <catalog.sqlite> [--previous <trend.json>] --out <trend.json>`
+ * - `codeatlas drift --db <catalog.sqlite> [--out drift.json] [--markdown drift.md]`
  * - `codeatlas clone --owner <owner> --into <folder>`
  * - `codeatlas mcp --db <catalog.sqlite>`
  * - `codeatlas tool <name> [<json input>] --db <catalog.sqlite>`
@@ -25,6 +26,7 @@
  * The command verdict compares the answers of the person with the audit, and writes the verdict and the labels of the truth.
  * The command trend adds the point of a catalog to the trend file of the last build.
  * The command queries writes the answers of the query set of a catalog as JSON, for the site.
+ * The command drift writes the drift of each repository from the template, and the share of the current repositories.
  * The command mcp serves the tools of agents over a catalog as MCP tools. The command tool calls one of them.
  */
 import { closeSync, openSync, readFileSync, readdirSync, statSync, writeFileSync, writeSync } from "node:fs";
@@ -33,12 +35,12 @@ import { buildAtlas } from "./atlas.ts";
 import { cacheOf, factsKey, factsOfRepo, treeOf, type BlobFacts, type FactsLine } from "./blobs.ts";
 import { manifestsOfRepo } from "./manifests.ts";
 import { lockfilesOfRepo } from "./lockfiles.ts";
-import { keepListOfRepo, TEMPLATE_REPO, templateRecordsOfRepo } from "./templates.ts";
+import { driftMarkdown, keepListOfRepo, pinFreshness, TEMPLATE_HISTORY, TEMPLATE_REPO, templateDrift, templateRecordsOfRepo } from "./templates.ts";
 import { queryOf } from "./query.ts";
 import { agreementOf, type AgreementFile, type DraftLabel } from "./agreement.ts";
 import { verdictOf, type PersonAnswer } from "./verdict.ts";
 import { populationOf, sampleFile, SAMPLE_PLAN, type SampleFile } from "./sample.ts";
-import { Catalog } from "./store.ts";
+import { Catalog, readOnlyCatalog } from "./store.ts";
 import { addPoint, trendPoint } from "./trend.ts";
 import { querySet } from "./query-set.ts";
 import { factsMarkdown, factsSummary, gateVerdict, type GateVerdict } from "./summary.ts";
@@ -99,6 +101,7 @@ const USAGE = `Usage:
   codeatlas trend --db <catalog.sqlite> [--previous <trend.json>] --out <trend.json>
   codeatlas queries --db <catalog.sqlite> --out <queries.json>
   codeatlas facts [--out facts.jsonl] [--markdown facts.md] [--cache <facts.jsonl>] [--repos-dir <folder>] [<name>=<path> ...]
+  codeatlas drift --db <catalog.sqlite> [--out drift.json] [--markdown drift.md]
   codeatlas clone --owner <owner> --into <folder>
   codeatlas mcp --db <catalog.sqlite>
   codeatlas tool <name> [<json input>] --db <catalog.sqlite>`;
@@ -112,7 +115,8 @@ function main(argv: readonly string[]): number | Promise<number> {
       console.error(USAGE);
       return 2;
     }
-    const { failed } = clonePublic(owner, into);
+    // The template gets a history, so the drift knows the age of each pin
+    const { failed } = clonePublic(owner, into, console.error, { [TEMPLATE_REPO]: TEMPLATE_HISTORY });
     for (const name of failed) console.log(`::warning::${name} did not clone`);
     return 0;
   }
@@ -123,6 +127,7 @@ function main(argv: readonly string[]): number | Promise<number> {
   if (command === "agreement") return agreement(rest);
   if (command === "verdict") return verdict(rest);
   if (command === "trend") return trend(rest);
+  if (command === "drift") return drift(rest);
   if (command === "queries") return queries(rest);
   if (command === "mcp") return mcpCommand(rest);
   if (command === "tool") return toolCommand(rest);
@@ -230,7 +235,7 @@ function catalog(argv: readonly string[]): number {
     const snapshot = db.putSnapshot(repo.name, headOf(repo.path), scannedAt, FACTS_VERSION, scan.files, scan.counts);
     db.putManifests(snapshot, manifestsOfRepo(repo.path, tree));
     db.putLockfiles(snapshot, lockfilesOfRepo(repo.path, tree));
-    db.putTemplateRecords(snapshot, templateRecordsOfRepo(repo.path, keep, tree));
+    db.putTemplateRecords(snapshot, templateRecordsOfRepo(repo.path, keep, tree, repo.name === TEMPLATE_REPO ? TEMPLATE_HISTORY : 0));
     totals.parsed += scan.counts.parsed;
     totals.reused += scan.counts.reused;
     totals.errors += scan.counts.errors;
@@ -362,6 +367,29 @@ async function queries(argv: readonly string[]): Promise<number> {
     catalog.close();
   }
 }
+/** This function writes the drift from the template of the catalog `--db` as JSON and as Markdown. */
+async function drift(argv: readonly string[]): Promise<number> {
+  const option = (name: string): string | undefined => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined);
+  const db = option("--db");
+  if (db === undefined) {
+    console.error(USAGE);
+    return 2;
+  }
+  const catalog = readOnlyCatalog(db);
+  try {
+    const q = queryOf(catalog);
+    const [freshness, all] = [await pinFreshness(q), await templateDrift(q)];
+    const out = option("--out");
+    const markdown = option("--markdown");
+    if (out !== undefined) writeFileSync(out, `${JSON.stringify({ freshness, drift: all })}\n`);
+    if (markdown !== undefined) writeFileSync(markdown, driftMarkdown(freshness, all));
+    console.error(`drift: ${freshness.current.length} of ${freshness.current.length + freshness.behind.length} repositories current (${Math.round(freshness.share * 100)}%)`);
+    return 0;
+  } finally {
+    catalog.close();
+  }
+}
+
 /** This function prints the annotations of the gates, and gives the exit code. */
 function report(verdict: GateVerdict): number {
   for (const line of verdict.lines) console.log(line);
