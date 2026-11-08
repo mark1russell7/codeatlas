@@ -1,6 +1,6 @@
 /**
- * The tools of agents over the catalog (CA16): typed procedures of `@procedures/client` that answer questions of the
- * catalog, so that an agent asks the catalog in place of reading the code again. `codeatlas mcp` serves them as MCP
+ * The tools of agents over the catalog (CA16) are typed procedures of `@procedures/client`. They answer questions of the
+ * catalog, so an agent asks the catalog in place of reading the code again. `codeatlas mcp` serves them as MCP
  * tools, and `codeatlas tool` calls one of them from the command line. Each tool reads the catalog and changes nothing.
  */
 import { createProcedure, definePackage, type Effects, type PackageDefinition } from "@procedures/client";
@@ -18,7 +18,7 @@ export const CATALOG_READ_EFFECTS: Effects = Object.freeze({ reads: Object.freez
 export const TOOL_ROW_LIMIT = 200;
 
 /** One repository of the catalog, with its current snapshot. */
-export interface RepoRow {
+export interface CatalogRepo {
   readonly repo: string;
   readonly commit: string | null;
   readonly scannedAt: string;
@@ -136,14 +136,14 @@ export async function findFunctions(q: CatalogQuery, name: string, options: Find
 }
 
 /** This function gives each repository of the catalog with its current snapshot, in name order. */
-export async function catalogRepos(q: CatalogQuery): Promise<RepoRow[]> {
+export async function catalogRepos(q: CatalogQuery): Promise<CatalogRepo[]> {
   const rows = await q.selectFrom("current_snapshot").select(["repo", "commit", "scanned_at", "files"]).orderBy("repo").execute();
   return rows.map((row) => ({ repo: row.repo, commit: row.commit, scannedAt: row.scanned_at, files: row.files }));
 }
 
 const place = z.object({ repo: z.string(), path: z.string(), name: z.string(), line: z.number() });
 
-const ReposOutput: z.ZodType<{ repos: RepoRow[] }> = z.object({
+const ReposOutput: z.ZodType<{ repos: CatalogRepo[] }> = z.object({
   repos: z.array(z.object({ repo: z.string(), commit: z.string().nullable(), scannedAt: z.string(), files: z.number() })),
 });
 

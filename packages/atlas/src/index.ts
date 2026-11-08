@@ -33,7 +33,7 @@ export type { RepoPoint, Trend, TrendPoint } from "./trend.ts";
 export { homeCandidates } from "./candidates.ts";
 export type { HomeCandidate, HomeCopy } from "./candidates.ts";
 export { CATALOG_READ_EFFECTS, NAME_MATCHES, TOOL_ROW_LIMIT, atlasTools, catalogRepos, findFunctions } from "./tools.ts";
-export type { CopyCounts, FindOptions, FoundFunction, NameMatch, RepoRow } from "./tools.ts";
+export type { CatalogRepo, CopyCounts, FindOptions, FoundFunction, NameMatch } from "./tools.ts";
 export { MCP_INSTRUCTIONS, mcpCommand, toolCommand } from "./tools-cli.ts";
 export { QUERY_SET_LIMITS, QUERY_SET_VERSION, querySet } from "./query-set.ts";
 export type { ExactClass, QuerySet, QuerySetLimits, RepoCommit } from "./query-set.ts";
