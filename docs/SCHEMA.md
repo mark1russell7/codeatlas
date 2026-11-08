@@ -172,6 +172,15 @@ From each `package.json` and its lockfile: the package, the dependency name, the
 - The query `versionDrift` gives each dependency that the current lockfiles resolve to two versions or more.
 - A lockfile of npm (`package-lock.json`) is not read yet.
 
+### `template_pin` and `template_file`
+
+The template makes a new repository with its stamp. The stamp copies the files of its list `KEEP` and pins each shared workflow and action to a commit of the template.
+
+- The table `template_pin` has each `uses: mark1russell7/template/<path>@<ref>` line of the workflows and actions of a snapshot: the path, the line, the target and the ref.
+- The table `template_file` has each file of `KEEP` that a snapshot has: the path, the blob and a hash of the text. Before the hash, each pin of a workflow gets the local form `uses: ./<path>`, so a pin is not a change of the file.
+- The scan reads `KEEP` from `scripts/stamp/stamp.ts` of the template checkout. Without the template in the scan, only the pins count.
+- The query `templateDrift` gives each repository that pins the template. It gives each pin with a mark for the commit of the template, and each file of `KEEP` as `same`, `changed` or `missing`.
+
 ### `home`
 
 The areas of the map of homes, from `conventions map`: the area, its home packages, its home repository and its signatures.
