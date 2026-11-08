@@ -1,5 +1,5 @@
 /**
- * The catalog database: the Layer 1a tables, and the manifests, lockfiles and template records of Layer 1c of `docs/SCHEMA.md`, in one SQLite file through `node:sqlite`.
+ * The catalog database: the Layer 1a tables, and the manifests, lockfiles, roadmaps and template records of Layer 1c of `docs/SCHEMA.md`, in one SQLite file through `node:sqlite`.
  * The blob tables are also the cache of the scan. A rescan with the database of the last run parses only new blobs.
  */
 import { DatabaseSync, type StatementSync } from "node:sqlite";
@@ -8,6 +8,7 @@ import { CLASS_MIN_NODES, type FactsSummary, type Unread } from "./summary.ts";
 import type { FileFacts, MarkerKind } from "./facts.ts";
 import type { ManifestRecord } from "./manifests.ts";
 import type { LockfileRecord } from "./lockfiles.ts";
+import type { RoadmapRecord } from "./roadmaps.ts";
 import type { StampCheck, TemplateRecords, TemplateVersions } from "./templates.ts";
 import type { ConventionsCheck } from "./conventions.ts";
 
@@ -73,6 +74,14 @@ CREATE TABLE IF NOT EXISTS resolution (
   PRIMARY KEY (oid, manifest, field, name)
 );
 CREATE INDEX IF NOT EXISTS resolution_name ON resolution(name);
+-- Layer 1c: the roadmaps of each snapshot, and the items of each roadmap blob
+CREATE TABLE IF NOT EXISTS roadmap (
+  snapshot TEXT NOT NULL REFERENCES snapshot(id), path TEXT NOT NULL, oid TEXT NOT NULL, parse_error TEXT, PRIMARY KEY (snapshot, path)
+);
+CREATE TABLE IF NOT EXISTS roadmap_item (
+  oid TEXT NOT NULL, line INTEGER NOT NULL, id TEXT NOT NULL, title TEXT NOT NULL, status TEXT NOT NULL, status_class TEXT NOT NULL,
+  section TEXT NOT NULL, area TEXT, PRIMARY KEY (oid, line)
+);
 CREATE TABLE IF NOT EXISTS template_pin (
   snapshot TEXT NOT NULL REFERENCES snapshot(id), path TEXT NOT NULL, line INTEGER NOT NULL, target TEXT NOT NULL, ref TEXT NOT NULL,
   PRIMARY KEY (snapshot, path, line)
@@ -121,6 +130,10 @@ CREATE VIEW IF NOT EXISTS current_manifest AS
   SELECT s.repo, m.* FROM manifest m JOIN current_snapshot s ON s.id = m.snapshot;
 CREATE VIEW IF NOT EXISTS current_lockfile AS
   SELECT s.repo, l.* FROM lockfile l JOIN current_snapshot s ON s.id = l.snapshot;
+CREATE VIEW IF NOT EXISTS current_roadmap AS
+  SELECT s.repo, r.* FROM roadmap r JOIN current_snapshot s ON s.id = r.snapshot;
+CREATE VIEW IF NOT EXISTS current_roadmap_item AS
+  SELECT r.repo, r.path, i.* FROM current_roadmap r JOIN roadmap_item i ON i.oid = r.oid;
 CREATE VIEW IF NOT EXISTS current_template_pin AS
   SELECT s.repo, p.* FROM template_pin p JOIN current_snapshot s ON s.id = p.snapshot;
 CREATE VIEW IF NOT EXISTS current_template_file AS
@@ -226,6 +239,7 @@ export class Catalog {
       // The rows of the other sources of the snapshot refer to it. Their put methods write them again
       this.db.prepare("DELETE FROM manifest WHERE snapshot = ?").run(id);
       this.db.prepare("DELETE FROM lockfile WHERE snapshot = ?").run(id);
+      this.db.prepare("DELETE FROM roadmap WHERE snapshot = ?").run(id);
       this.db.prepare("DELETE FROM template_pin WHERE snapshot = ?").run(id);
       this.db.prepare("DELETE FROM template_file WHERE snapshot = ?").run(id);
       this.db.prepare("DELETE FROM template_version WHERE snapshot = ?").run(id);
@@ -323,6 +337,25 @@ export class Catalog {
       for (const l of lockfiles) {
         lockfile.run(snapshot, l.path, l.oid, l.facts?.version ?? null, l.error);
         for (const r of l.facts?.resolved ?? []) resolution.run(l.oid, r.manifest, r.field, r.name, r.specifier, r.version);
+      }
+    });
+  }
+
+  /**
+   * This method puts the roadmaps of the snapshot `snapshot` in place of its old ones. It writes the items of each
+   * roadmap blob again, so a new version of the parser corrects them.
+   */
+  putRoadmaps(snapshot: string, roadmaps: readonly RoadmapRecord[]): void {
+    this.#transaction(() => {
+      this.db.prepare("DELETE FROM roadmap WHERE snapshot = ?").run(snapshot);
+      const roadmap = this.db.prepare("INSERT INTO roadmap (snapshot, path, oid, parse_error) VALUES (?, ?, ?, ?)");
+      const clear = this.db.prepare("DELETE FROM roadmap_item WHERE oid = ?");
+      const item = this.db.prepare("INSERT OR IGNORE INTO roadmap_item (oid, line, id, title, status, status_class, section, area) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+      for (const r of roadmaps) {
+        roadmap.run(snapshot, r.path, r.oid, r.error);
+        if (r.items === null) continue;
+        clear.run(r.oid);
+        for (const i of r.items) item.run(r.oid, i.line, i.id, i.title, i.status, i.statusClass, i.section, i.area);
       }
     });
   }

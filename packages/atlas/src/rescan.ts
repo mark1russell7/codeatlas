@@ -7,6 +7,7 @@ import { factsOfRepo, treeOf, type ScanCounts } from "./blobs.ts";
 import { FACTS_VERSION } from "./facts.ts";
 import { lockfilesOfRepo } from "./lockfiles.ts";
 import { manifestsOfRepo } from "./manifests.ts";
+import { roadmapsOfRepo } from "./roadmaps.ts";
 import { headOf } from "./scan.ts";
 import { conventionsCheckOfRepo } from "./conventions.ts";
 import type { Catalog } from "./store.ts";
@@ -24,7 +25,7 @@ export interface RepoScanResult {
 
 /**
  * This function scans the repository `name` at the clean checkout `root` into the catalog. It writes its snapshot,
- * its manifests, its lockfiles, its template records and its conventions check. `keep` is the list of the files that the stamp copies.
+ * its manifests, its lockfiles, its roadmaps, its template records and its conventions check. `keep` is the list of the files that the stamp copies.
  */
 export function scanRepoInto(db: Catalog, name: string, root: string, keep: readonly string[], scannedAt: string): RepoScanResult {
   const tree = treeOf(root);
@@ -33,6 +34,7 @@ export function scanRepoInto(db: Catalog, name: string, root: string, keep: read
   const snapshot = db.putSnapshot(name, commit, scannedAt, FACTS_VERSION, scan.files, scan.counts);
   db.putManifests(snapshot, manifestsOfRepo(root, tree));
   db.putLockfiles(snapshot, lockfilesOfRepo(root, tree));
+  db.putRoadmaps(snapshot, roadmapsOfRepo(root, tree));
   const records = templateRecordsOfRepo(root, keep, tree);
   db.putTemplateRecords(snapshot, records);
   const conventions = conventionsCheckOfRepo(root);

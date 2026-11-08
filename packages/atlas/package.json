@@ -18,6 +18,7 @@
     "@mark1russell7/conventions": "^0.35.0",
     "@mark1russell7/rigor-generators": "^0.1.6",
     "@mark1russell7/rigor-statistics": "^0.1.17",
+    "@mark1russell7/site-pages": "^0.4.1",
     "@procedures/client": "^0.51.0",
     "@procedures/json": "^0.51.0",
     "@procedures/mcp-server": "^0.51.0",

@@ -80,6 +80,8 @@ export interface CatalogColumns {
   readonly dependency: { readonly oid: "text"; readonly field: "text"; readonly name: "text"; readonly range: "text"; readonly kind: "text" };
   readonly lockfile: LockfileColumns;
   readonly resolution: { readonly oid: "text"; readonly manifest: "text"; readonly field: "text"; readonly name: "text"; readonly specifier: "text"; readonly version: "text" };
+  readonly roadmap: RoadmapColumns;
+  readonly roadmap_item: RoadmapItemColumns;
   readonly template_pin: TemplatePinColumns;
   readonly template_file: TemplateFileColumns;
   readonly template_version: { readonly snapshot: "text"; readonly ref: "text"; readonly committed_at: "text"; readonly path: "text"; readonly oid: "text" };
@@ -103,6 +105,8 @@ export interface CatalogColumns {
   readonly current_file: { readonly repo: "text" } & FileColumns;
   readonly current_manifest: { readonly repo: "text" } & ManifestColumns;
   readonly current_lockfile: { readonly repo: "text" } & LockfileColumns;
+  readonly current_roadmap: { readonly repo: "text" } & RoadmapColumns;
+  readonly current_roadmap_item: { readonly repo: "text"; readonly path: "text" } & RoadmapItemColumns;
   readonly current_template_pin: { readonly repo: "text" } & TemplatePinColumns;
   readonly current_template_file: { readonly repo: "text" } & TemplateFileColumns;
 }
@@ -135,6 +139,37 @@ interface LockfileColumns {
 }
 
 const LOCKFILE: LockfileColumns = { snapshot: "text", path: "text", oid: "text", version: "text?", parse_error: "text?" };
+
+interface RoadmapColumns {
+  readonly snapshot: "text";
+  readonly path: "text";
+  readonly oid: "text";
+  readonly parse_error: "text?";
+}
+
+const ROADMAP: RoadmapColumns = { snapshot: "text", path: "text", oid: "text", parse_error: "text?" };
+
+interface RoadmapItemColumns {
+  readonly oid: "text";
+  readonly line: "integer";
+  readonly id: "text";
+  readonly title: "text";
+  readonly status: "text";
+  readonly status_class: "text";
+  readonly section: "text";
+  readonly area: "text?";
+}
+
+const ROADMAP_ITEM: RoadmapItemColumns = {
+  oid: "text",
+  line: "integer",
+  id: "text",
+  title: "text",
+  status: "text",
+  status_class: "text",
+  section: "text",
+  area: "text?",
+};
 
 interface ManifestColumns {
   readonly snapshot: "text";
@@ -198,6 +233,8 @@ export const CATALOG_COLUMNS: CatalogColumns = {
   dependency: { oid: "text", field: "text", name: "text", range: "text", kind: "text" },
   lockfile: LOCKFILE,
   resolution: { oid: "text", manifest: "text", field: "text", name: "text", specifier: "text", version: "text" },
+  roadmap: ROADMAP,
+  roadmap_item: ROADMAP_ITEM,
   template_pin: TEMPLATE_PIN,
   template_file: TEMPLATE_FILE,
   template_version: { snapshot: "text", ref: "text", committed_at: "text", path: "text", oid: "text" },
@@ -213,12 +250,14 @@ export const CATALOG_COLUMNS: CatalogColumns = {
   current_file: { repo: "text", ...FILE },
   current_manifest: { repo: "text", ...MANIFEST },
   current_lockfile: { repo: "text", ...LOCKFILE },
+  current_roadmap: { repo: "text", ...ROADMAP },
+  current_roadmap_item: { repo: "text", path: "text", ...ROADMAP_ITEM },
   current_template_pin: { repo: "text", ...TEMPLATE_PIN },
   current_template_file: { repo: "text", ...TEMPLATE_FILE },
 };
 
 /** The names of the views. A view has the columns of its tables, and `PRAGMA table_info` does not give `NOT NULL`. */
-export const CATALOG_VIEWS: ReadonlySet<string> = new Set(["current_snapshot", "current_file", "current_manifest", "current_lockfile", "current_template_pin", "current_template_file"]);
+export const CATALOG_VIEWS: ReadonlySet<string> = new Set(["current_snapshot", "current_file", "current_manifest", "current_lockfile", "current_roadmap", "current_roadmap_item", "current_template_pin", "current_template_file"]);
 
 type Columns = CatalogColumns;
 
