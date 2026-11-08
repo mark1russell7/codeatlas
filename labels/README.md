@@ -125,7 +125,9 @@ A gap is code with no allowed home. The pilot found these gaps:
 - A hit in a repository of the pair is right 11 of 20 times. A hit in a third repository is right 6 of 27 times.
 - In 4 of 8 keep pairs, a module of a home has a part that both items need. The owners keep the plans, but each plan can use that module.
 - The owners name modules that `homeHas` misses: `check/measure.ts` of `site-pages` for `CA5-P1`, its explorer for `CA5-P19`, and the field `supports` of `strategy-space.ts` in `layout-contract` for `CA5-P25`.
-- The owners also name `countOperators` of the package `strategy-space` for `CA5-P14` and `CA5-P37`. The homes list of `conventions` does not have that package, so `homeHas` does not read it.
+- The owners also name `countOperators` of the package `strategy-space` for `CA5-P14` and `CA5-P37`. The homes list of `conventions` 0.38.3 does not have that package, so `homeHas` does not read it.
+- With `conventions` 0.38.4, the homes list has `strategy-space`. A rerun on the stored titles finds `operators.ts` as the second hit of `CA5-P37`.
+- `CA5-P14` shares only the word `operators` with that module, so the rule of 2 shared words does not match it.
 
 ## The owner verdicts of the class members (CA14)
 

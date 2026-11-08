@@ -15,7 +15,7 @@
     "codeatlas": "./src/cli.ts"
   },
   "dependencies": {
-    "@mark1russell7/conventions": "^0.38.3",
+    "@mark1russell7/conventions": "^0.38.4",
     "@mark1russell7/rigor-generators": "^0.1.6",
     "@mark1russell7/rigor-statistics": "^0.1.17",
     "@mark1russell7/site-pages": "^0.4.1",
