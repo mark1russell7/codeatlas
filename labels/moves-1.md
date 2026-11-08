@@ -39,6 +39,29 @@ If the behavior is not the same, or the home has no such function, record the la
 | `signTestPower` | `packages/core/src/bench/screen/set.ts` | statistics: `@mark1russell7/rigor-statistics` | 1 | This function gives the smallest number of wins out of n families that a two-sided sign test finds significant. |
 | `verdictFiles` | `packages/site/src/atlas-files.ts` | system-io: `@procedures/fs`, `@procedures/shell` | 2 | This function reads the sorted verdict snapshot files of a folder and gives their names and text. |
 
+## `packing`: 18 moves
+
+| Function | File | Home | Copies | What it does |
+| --- | --- | --- | --- | --- |
+| `nodeAt` | `packages/packing/bench/gp-score.ts` | data-structures: `@procedures/collections`, `@procedures/dag` | 1 | This function finds the subtree of a binary tree at a preorder position. |
+| `inputOf` | `packages/site/src/model.ts` | geometry: `@mark1russell7/layout-contract` | 1 | Converts site items, a width mode and a scene into a packing input. |
+| `regionBounds` | `packages/site/src/region.ts` | geometry: `@mark1russell7/layout-contract` | 1 | This function gives the bounding box of a rectangle, circle, ellipse or polygon region. |
+| `anchorCorpusText` | `packages/packing/bench/anchor.ts` | random: `@mark1russell7/rigor-generators` | 5 | Writes the text of the anchor corpus JSON file. |
+| `randomTree` | `packages/packing/bench/gp-score.ts` | random: `@mark1russell7/rigor-generators` | 1 | This function draws a random expression tree up to a depth from a random source. |
+| `inputOf` | `packages/packing/bench/gp-score.ts` | random: `@mark1russell7/rigor-generators` | 1 | This function makes a seeded packing input from a strip spec by choosing the generator. |
+| `seedsOf` | `packages/packing/bench/nightly-plan.ts` | random: `@mark1russell7/rigor-generators` | 1 | Reads a JSON list of seeds and checks that they are enough different whole numbers. |
+| `generateInput` | `packages/packing/bench/sample-space.ts` | random: `@mark1russell7/rigor-generators` | 1 | This function generates one input from a family draw and gives a reason string when generation fails or the input is too big. |
+| `strataOf` | `packages/packing/bench/sample-space.ts` | random: `@mark1russell7/rigor-generators` | 1 | This function splits a strategy space into strata of configurations with their counts. |
+| `corpus` | `packages/packing/src/corpus.ts` | random: `@mark1russell7/rigor-generators` | 1 | This function makes a corpus of generated inputs and a manifest from specs with generators and seeds. |
+| `canonicalJson` | `packages/packing/src/layout-input.ts` | random: `@mark1russell7/rigor-generators` | 1 | This function writes canonical JSON with sorted keys and rounded numbers. |
+| `moved` | `packages/packing/src/raster-nofit.ts` | random: `@mark1russell7/rigor-generators` | 1 | This function makes a random change of an order by a swap or a move of one item. |
+| `generateInput` | `packages/site/src/corpus-input.ts` | random: `@mark1russell7/rigor-generators` | 1 | This function generates a seeded packing input from a family key and dimension values. |
+| `wilson` | `packages/packing/bench/coverage.ts` | statistics: `@mark1russell7/rigor-statistics` | 1 | This function computes the Wilson score interval of a proportion. |
+| `coverage` | `packages/packing/bench/coverage.ts` | statistics: `@mark1russell7/rigor-statistics` | 1 | This function measures how well a regression tree predicts benchmark results, with cross-validation and coverage of cells. |
+| `bootstrapMedian` | `packages/packing/bench/promote.ts` | statistics: `@mark1russell7/rigor-statistics` | 1 | This function gives a seeded bootstrap confidence interval for the median of a list of ratios. |
+| `quantile` | `packages/packing/src/measures.ts` | statistics: `@mark1russell7/rigor-statistics` | 1 | This function gives the quantile of a list of numbers with linear interpolation. |
+| `annotateDiff` | `scripts/ai-review/codex-review.mjs` | system-io: `@procedures/fs`, `@procedures/shell` | 1 | Adds line numbers to a unified diff and collects the changed line numbers of each file. |
+
 ## `AsyncBrowserContext`: 17 moves
 
 | Function | File | Home | Copies | What it does |
@@ -60,28 +83,6 @@ If the behavior is not the same, or the home has no such function, record the la
 | `findFiles` | `tools/ste-lint/src/files.ts` | system-io: `@procedures/fs`, `@procedures/shell` | 1 | This function finds files that match include globs and are not ignored, and returns the sorted paths. |
 | `globBase` | `tools/ste-lint/src/files.ts` | system-io: `@procedures/fs`, `@procedures/shell` | 1 | This function gives the base folder of a glob pattern, which is the part before the first wildcard. |
 | `formatMs` | `site/src/lib/format.ts` | units: `@mark1russell7/quantity` | 1 | This function writes a time in milliseconds as ms, seconds or minutes with fitting precision. |
-
-## `packing`: 17 moves
-
-| Function | File | Home | Copies | What it does |
-| --- | --- | --- | --- | --- |
-| `nodeAt` | `packages/packing/bench/gp-score.ts` | data-structures: `@procedures/collections`, `@procedures/dag` | 1 | This function finds the subtree of a binary tree at a preorder position. |
-| `inputOf` | `packages/site/src/model.ts` | geometry: `@mark1russell7/layout-contract` | 1 | Converts site items, a width mode and a scene into a packing input. |
-| `regionBounds` | `packages/site/src/region.ts` | geometry: `@mark1russell7/layout-contract` | 1 | This function gives the bounding box of a rectangle, circle, ellipse or polygon region. |
-| `anchorCorpusText` | `packages/packing/bench/anchor.ts` | random: `@mark1russell7/rigor-generators` | 5 | Writes the text of the anchor corpus JSON file. |
-| `randomTree` | `packages/packing/bench/gp-score.ts` | random: `@mark1russell7/rigor-generators` | 1 | This function draws a random expression tree up to a depth from a random source. |
-| `inputOf` | `packages/packing/bench/gp-score.ts` | random: `@mark1russell7/rigor-generators` | 1 | This function makes a seeded packing input from a strip spec by choosing the generator. |
-| `seedsOf` | `packages/packing/bench/nightly-plan.ts` | random: `@mark1russell7/rigor-generators` | 1 | Reads a JSON list of seeds and checks that they are enough different whole numbers. |
-| `generateInput` | `packages/packing/bench/sample-space.ts` | random: `@mark1russell7/rigor-generators` | 1 | This function generates one input from a family draw and gives a reason string when generation fails or the input is too big. |
-| `strataOf` | `packages/packing/bench/sample-space.ts` | random: `@mark1russell7/rigor-generators` | 1 | This function splits a strategy space into strata of configurations with their counts. |
-| `corpus` | `packages/packing/src/corpus.ts` | random: `@mark1russell7/rigor-generators` | 1 | This function makes a corpus of generated inputs and a manifest from specs with generators and seeds. |
-| `moved` | `packages/packing/src/raster-nofit.ts` | random: `@mark1russell7/rigor-generators` | 1 | This function makes a random change of an order by a swap or a move of one item. |
-| `generateInput` | `packages/site/src/corpus-input.ts` | random: `@mark1russell7/rigor-generators` | 1 | This function generates a seeded packing input from a family key and dimension values. |
-| `wilson` | `packages/packing/bench/coverage.ts` | statistics: `@mark1russell7/rigor-statistics` | 1 | This function computes the Wilson score interval of a proportion. |
-| `coverage` | `packages/packing/bench/coverage.ts` | statistics: `@mark1russell7/rigor-statistics` | 1 | This function measures how well a regression tree predicts benchmark results, with cross-validation and coverage of cells. |
-| `bootstrapMedian` | `packages/packing/bench/promote.ts` | statistics: `@mark1russell7/rigor-statistics` | 1 | This function gives a seeded bootstrap confidence interval for the median of a list of ratios. |
-| `quantile` | `packages/packing/src/measures.ts` | statistics: `@mark1russell7/rigor-statistics` | 1 | This function gives the quantile of a list of numbers with linear interpolation. |
-| `annotateDiff` | `scripts/ai-review/codex-review.mjs` | system-io: `@procedures/fs`, `@procedures/shell` | 1 | Adds line numbers to a unified diff and collects the changed line numbers of each file. |
 
 ## `client`: 15 moves
 
@@ -135,6 +136,19 @@ If the behavior is not the same, or the home has no such function, record the la
 | `summarize` | `packages/site/src/lib/stats.ts` | statistics: `@mark1russell7/rigor-statistics` | 1 | This function gives the count, minimum, maximum, mean and percentiles of a list of numbers. |
 | `formatBytes` | `packages/site/src/lib/format.ts` | units: `@mark1russell7/quantity` | 1 | This function writes a byte count with a unit such as KB or MB. |
 
+## `layout-contract`: 8 moves
+
+| Function | File | Home | Copies | What it does |
+| --- | --- | --- | --- | --- |
+| `routeConfig` | `packages/site/src/catalog.ts` | edge-routing: `@mark1russell7/highways` | 1 | This function makes a strategy configuration for a chosen router and throws when the router is unknown. |
+| `packConfig` | `packages/site/src/catalog.ts` | packing: `@mark1russell7/packing` | 1 | This function makes a strategy configuration for a pack choice, with nested member strategies. |
+| `loadSplit` | `packages/joint/src/split.ts` | random: `@mark1russell7/rigor-generators` | 1 | Loads the split file of a corpus by its hash and gives its folds, with a clear error if missing. |
+| `canonicalJson` | `packages/layout-contract/src/hash.ts` | random: `@mark1russell7/rigor-generators` | 1 | This function writes a value as canonical JSON with sorted keys. |
+| `inputOf` | `packages/site/src/jobs.ts` | random: `@mark1russell7/rigor-generators` | 1 | Rebuilds a layout input and its cell from a reference to a corpus entry or recorded dimensions, and checks its hash. |
+| `bootstrap` | `packages/joint/src/analysis.ts` | statistics: `@mark1russell7/rigor-statistics` | 1 | This function gives a cluster bootstrap interval of a mean or ratio of rows. |
+| `spearman` | `packages/joint/src/joint-measures.ts` | statistics: `@mark1russell7/rigor-statistics` | 1 | This function gives the Spearman rank correlation of two lists, or undefined when it is not defined. |
+| `verdict` | `packages/layout-contract/src/verdict.ts` | statistics: `@mark1russell7/rigor-statistics` | 1 | This function gives a verdict on paired records by bootstrap intervals, a permutation test and a sign test. |
+
 ## `ireko`: 7 moves
 
 | Function | File | Home | Copies | What it does |
@@ -147,18 +161,6 @@ If the behavior is not the same, or the home has no such function, record the la
 | `parse` | `packages/ireko/src/text/parse.ts` | language-kernel: `@mark1russell7/coeval` | 1 | Parses the text of a layout document into an input, and gives an error result on a parse failure. |
 | `randomTree` | `packages/site/src/playground/fuzz.ts` | random: `@mark1russell7/rigor-generators` | 1 | This function makes a random layout tree from a seed with grid, radial and tree layouts. |
 
-## `layout-contract`: 7 moves
-
-| Function | File | Home | Copies | What it does |
-| --- | --- | --- | --- | --- |
-| `routeConfig` | `packages/site/src/catalog.ts` | edge-routing: `@mark1russell7/highways` | 1 | This function makes a strategy configuration for a chosen router and throws when the router is unknown. |
-| `packConfig` | `packages/site/src/catalog.ts` | packing: `@mark1russell7/packing` | 1 | This function makes a strategy configuration for a pack choice, with nested member strategies. |
-| `loadSplit` | `packages/joint/src/split.ts` | random: `@mark1russell7/rigor-generators` | 1 | Loads the split file of a corpus by its hash and gives its folds, with a clear error if missing. |
-| `inputOf` | `packages/site/src/jobs.ts` | random: `@mark1russell7/rigor-generators` | 1 | Rebuilds a layout input and its cell from a reference to a corpus entry or recorded dimensions, and checks its hash. |
-| `bootstrap` | `packages/joint/src/analysis.ts` | statistics: `@mark1russell7/rigor-statistics` | 1 | This function gives a cluster bootstrap interval of a mean or ratio of rows. |
-| `spearman` | `packages/joint/src/joint-measures.ts` | statistics: `@mark1russell7/rigor-statistics` | 1 | This function gives the Spearman rank correlation of two lists, or undefined when it is not defined. |
-| `verdict` | `packages/layout-contract/src/verdict.ts` | statistics: `@mark1russell7/rigor-statistics` | 1 | This function gives a verdict on paired records by bootstrap intervals, a permutation test and a sign test. |
-
 ## `algebra`: 6 moves
 
 | Function | File | Home | Copies | What it does |
@@ -169,6 +171,17 @@ If the behavior is not the same, or the home has no such function, record the la
 | `readRecords` | `packages/site/src/study.ts` | system-io: `@procedures/fs`, `@procedures/shell` | 1 | This function reads a gzip file and parses each line as a JSON record. |
 | `packageFiles` | `scripts/rules.ts` | system-io: `@procedures/fs`, `@procedures/shell` | 1 | Reads the package.json files of the root and each package folder, skipping unreadable ones. |
 | `casesFor` | `packages/rational-bench/src/cases.ts` | units: `@mark1russell7/quantity` | 1 | This function builds the benchmark cases of unit conversions with exact rationals and their expected values. |
+
+## `crawler`: 6 moves
+
+| Function | File | Home | Copies | What it does |
+| --- | --- | --- | --- | --- |
+| `stableStringify` | `packages/polite-crawler/src/record.ts` | random: `@mark1russell7/rigor-generators` | 1 | This function makes JSON text with sorted object keys so equal values give equal text. |
+| `readPlan` | `scripts/eval-gate.ts` | releases:  | 1 | This function reads a plan of release tags from a JSON file and checks its shape. |
+| `compareVersions` | `scripts/version.ts` | releases:  | 1 | This function compares two semantic versions, including prerelease identifiers. |
+| `decide` | `scripts/eval-gate.ts` | repo-structure: `@mark1russell7/conventions`, `@mark1russell7/template-cli` | 1 | This function decides whether the eval job runs, from the event and the release plan. |
+| `summarize` | `packages/polite-crawler/eval/session-result.mts` | statistics: `@mark1russell7/rigor-statistics` | 1 | This function sums up session records for each arm into counts, costs and medians. |
+| `median` | `packages/site/src/lib/eval-b.ts` | statistics: `@mark1russell7/rigor-statistics` | 2 | This function gives the median of a list of numbers. |
 
 ## `headroom`: 6 moves
 
@@ -191,16 +204,6 @@ If the behavior is not the same, or the home has no such function, record the la
 | `tokenize` | `packages/formula/src/syntax.ts` | language-kernel: `@mark1russell7/coeval` | 1 | This function splits formula text into tokens with spans, throwing on syntax errors. |
 | `quantile` | `packages/core/bench/measure.ts` | statistics: `@mark1russell7/rigor-statistics` | 1 | This function gives a quantile of numbers by linear interpolation between sorted values. |
 | `parseCsv` | `packages/sheet-app/src/io.ts` | system-io: `@procedures/fs`, `@procedures/shell` | 1 | This function reads CSV text with quoted fields into rows of fields. |
-
-## `crawler`: 5 moves
-
-| Function | File | Home | Copies | What it does |
-| --- | --- | --- | --- | --- |
-| `readPlan` | `scripts/eval-gate.ts` | releases:  | 1 | This function reads a plan of release tags from a JSON file and checks its shape. |
-| `compareVersions` | `scripts/version.ts` | releases:  | 1 | This function compares two semantic versions, including prerelease identifiers. |
-| `decide` | `scripts/eval-gate.ts` | repo-structure: `@mark1russell7/conventions`, `@mark1russell7/template-cli` | 1 | This function decides whether the eval job runs, from the event and the release plan. |
-| `summarize` | `packages/polite-crawler/eval/session-result.mts` | statistics: `@mark1russell7/rigor-statistics` | 1 | This function sums up session records for each arm into counts, costs and medians. |
-| `median` | `packages/site/src/lib/eval-b.ts` | statistics: `@mark1russell7/rigor-statistics` | 2 | This function gives the median of a list of numbers. |
 
 ## `systems`: 5 moves
 
