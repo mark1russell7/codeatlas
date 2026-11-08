@@ -126,6 +126,7 @@ export const CATALOG_COLUMNS: CatalogColumns = {
   import: { blob: "text", ordinal: "integer", specifier: "text", package: "text?", kind: "text", names: "text", line: "integer" },
   call_site: { blob: "text", ordinal: "integer", caller: "text", callee: "text", is_new: "integer", line: "integer" },
   marker: { blob: "text", kind: "text", line: "integer", text: "text" },
+  label: { subject: "text", task: "text", by: "text", label: "text", at: "text" },
   current_snapshot: SNAPSHOT,
   current_file: { repo: "text", ...FILE },
 };

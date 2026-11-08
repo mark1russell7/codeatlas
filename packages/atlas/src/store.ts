@@ -50,6 +50,9 @@ CREATE TABLE IF NOT EXISTS call_site (
 CREATE INDEX IF NOT EXISTS call_site_callee ON call_site(callee);
 CREATE TABLE IF NOT EXISTS marker (blob TEXT NOT NULL REFERENCES blob(key), kind TEXT NOT NULL, line INTEGER NOT NULL, text TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS marker_blob ON marker(blob);
+CREATE TABLE IF NOT EXISTS label (
+  subject TEXT NOT NULL, task TEXT NOT NULL, "by" TEXT NOT NULL, label TEXT NOT NULL, at TEXT NOT NULL, PRIMARY KEY (subject, task, "by")
+);
 -- The newest snapshot of each repository, and its files
 CREATE VIEW IF NOT EXISTS current_snapshot AS
   SELECT s.* FROM snapshot s WHERE s.scanned_at = (SELECT max(t.scanned_at) FROM snapshot t WHERE t.repo = s.repo);
@@ -58,6 +61,18 @@ CREATE VIEW IF NOT EXISTS current_file AS
 `;
 
 /** The catalog database, with the statements of the scan. */
+/** One label of the sample: the answer of one source for one subject and one task. */
+export interface Label {
+  /** The `hash_renamed` of a function, or the key of a package or a file. */
+  readonly subject: string;
+  readonly task: string;
+  /** The source of the label: a person, or a draft of a session. */
+  readonly by: string;
+  /** The answer, in the schema of the task. */
+  readonly label: unknown;
+  readonly at: string;
+}
+
 export class Catalog {
   readonly db: DatabaseSync;
   readonly #has: StatementSync;
@@ -196,6 +211,17 @@ export class Catalog {
       classes: { exact: classes("hash_exact"), renamed: classes("hash_renamed"), shape: classes("hash_shape") },
       lawBreaks: breaks("hash_exact", "hash_renamed") + breaks("hash_renamed", "hash_shape"),
     };
+  }
+
+  /**
+   * This method writes labels of the sample. A label of one subject, task and source replaces the earlier one. The
+   * labels come from the files of the repository, so a new database gets them again.
+   */
+  putLabels(labels: readonly Label[]): void {
+    const insert = this.db.prepare('INSERT OR REPLACE INTO label (subject, task, "by", label, at) VALUES (?, ?, ?, ?, ?)');
+    this.#transaction(() => {
+      for (const label of labels) insert.run(label.subject, label.task, label.by, JSON.stringify(label.label), label.at);
+    });
   }
 
   /** The files of the current snapshots that the scan could not read, with the error of the parser. */

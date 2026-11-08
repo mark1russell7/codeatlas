@@ -4,6 +4,7 @@
  * judgment of its `renamed` class.
  */
 import { random } from "@mark1russell7/rigor-generators";
+import { wilsonSampleSize } from "@mark1russell7/rigor-statistics";
 import { sql } from "kysely";
 import type { CatalogQuery } from "./query.ts";
 import { CLASS_MIN_NODES } from "./summary.ts";
@@ -63,4 +64,61 @@ export async function populationOf(q: CatalogQuery, minNodes: number = CLASS_MIN
  */
 export function drawSample(population: readonly SampleItem[], seed: string, size: number): SampleItem[] {
   return random(seed).sample(population, Math.min(size, population.length));
+}
+
+/** The precision target of one task of Layer 2, and the precision that the pilot expects. */
+export interface TaskTarget {
+  readonly task: string;
+  readonly target: number;
+  readonly expected: number;
+}
+
+/** A task with its sample size: the smallest `n` at which the Wilson 95 % lower end reaches the target. */
+export interface SizedTask extends TaskTarget {
+  readonly n: number;
+}
+
+/** The sample file of the repository: the draw, its rules and the size of each task. */
+export interface SampleFile {
+  readonly version: string;
+  readonly seed: string;
+  /** The rule that gives each `n`. */
+  readonly rule: string;
+  readonly tasks: readonly SizedTask[];
+  readonly population: number;
+  readonly size: number;
+  readonly items: readonly SampleItem[];
+}
+
+const RULE =
+  "n = wilsonSampleSize(target, expected) of @mark1russell7/rigor-statistics: the smallest n at which the Wilson 95 % lower end of round(expected * n) of n reaches the target";
+
+/** This function gives the size of each task from its target, with `wilsonSampleSize`. */
+export function sizedTasks(tasks: readonly TaskTarget[]): SizedTask[] {
+  return tasks.map((task) => {
+    const n = wilsonSampleSize(task.target, task.expected);
+    if (n === undefined) throw new RangeError(`The task ${task.task} has an expected precision ${task.expected} that is not above its target ${task.target}.`);
+    return { ...task, n };
+  });
+}
+
+/**
+ * This function gives the sample file. Its size is the larger of `size` and the largest `n` of the tasks, so one
+ * sample serves each task.
+ */
+export function sampleFile(population: readonly SampleItem[], seed: string, tasks: readonly TaskTarget[], size = 0): SampleFile {
+  const sized = sizedTasks(tasks);
+  const want = Math.max(size, ...sized.map((task) => task.n));
+  if (want > population.length) throw new RangeError(`The sample needs ${want} items, and the population has ${population.length}.`);
+  const items = drawSample(population, seed, want);
+  return { version: SAMPLE_VERSION, seed, rule: RULE, tasks: sized, population: population.length, size: items.length, items };
+}
+
+/**
+ * This function gives the items of the audit of a person: a seeded draw of `size` subjects of `agreed`, in the order
+ * of the draw. The stream of the audit is a fork of the stream of the sample, so the two draws do not share numbers.
+ */
+export function auditOf(agreed: readonly string[], seed: string, size: number): string[] {
+  const sorted = [...agreed].sort();
+  return random(seed).fork("audit").sample(sorted, Math.min(size, sorted.length));
 }
