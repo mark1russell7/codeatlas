@@ -44,7 +44,8 @@ jobs:
         node packages/atlas/src/cli.ts clone --owner "$GITHUB_REPOSITORY_OWNER" --into "$RUNNER_TEMP/repos"
         node packages/atlas/src/cli.ts build --repos-dir "$RUNNER_TEMP/repos" --out "$RUNNER_TEMP/atlas.json" --markdown "$RUNNER_TEMP/atlas.md"
         node packages/site/src/build.ts --atlas "$RUNNER_TEMP/atlas.json" --markdown "$RUNNER_TEMP/atlas.md" --out packages/site/dist
-        cat "$RUNNER_TEMP/atlas.md" >> "$GITHUB_STEP_SUMMARY"
+        node packages/atlas/src/cli.ts corpus --repos-dir "$RUNNER_TEMP/repos" --out packages/site/dist/data/corpus.json --markdown "$RUNNER_TEMP/corpus.md"
+        cat "$RUNNER_TEMP/atlas.md" "$RUNNER_TEMP/corpus.md" >> "$GITHUB_STEP_SUMMARY"
       out: packages/site/dist
       timeout-minutes: 30
       site-pages: true

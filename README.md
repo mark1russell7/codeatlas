@@ -8,6 +8,7 @@ codeatlas finds the code that many repositories write again and again. It writes
 - **Clone classes.** A clone class is a set of two or more functions with one shape and 40 nodes or more. Its duplicated nodes are its size times its copies minus one: the code that one shared function removes. A class inside a bigger class does not count again.
 - **Shared names.** Each exported name that two or more repositories declare.
 - **Packages by purpose.** For each purpose, for example seeded random or schemas, the atlas lists the packages that each repository imports. Two packages for one purpose show a split.
+- **Corpus.** For each repository, the corpus counts the files, the lines and the bytes of each kind of file. Examples of kinds are source, tests, lockfiles and prose. The corpus is the base of each cost estimate.
 - **Topics.** The words of the names and the paths put each class into an area of the shared rigor libraries. The areas are generators, statistics, gates, test generation, chaos and load, and measures.
 
 The output is sorted, so one input gives one byte sequence.
@@ -17,6 +18,7 @@ The output is sorted, so one input gives one byte sequence.
 ```sh
 node packages/atlas/src/cli.ts build --repos-dir <folder> --out atlas.json --markdown atlas.md
 node packages/atlas/src/cli.ts build template=../template packing=../packing --min-nodes 60
+node packages/atlas/src/cli.ts corpus --repos-dir <folder> --out corpus.json --markdown corpus.md
 node packages/atlas/src/cli.ts clone --owner <owner> --into <folder>
 node packages/site/src/build.ts --atlas atlas.json --out site
 ```
@@ -25,7 +27,7 @@ The scan reads the files that git keeps, so build output and `node_modules` stay
 
 ## The site
 
-The site at https://mark1russell7.github.io/codeatlas/ shows the newest atlas. It shows the topics, the repositories that share code, and each clone class with a link to each copy. The atlas data is at `data/atlas.json`.
+The site at https://mark1russell7.github.io/codeatlas/ shows the newest atlas. It shows the topics, the repositories that share code, and each clone class with a link to each copy. The atlas data is at `data/atlas.json`, and the corpus is at `data/corpus.json`.
 
 ## CI
 
