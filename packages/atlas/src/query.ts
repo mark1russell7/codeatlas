@@ -78,11 +78,24 @@ export interface CatalogColumns {
   readonly marker: { readonly blob: "text"; readonly kind: "text"; readonly line: "integer"; readonly text: "text" };
   readonly manifest: ManifestColumns;
   readonly dependency: { readonly oid: "text"; readonly field: "text"; readonly name: "text"; readonly range: "text"; readonly kind: "text" };
+  readonly lockfile: LockfileColumns;
+  readonly resolution: { readonly oid: "text"; readonly manifest: "text"; readonly field: "text"; readonly name: "text"; readonly specifier: "text"; readonly version: "text" };
   readonly label: { readonly subject: "text"; readonly task: "text"; readonly by: "text"; readonly label: "text"; readonly at: "text" };
   readonly current_snapshot: SnapshotColumns;
   readonly current_file: { readonly repo: "text" } & FileColumns;
   readonly current_manifest: { readonly repo: "text" } & ManifestColumns;
+  readonly current_lockfile: { readonly repo: "text" } & LockfileColumns;
 }
+
+interface LockfileColumns {
+  readonly snapshot: "text";
+  readonly path: "text";
+  readonly oid: "text";
+  readonly version: "text?";
+  readonly parse_error: "text?";
+}
+
+const LOCKFILE: LockfileColumns = { snapshot: "text", path: "text", oid: "text", version: "text?", parse_error: "text?" };
 
 interface ManifestColumns {
   readonly snapshot: "text";
@@ -144,14 +157,17 @@ export const CATALOG_COLUMNS: CatalogColumns = {
   marker: { blob: "text", kind: "text", line: "integer", text: "text" },
   manifest: MANIFEST,
   dependency: { oid: "text", field: "text", name: "text", range: "text", kind: "text" },
+  lockfile: LOCKFILE,
+  resolution: { oid: "text", manifest: "text", field: "text", name: "text", specifier: "text", version: "text" },
   label: { subject: "text", task: "text", by: "text", label: "text", at: "text" },
   current_snapshot: SNAPSHOT,
   current_file: { repo: "text", ...FILE },
   current_manifest: { repo: "text", ...MANIFEST },
+  current_lockfile: { repo: "text", ...LOCKFILE },
 };
 
 /** The names of the views. A view has the columns of its tables, and `PRAGMA table_info` does not give `NOT NULL`. */
-export const CATALOG_VIEWS: ReadonlySet<string> = new Set(["current_snapshot", "current_file", "current_manifest"]);
+export const CATALOG_VIEWS: ReadonlySet<string> = new Set(["current_snapshot", "current_file", "current_manifest", "current_lockfile"]);
 
 type Columns = CatalogColumns;
 

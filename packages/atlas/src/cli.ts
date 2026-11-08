@@ -26,6 +26,7 @@ import { join } from "node:path";
 import { buildAtlas } from "./atlas.ts";
 import { cacheOf, factsKey, factsOfRepo, treeOf, type BlobFacts, type FactsLine } from "./blobs.ts";
 import { manifestsOfRepo } from "./manifests.ts";
+import { lockfilesOfRepo } from "./lockfiles.ts";
 import { queryOf } from "./query.ts";
 import { agreementOf, type DraftLabel } from "./agreement.ts";
 import { populationOf, sampleFile, SAMPLE_PLAN, type SampleFile } from "./sample.ts";
@@ -209,6 +210,7 @@ function catalog(argv: readonly string[]): number {
     const scan = factsOfRepo(repo.name, repo.path, db, tree);
     const snapshot = db.putSnapshot(repo.name, headOf(repo.path), scannedAt, FACTS_VERSION, scan.files, scan.counts);
     db.putManifests(snapshot, manifestsOfRepo(repo.path, tree));
+    db.putLockfiles(snapshot, lockfilesOfRepo(repo.path, tree));
     totals.parsed += scan.counts.parsed;
     totals.reused += scan.counts.reused;
     totals.errors += scan.counts.errors;
