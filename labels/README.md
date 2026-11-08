@@ -61,3 +61,6 @@ A gap is code with no allowed home. The pilot found these gaps:
 - The scorer uses no model tokens. The owners used tokens for the verdicts, but the atlas does not count them.
 - A keep pair shares a rule or a general word, for example `typed-scripts`, `model` or `api`. The words of the rule have a home already, so the two items do different work.
 - `split if` is a split that depends on a fact. In `CA5-P8` the other owner gave the fact, so the pair is a keep.
+- The filter `explained` comes from these keeps. A pair is explained when one rule or one home has each of its shared words.
+- On the 10 pairs, the filter explains 5 of the 6 keeps and none of the 4 splits. The 10 pairs made the filter, so this is not an independent test.
+- Of the 36 other pairs of two open plans, the filter explains 5. The 31 others go to their owners.

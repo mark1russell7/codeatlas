@@ -91,6 +91,19 @@ describe("plannedPairs", () => {
     expect(markdown).not.toContain("`north` C1");
   });
 
+  it("marks a pair whose shared words are the words of a rule or a home, and keeps it out of the tables", () => {
+    const explainers = [{ name: "rule typed-scripts", text: "typed scripts: each script is TypeScript" }];
+    const both = [item("north", "N1", "The site scripts in TypeScript"), item("south", "S1", "The bench scripts in TypeScript")];
+    const [pair] = plannedPairs(both, { explainers });
+    expect(pair!.explained).toBe("rule typed-scripts");
+    expect(plannedPairs(both)[0]!.explained).toBeNull();
+    const probe = plannedPairs([item("north", "N2", "The site probe in TypeScript"), item("south", "S2", "The site probe in TypeScript")], { explainers });
+    expect(probe[0]!.explained).toBeNull();
+    const markdown = plannedMarkdown([pair!]);
+    expect(markdown).toContain("Shared words of a rule or a home only: 1.");
+    expect(markdown).not.toContain("`north` N1");
+  });
+
   it("escapes each backslash and each pipe of a title in a table cell", () => {
     const odd = plannedPairs([item("north", "A1", "Split a|b at C:\\temp paths"), item("south", "B1", "Split a|b at C:\\temp paths")]);
     expect(plannedMarkdown(odd)).toContain("a\\|b at C:\\\\temp");
