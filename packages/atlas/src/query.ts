@@ -80,12 +80,35 @@ export interface CatalogColumns {
   readonly dependency: { readonly oid: "text"; readonly field: "text"; readonly name: "text"; readonly range: "text"; readonly kind: "text" };
   readonly lockfile: LockfileColumns;
   readonly resolution: { readonly oid: "text"; readonly manifest: "text"; readonly field: "text"; readonly name: "text"; readonly specifier: "text"; readonly version: "text" };
+  readonly template_pin: TemplatePinColumns;
+  readonly template_file: TemplateFileColumns;
   readonly label: { readonly subject: "text"; readonly task: "text"; readonly by: "text"; readonly label: "text"; readonly at: "text" };
   readonly current_snapshot: SnapshotColumns;
   readonly current_file: { readonly repo: "text" } & FileColumns;
   readonly current_manifest: { readonly repo: "text" } & ManifestColumns;
   readonly current_lockfile: { readonly repo: "text" } & LockfileColumns;
+  readonly current_template_pin: { readonly repo: "text" } & TemplatePinColumns;
+  readonly current_template_file: { readonly repo: "text" } & TemplateFileColumns;
 }
+
+interface TemplatePinColumns {
+  readonly snapshot: "text";
+  readonly path: "text";
+  readonly line: "integer";
+  readonly target: "text";
+  readonly ref: "text";
+}
+
+const TEMPLATE_PIN: TemplatePinColumns = { snapshot: "text", path: "text", line: "integer", target: "text", ref: "text" };
+
+interface TemplateFileColumns {
+  readonly snapshot: "text";
+  readonly path: "text";
+  readonly oid: "text";
+  readonly hash: "text";
+}
+
+const TEMPLATE_FILE: TemplateFileColumns = { snapshot: "text", path: "text", oid: "text", hash: "text" };
 
 interface LockfileColumns {
   readonly snapshot: "text";
@@ -159,15 +182,19 @@ export const CATALOG_COLUMNS: CatalogColumns = {
   dependency: { oid: "text", field: "text", name: "text", range: "text", kind: "text" },
   lockfile: LOCKFILE,
   resolution: { oid: "text", manifest: "text", field: "text", name: "text", specifier: "text", version: "text" },
+  template_pin: TEMPLATE_PIN,
+  template_file: TEMPLATE_FILE,
   label: { subject: "text", task: "text", by: "text", label: "text", at: "text" },
   current_snapshot: SNAPSHOT,
   current_file: { repo: "text", ...FILE },
   current_manifest: { repo: "text", ...MANIFEST },
   current_lockfile: { repo: "text", ...LOCKFILE },
+  current_template_pin: { repo: "text", ...TEMPLATE_PIN },
+  current_template_file: { repo: "text", ...TEMPLATE_FILE },
 };
 
 /** The names of the views. A view has the columns of its tables, and `PRAGMA table_info` does not give `NOT NULL`. */
-export const CATALOG_VIEWS: ReadonlySet<string> = new Set(["current_snapshot", "current_file", "current_manifest", "current_lockfile"]);
+export const CATALOG_VIEWS: ReadonlySet<string> = new Set(["current_snapshot", "current_file", "current_manifest", "current_lockfile", "current_template_pin", "current_template_file"]);
 
 type Columns = CatalogColumns;
 

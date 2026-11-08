@@ -1,5 +1,5 @@
 /**
- * The catalog database: the Layer 1a tables, and the manifests and lockfiles of Layer 1c of `docs/SCHEMA.md`, in one SQLite file through `node:sqlite`.
+ * The catalog database: the Layer 1a tables, and the manifests, lockfiles and template records of Layer 1c of `docs/SCHEMA.md`, in one SQLite file through `node:sqlite`.
  * The blob tables are also the cache of the scan. A rescan with the database of the last run parses only new blobs.
  */
 import { DatabaseSync, type StatementSync } from "node:sqlite";
@@ -8,6 +8,7 @@ import { CLASS_MIN_NODES, type FactsSummary, type Unread } from "./summary.ts";
 import type { FileFacts, MarkerKind } from "./facts.ts";
 import type { ManifestRecord } from "./manifests.ts";
 import type { LockfileRecord } from "./lockfiles.ts";
+import type { TemplateRecords } from "./templates.ts";
 
 /** The version of the tables. A database of another version gets new tables. */
 export const CATALOG_SCHEMA: string = "codeatlas/2";
@@ -71,6 +72,13 @@ CREATE TABLE IF NOT EXISTS resolution (
   PRIMARY KEY (oid, manifest, field, name)
 );
 CREATE INDEX IF NOT EXISTS resolution_name ON resolution(name);
+CREATE TABLE IF NOT EXISTS template_pin (
+  snapshot TEXT NOT NULL REFERENCES snapshot(id), path TEXT NOT NULL, line INTEGER NOT NULL, target TEXT NOT NULL, ref TEXT NOT NULL,
+  PRIMARY KEY (snapshot, path, line)
+);
+CREATE TABLE IF NOT EXISTS template_file (
+  snapshot TEXT NOT NULL REFERENCES snapshot(id), path TEXT NOT NULL, oid TEXT NOT NULL, hash TEXT NOT NULL, PRIMARY KEY (snapshot, path)
+);
 CREATE TABLE IF NOT EXISTS label (
   subject TEXT NOT NULL, task TEXT NOT NULL, "by" TEXT NOT NULL, label TEXT NOT NULL, at TEXT NOT NULL, PRIMARY KEY (subject, task, "by")
 );
@@ -83,6 +91,10 @@ CREATE VIEW IF NOT EXISTS current_manifest AS
   SELECT s.repo, m.* FROM manifest m JOIN current_snapshot s ON s.id = m.snapshot;
 CREATE VIEW IF NOT EXISTS current_lockfile AS
   SELECT s.repo, l.* FROM lockfile l JOIN current_snapshot s ON s.id = l.snapshot;
+CREATE VIEW IF NOT EXISTS current_template_pin AS
+  SELECT s.repo, p.* FROM template_pin p JOIN current_snapshot s ON s.id = p.snapshot;
+CREATE VIEW IF NOT EXISTS current_template_file AS
+  SELECT s.repo, t.* FROM template_file t JOIN current_snapshot s ON s.id = t.snapshot;
 `;
 
 /** The catalog database, with the statements of the scan. */
@@ -191,6 +203,8 @@ export class Catalog {
       // The rows of the other sources of the snapshot refer to it. Their put methods write them again
       this.db.prepare("DELETE FROM manifest WHERE snapshot = ?").run(id);
       this.db.prepare("DELETE FROM lockfile WHERE snapshot = ?").run(id);
+      this.db.prepare("DELETE FROM template_pin WHERE snapshot = ?").run(id);
+      this.db.prepare("DELETE FROM template_file WHERE snapshot = ?").run(id);
       this.db.prepare("DELETE FROM snapshot WHERE id = ?").run(id);
       this.db
         .prepare('INSERT INTO snapshot (id, repo, "commit", scanned_at, scanner, files, parsed, reused, errors) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
@@ -279,6 +293,18 @@ export class Catalog {
         lockfile.run(snapshot, l.path, l.oid, l.facts?.version ?? null, l.error);
         for (const r of l.facts?.resolved ?? []) resolution.run(l.oid, r.manifest, r.field, r.name, r.specifier, r.version);
       }
+    });
+  }
+
+  /** This method puts the template records of the snapshot `snapshot` in place of its old ones, as `putManifests` does. */
+  putTemplateRecords(snapshot: string, records: TemplateRecords): void {
+    this.#transaction(() => {
+      this.db.prepare("DELETE FROM template_pin WHERE snapshot = ?").run(snapshot);
+      this.db.prepare("DELETE FROM template_file WHERE snapshot = ?").run(snapshot);
+      const pin = this.db.prepare("INSERT INTO template_pin (snapshot, path, line, target, ref) VALUES (?, ?, ?, ?, ?)");
+      const file = this.db.prepare("INSERT INTO template_file (snapshot, path, oid, hash) VALUES (?, ?, ?, ?)");
+      for (const p of records.pins) pin.run(snapshot, p.path, p.line, p.target, p.ref);
+      for (const f of records.files) file.run(snapshot, f.path, f.oid, f.hash);
     });
   }
 

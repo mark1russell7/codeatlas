@@ -30,6 +30,7 @@ import { buildAtlas } from "./atlas.ts";
 import { cacheOf, factsKey, factsOfRepo, treeOf, type BlobFacts, type FactsLine } from "./blobs.ts";
 import { manifestsOfRepo } from "./manifests.ts";
 import { lockfilesOfRepo } from "./lockfiles.ts";
+import { keepListOfRepo, TEMPLATE_REPO, templateRecordsOfRepo } from "./templates.ts";
 import { queryOf } from "./query.ts";
 import { agreementOf, type AgreementFile, type DraftLabel } from "./agreement.ts";
 import { verdictOf, type PersonAnswer } from "./verdict.ts";
@@ -211,12 +212,17 @@ function catalog(argv: readonly string[]): number {
   const scannedAt = new Date().toISOString();
   const started = performance.now();
   const totals = { parsed: 0, reused: 0, errors: 0, bytesParsed: 0 };
+  // The list of the files that the stamp of the template copies. Without the template in the scan, only the pins count
+  const templateRoot = args.repos.find((repo) => repo.name === TEMPLATE_REPO)?.path;
+  const keep = (templateRoot === undefined ? undefined : keepListOfRepo(templateRoot)) ?? [];
+  if (templateRoot !== undefined && keep.length === 0) console.error("catalog: the stamp of the template has no list KEEP, so the scan compares no files");
   for (const repo of args.repos) {
     const tree = treeOf(repo.path);
     const scan = factsOfRepo(repo.name, repo.path, db, tree);
     const snapshot = db.putSnapshot(repo.name, headOf(repo.path), scannedAt, FACTS_VERSION, scan.files, scan.counts);
     db.putManifests(snapshot, manifestsOfRepo(repo.path, tree));
     db.putLockfiles(snapshot, lockfilesOfRepo(repo.path, tree));
+    db.putTemplateRecords(snapshot, templateRecordsOfRepo(repo.path, keep, tree));
     totals.parsed += scan.counts.parsed;
     totals.reused += scan.counts.reused;
     totals.errors += scan.counts.errors;
