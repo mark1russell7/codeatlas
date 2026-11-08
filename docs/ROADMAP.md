@@ -8,14 +8,13 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 
 | ID | Status | Priority | Title |
 | --- | --- | --- | --- |
-| CA8 | in progress | P1 | Layer 1: a parser scan of each file, with no model tokens |
+| CA9 | in progress | P1 | Layer 1 in CI over all public repositories, into one SQLite database |
 
 ## Next
 
 | ID | Status | Priority | Title |
 | --- | --- | --- | --- |
-| CA9 | blocked by CA8 | P1 | Layer 1 in CI over all public repositories, into one SQLite database |
-| CA10 | blocked by CA8 | P1 | Layer 3: the algebra, a SQLite schema with a typed query layer |
+| CA10 | next | P1 | Layer 3: the algebra, a SQLite schema with a typed query layer |
 | CA12 | blocked by CA9 | P1 | A hand-labeled sample, for the precision and recall of each judgment category |
 | CA13 | blocked by CA10, CA12 | P1 | Layer 2 pilot on 3 repositories: cost per 1000 lines and precision |
 | CA14 | blocked by CA13 | P1 | A review of the measured cost before the fan-out |
@@ -39,5 +38,6 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 
 | ID | Status | Priority | Title |
 | --- | --- | --- | --- |
+| CA8 | done 2026-11-08 | P1 | Layer 1: a parser scan of each file, with no model tokens |
 | CA7 | done 2026-11-08 | P0 | Phase 0: count the corpus and write the schema of the catalog |
 | CA1 | done 2026-11-05 | P1 | The site: the atlas as a page to explore, built each week |

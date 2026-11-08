@@ -13,6 +13,7 @@ export type { CallSiteFact, ExportFact, FileFacts, FunctionFact, ImportFact, Imp
 export { cloneHashes, literalText, typeHash } from "./hashes.ts";
 export type { CloneHashes } from "./hashes.ts";
 export { cacheOf, factsKey, factsOfRepo, treeOf } from "./blobs.ts";
-export type { BlobFacts, FactsLine, FileRecord, ScanCounts, TreeEntry } from "./blobs.ts";
-export { factsMarkdown, factsSummary, CLASS_MIN_NODES } from "./summary.ts";
-export type { FactsSummary } from "./summary.ts";
+export type { BlobFacts, FactsCache, FactsLine, FileRecord, ScanCounts, TreeEntry } from "./blobs.ts";
+export { factsMarkdown, factsSummary, gateVerdict, CLASS_MIN_NODES } from "./summary.ts";
+export type { FactsSummary, GateVerdict, Unread } from "./summary.ts";
+export { Catalog, CATALOG_SCHEMA } from "./store.ts";

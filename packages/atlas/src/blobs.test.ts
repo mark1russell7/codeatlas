@@ -1,31 +1,13 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { cacheOf, factsKey, factsOfRepo, treeOf, type BlobFacts, type FactsLine } from "./blobs.ts";
 import { factsMarkdown, factsSummary } from "./summary.ts";
+import { GitRepos } from "./testing/git-repo.ts";
 
-const roots: string[] = [];
+const repos = new GitRepos();
+const repoWith = (files: Readonly<Record<string, string>>): string => repos.with(files);
 
-/** A git repository with the files given, in one commit. */
-function repoWith(files: Readonly<Record<string, string>>): string {
-  const root = mkdtempSync(join(tmpdir(), "atlas-blobs-"));
-  roots.push(root);
-  for (const [path, text] of Object.entries(files)) {
-    mkdirSync(join(root, path, ".."), { recursive: true });
-    writeFileSync(join(root, path), text);
-  }
-  const git = (...args: string[]) => execFileSync("git", ["-C", root, "-c", "user.name=atlas", "-c", "user.email=atlas@example.com", ...args], { stdio: "pipe" });
-  git("init", "-q");
-  git("add", "-A");
-  git("commit", "-q", "-m", "files");
-  return root;
-}
-
-afterAll(() => {
-  for (const root of roots) rmSync(root, { recursive: true, force: true });
-});
+afterAll(() => repos.removeAll());
 
 const HELPER = "export function clamp(x: number, lo: number, hi: number) { return Math.min(hi, Math.max(lo, x)); }\n";
 

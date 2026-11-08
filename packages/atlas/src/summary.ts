@@ -136,3 +136,44 @@ export function factsMarkdown(summary: FactsSummary): string {
     "",
   ].join("\n");
 }
+
+/** A file that the scan could not read: its parse failed. */
+export interface Unread {
+  readonly repo: string;
+  readonly path: string;
+  readonly error: string;
+}
+
+/** The verdict of the gates of a run, and the annotation lines of a CI check. */
+export interface GateVerdict {
+  /** 0 when the gates pass, 1 when one fails. */
+  readonly exit: number;
+  /** The lines for the log of GitHub Actions: `::error::` and `::warning::` annotations. */
+  readonly lines: readonly string[];
+}
+
+/** The most unread files that one annotation names. */
+const UNREAD_NAMED = 10;
+
+/**
+ * This function gives the verdict of the gates of a run. A run that reads no repository or no function is a
+ * "no read", not a pass: it fails. Each file that the scan could not read gets a warning with its count and its names.
+ */
+export function gateVerdict(summary: FactsSummary, unread: readonly Unread[]): GateVerdict {
+  const lines: string[] = [];
+  let exit = 0;
+  if (summary.repos === 0 || summary.functions === 0) {
+    lines.push(`::error::No read: the scan read ${summary.repos} repositories and ${summary.functions} functions, so the law of the chain has no case.`);
+    exit = 1;
+  }
+  if (summary.lawBreaks > 0) {
+    lines.push(`::error::${summary.lawBreaks} hashes break the law of the chain (exact => renamed => shape).`);
+    exit = 1;
+  }
+  if (unread.length > 0) {
+    const named = unread.slice(0, UNREAD_NAMED).map((file) => `${file.repo}/${file.path} (${file.error})`);
+    const more = unread.length > UNREAD_NAMED ? `, and ${unread.length - UNREAD_NAMED} more` : "";
+    lines.push(`::warning::No read for ${unread.length} of ${summary.files} files: the parse failed. ${named.join("; ")}${more}.`);
+  }
+  return { exit, lines };
+}

@@ -4,21 +4,25 @@
  *
  * - `codeatlas build [--out atlas.json] [--markdown atlas.md] [--min-nodes 40] [--repos-dir <folder>] [<name>=<path> ...]`
  * - `codeatlas corpus [--out corpus.json] [--markdown corpus.md] [--repos-dir <folder>] [<name>=<path> ...]`
+ * - `codeatlas catalog [--out catalog.sqlite] [--markdown catalog.md] [--repos-dir <folder>] [<name>=<path> ...]`
  * - `codeatlas facts [--out facts.jsonl] [--markdown facts.md] [--cache <facts.jsonl>] [--repos-dir <folder>] [<name>=<path> ...]`
  * - `codeatlas clone --owner <owner> --into <folder>`
  *
  * The command build scans each repository (each folder of --repos-dir, and each name=path), and writes the
  * atlas as JSON and as Markdown. The command corpus counts the files, lines and bytes of each kind in the same repositories.
+ * The command catalog writes the same facts into a SQLite database. Its blobs are the cache of the next run.
  * The command facts writes the Layer 1a facts of each blob as JSON Lines. A cache from an earlier output saves each parse of a known blob.
  */
 import { closeSync, openSync, readFileSync, readdirSync, statSync, writeFileSync, writeSync } from "node:fs";
 import { join } from "node:path";
 import { buildAtlas } from "./atlas.ts";
-import { cacheOf, factsOfRepo, type BlobFacts, type FactsLine } from "./blobs.ts";
-import { factsMarkdown, factsSummary } from "./summary.ts";
+import { cacheOf, factsKey, factsOfRepo, type BlobFacts, type FactsLine } from "./blobs.ts";
+import { Catalog } from "./store.ts";
+import { factsMarkdown, factsSummary, gateVerdict, type GateVerdict } from "./summary.ts";
 import { clonePublic } from "./clone.ts";
 import { buildCorpus, corpusMarkdown, corpusOfRepo } from "./corpus.ts";
 import { atlasMarkdown } from "./report.ts";
+import { FACTS_VERSION } from "./facts.ts";
 import { headOf, scanRepo, type RepoScan } from "./scan.ts";
 
 export interface BuildArgs {
@@ -64,6 +68,7 @@ function subfolders(dir: string): string[] {
 const USAGE = `Usage:
   codeatlas build [--out atlas.json] [--markdown atlas.md] [--min-nodes 40] [--repos-dir <folder>] [<name>=<path> ...]
   codeatlas corpus [--out corpus.json] [--markdown corpus.md] [--repos-dir <folder>] [<name>=<path> ...]
+  codeatlas catalog [--out catalog.sqlite] [--markdown catalog.md] [--repos-dir <folder>] [<name>=<path> ...]
   codeatlas facts [--out facts.jsonl] [--markdown facts.md] [--cache <facts.jsonl>] [--repos-dir <folder>] [<name>=<path> ...]
   codeatlas clone --owner <owner> --into <folder>`;
 
@@ -82,6 +87,7 @@ function main(argv: readonly string[]): number {
   }
   if (command === "corpus") return corpus(rest);
   if (command === "facts") return facts(rest);
+  if (command === "catalog") return catalog(rest);
   if (command !== "build") {
     console.error(USAGE);
     return 2;
@@ -154,9 +160,50 @@ function facts(argv: readonly string[]): number {
   }
   closeSync(fd);
   const summary = factsSummary(scans, cache, ms);
+  const unread = scans.flatMap((scan) =>
+    scan.files.flatMap((file) => {
+      const entry = cache.get(factsKey(file.blob, file.path));
+      return entry !== undefined && !entry.ok ? [{ repo: file.repo, path: file.path, error: entry.error }] : [];
+    }),
+  );
   if (args.markdown !== undefined) writeFileSync(args.markdown, factsMarkdown(summary));
   console.error(`facts: ${summary.repos} repositories, ${summary.files} files, ${summary.parsed} parsed, ${summary.reused} from the cache (${known.size} known), ${summary.errors} errors, ${Math.round(ms)} ms`);
-  return summary.lawBreaks === 0 ? 0 : 1;
+  return report(gateVerdict(summary, unread));
+}
+
+function catalog(argv: readonly string[]): number {
+  const args = parseBuildArgs(argv, subfolders, "catalog.sqlite");
+  if ("error" in args) {
+    console.error(args.error);
+    return 2;
+  }
+  const db = new Catalog(args.out);
+  const known = Number((db.db.prepare("SELECT count(*) AS n FROM blob").get() as { n: number }).n);
+  const scannedAt = new Date().toISOString();
+  const started = performance.now();
+  const totals = { parsed: 0, reused: 0, errors: 0, bytesParsed: 0 };
+  for (const repo of args.repos) {
+    const scan = factsOfRepo(repo.name, repo.path, db);
+    db.putSnapshot(repo.name, headOf(repo.path), scannedAt, FACTS_VERSION, scan.files, scan.counts);
+    totals.parsed += scan.counts.parsed;
+    totals.reused += scan.counts.reused;
+    totals.errors += scan.counts.errors;
+    totals.bytesParsed += scan.counts.bytesParsed;
+  }
+  const ms = performance.now() - started;
+  const summary = db.summary({ ...totals, ms });
+  const unread = db.unread();
+  db.db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
+  db.close();
+  if (args.markdown !== undefined) writeFileSync(args.markdown, factsMarkdown(summary));
+  console.error(`catalog: ${summary.repos} repositories, ${summary.files} files, ${summary.parsed} parsed, ${summary.reused} from the cache (${known} blobs known), ${summary.errors} errors, ${Math.round(ms)} ms`);
+  return report(gateVerdict(summary, unread));
+}
+
+/** This function prints the annotations of the gates, and gives the exit code. */
+function report(verdict: GateVerdict): number {
+  for (const line of verdict.lines) console.log(line);
+  return verdict.exit;
 }
 
 if (import.meta.main) process.exitCode = main(process.argv.slice(2));
