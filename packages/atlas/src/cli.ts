@@ -8,6 +8,7 @@
  * - `codeatlas facts [--out facts.jsonl] [--markdown facts.md] [--cache <facts.jsonl>] [--repos-dir <folder>] [<name>=<path> ...]`
  * - `codeatlas sample --db <catalog.sqlite> --out <sample.json>`
  * - `codeatlas agreement --sample <sample.json> --a <a.jsonl> --b <b.jsonl> --out <agreement.json>`
+ * - `codeatlas verdict --sample <sample.json> --a <a.jsonl> --agreement <agreement.json> --answers <answers.jsonl> --out <verdict.json>`
  * - `codeatlas trend --db <catalog.sqlite> [--previous <trend.json>] --out <trend.json>`
  * - `codeatlas clone --owner <owner> --into <folder>`
  *
@@ -16,8 +17,10 @@
  *
  * The command catalog writes the same facts into a SQLite database. Its blobs are the cache of the next run.
  * The command facts writes the Layer 1a facts of each blob as JSON Lines. A cache from an earlier output saves each parse of a known blob.
+ *
  * The command sample draws the seeded sample of functions of `SAMPLE_PLAN` from a catalog, for the labels of Layer 2.
  * The command agreement compares two drafts of labels of the sample, and writes the kappa, the confusion and the audit.
+ * The command verdict compares the answers of the person with the audit, and writes the verdict and the labels of the truth.
  * The command trend adds the point of a catalog to the trend file of the last build.
  * The command queries writes the answers of the query set of a catalog as JSON, for the site.
  */
@@ -28,7 +31,8 @@ import { cacheOf, factsKey, factsOfRepo, treeOf, type BlobFacts, type FactsLine 
 import { manifestsOfRepo } from "./manifests.ts";
 import { lockfilesOfRepo } from "./lockfiles.ts";
 import { queryOf } from "./query.ts";
-import { agreementOf, type DraftLabel } from "./agreement.ts";
+import { agreementOf, type AgreementFile, type DraftLabel } from "./agreement.ts";
+import { verdictOf, type PersonAnswer } from "./verdict.ts";
 import { populationOf, sampleFile, SAMPLE_PLAN, type SampleFile } from "./sample.ts";
 import { Catalog } from "./store.ts";
 import { addPoint, trendPoint } from "./trend.ts";
@@ -86,6 +90,7 @@ const USAGE = `Usage:
   codeatlas catalog [--out catalog.sqlite] [--markdown catalog.md] [--repos-dir <folder>] [<name>=<path> ...]
   codeatlas sample --db <catalog.sqlite> --out <sample.json>
   codeatlas agreement --sample <sample.json> --a <a.jsonl> --b <b.jsonl> --out <agreement.json>
+  codeatlas verdict --sample <sample.json> --a <a.jsonl> --agreement <agreement.json> --answers <answers.jsonl> --out <verdict.json>
   codeatlas trend --db <catalog.sqlite> [--previous <trend.json>] --out <trend.json>
   codeatlas queries --db <catalog.sqlite> --out <queries.json>
   codeatlas facts [--out facts.jsonl] [--markdown facts.md] [--cache <facts.jsonl>] [--repos-dir <folder>] [<name>=<path> ...]
@@ -109,6 +114,7 @@ function main(argv: readonly string[]): number | Promise<number> {
   if (command === "catalog") return catalog(rest);
   if (command === "sample") return sample(rest);
   if (command === "agreement") return agreement(rest);
+  if (command === "verdict") return verdict(rest);
   if (command === "trend") return trend(rest);
   if (command === "queries") return queries(rest);
   if (command !== "build") {
@@ -270,6 +276,34 @@ function agreement(argv: readonly string[]): number {
   }
   console.error(`agreement: the person labels ${file.person.length} items`);
   return file.other.pass ? 0 : 1;
+}
+
+/**
+ * This function compares the answers `--answers` of the person with the audit of `--agreement`, and writes the verdict
+ * file `--out`. Its exit code is 1 when a task fails.
+ */
+function verdict(argv: readonly string[]): number {
+  const arg = (name: string): string | undefined => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined);
+  const [samplePath, a, agreementPath, answersPath, out] = [arg("--sample"), arg("--a"), arg("--agreement"), arg("--answers"), arg("--out")];
+  if (samplePath === undefined || a === undefined || agreementPath === undefined || answersPath === undefined || out === undefined) {
+    console.error(USAGE);
+    return 2;
+  }
+  const lines = <T>(path: string): T[] =>
+    readFileSync(path, "utf8")
+      .split("\n")
+      .filter((line) => line.trim() !== "")
+      .map((line) => JSON.parse(line) as T);
+  const sampleFile = JSON.parse(readFileSync(samplePath, "utf8")) as SampleFile;
+  const agreementFile = JSON.parse(readFileSync(agreementPath, "utf8")) as AgreementFile;
+  const file = verdictOf(sampleFile, lines<DraftLabel>(a), agreementFile, lines<PersonAnswer>(answersPath));
+  writeFileSync(out, `${JSON.stringify(file, null, 1)}\n`);
+  for (const task of file.tasks) {
+    const state = task.pass ? "pass" : "fail";
+    console.error(`verdict: ${task.task} ${task.agree} of ${task.audited}, Wilson [${task.low.toFixed(3)}, ${task.high.toFixed(3)}], target ${task.target}, ${task.missing.length} missing: ${state}`);
+  }
+  console.error(`verdict: ${file.sentence.right} of ${file.sentence.checked} sentences right, ${file.truth.length} labels of the truth`);
+  return file.tasks.every((task) => task.pass) ? 0 : 1;
 }
 
 /** This function adds the point of the catalog `--db` to the trend `--previous`, and writes the trend `--out`. */

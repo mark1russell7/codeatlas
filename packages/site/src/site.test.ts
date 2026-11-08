@@ -181,13 +181,14 @@ describe("the trend", () => {
 describe("the query set", () => {
   const level = (classes: number, duplicatedNodes: number) => ({ classes, members: classes * 2, duplicatedNodes });
   const set: QuerySet = {
-    version: "queries/1",
+    version: "queries/2",
     at: "2026-11-09T06:40:00Z",
     scanner: "facts/1",
     limits: { exactClasses: 25, complexMin: 15, complexLimit: 100 },
     repos: [{ repo: "a", commit: "c1" }],
     duplication: { levels: { exact: level(1, 50), renamed: level(3, 150), shape: level(4, 200) }, topNodes: 1000, ratio: { exact: 0.05, renamed: 0.15, shape: 0.2 } },
     exact: [],
+    homes: [],
     complex: [],
     markers: [
       { repo: "a", kind: "todo", count: 1 },
