@@ -106,154 +106,6 @@ export function keepListOf(text: string): string[] | undefined {
   return undefined;
 }
 
-/** The kinds of the rule of the stamp for one file of `KEEP`. */
-export const STAMP_RULES = ["whole", "pinned", "merged"] as const;
-
-export type StampRuleKind = (typeof STAMP_RULES)[number];
-
-/**
- * The rule of the stamp for one file of `KEEP`. A `whole` file is a copy. A `pinned` file is a workflow with its
- * pins to the commit of the template. A `merged` file is a JSON copy where the stamp sets `fields` for each repository.
- */
-export interface StampRule {
-  readonly path: string;
-  readonly rule: StampRuleKind;
-  readonly fields: readonly string[];
-}
-
-/** The rules of the stamp. A file of `KEEP` with no rule has a state that is not known. */
-export interface StampRules {
-  readonly rules: readonly StampRule[];
-  /** The fixes of the conventions that the stamp starts on a new repository, for example `runner-budget`. */
-  readonly fixes: readonly string[];
-}
-
-/** The fix of the conventions that sets the minutes of the schedules of each repository. */
-export const SCHEDULE_FIX = "runner-budget";
-
-const walk = (value: unknown, visit: (node: SwcNode) => void): void => {
-  if (Array.isArray(value)) {
-    for (const item of value) walk(item, visit);
-    return;
-  }
-  if (typeof value !== "object" || value === null) return;
-  const node = nodeOf(value);
-  if (node !== undefined) visit(node);
-  for (const child of Object.values(value)) walk(child, visit);
-};
-
-const unwrap = (value: unknown): SwcNode | undefined => {
-  const node = nodeOf(value);
-  return node?.type === "TsAsExpression" || node?.type === "TsConstAssertion" || node?.type === "ParenthesisExpression" ? unwrap(node["expression"]) : node;
-};
-
-const argumentOf = (call: SwcNode | undefined, index: number): SwcNode | undefined => unwrap((call?.["arguments"] as { expression?: unknown }[] | undefined)?.[index]?.expression);
-
-const nameOf = (value: unknown): string | undefined => {
-  const node = unwrap(value);
-  return node?.type === "Identifier" && typeof node["value"] === "string" ? node["value"] : undefined;
-};
-
-const stringOf = (value: unknown): string | undefined => {
-  const node = unwrap(value);
-  return node?.type === "StringLiteral" && typeof node["value"] === "string" ? node["value"] : undefined;
-};
-
-/** This function gives the name of a call `object.name(...)`, or of a call `name(...)`. */
-const calleeOf = (call: SwcNode | undefined): string | undefined => {
-  if (call?.type !== "CallExpression") return undefined;
-  const callee = unwrap(call["callee"]);
-  return callee?.type === "MemberExpression" ? nameOf(callee["property"]) : nameOf(callee);
-};
-
-/**
- * This function reads the rules of the stamp from its text. The loop over `KEEP` copies each file whole, or
- * through `pinWorkflow` for the paths of a `startsWith` test. A file that the stamp reads with `JSON.parse` and
- * changes gets the fields that the stamp sets.
- */
-export function stampRulesOf(text: string, keep: readonly string[]): StampRules {
-  const module = parseSync(text, { syntax: "typescript" });
-  let copied = false;
-  const pinned: string[] = [];
-  const fileOf = new Map<string, string>();
-  const jsonOf = new Map<string, string>();
-  const fields = new Map<string, Set<string>>();
-  const fixes: string[] = [];
-  walk(module, (node) => {
-    if (node.type === "ForOfStatement" && nameOf(node["right"]) === "KEEP") {
-      walk(node["body"], (inner) => {
-        if (inner.type !== "ConditionalExpression") return;
-        const test = unwrap(inner["test"]);
-        const prefix = calleeOf(test) === "startsWith" ? stringOf(argumentOf(test, 0)) : undefined;
-        if (prefix !== undefined && calleeOf(unwrap(inner["consequent"])) === "pinWorkflow") pinned.push(prefix);
-      });
-      copied = true;
-    }
-    if (node.type === "VariableDeclarator") {
-      const id = nameOf(node["id"]);
-      const init = unwrap(node["init"]);
-      const last = (init?.["arguments"] as unknown[] | undefined)?.length ?? 0;
-      const path = calleeOf(init) === "join" ? stringOf(argumentOf(init, last - 1)) : undefined;
-      if (id !== undefined && path !== undefined && keep.includes(path)) fileOf.set(id, path);
-      const read = calleeOf(init) === "parse" ? argumentOf(init, 0) : undefined;
-      const file = calleeOf(read) === "readFileSync" ? fileOf.get(nameOf(argumentOf(read, 0)) ?? "") : undefined;
-      if (id !== undefined && file !== undefined) jsonOf.set(id, file);
-    }
-    if (node.type === "AssignmentExpression") {
-      const left = unwrap(node["left"]);
-      const file = left?.type === "MemberExpression" ? jsonOf.get(nameOf(left["object"]) ?? "") : undefined;
-      const field = left?.type === "MemberExpression" ? nameOf(left["property"]) : undefined;
-      if (file !== undefined && field !== undefined) fields.set(file, (fields.get(file) ?? new Set<string>()).add(field));
-    }
-    if (node.type === "ArrayExpression") {
-      const items = ((node["elements"] as ({ expression?: unknown } | null)[] | undefined) ?? []).map((element) => stringOf(element?.expression));
-      items.forEach((item, index) => {
-        const rule = items[index + 1];
-        if (item === "--rule" && rule !== undefined) fixes.push(rule);
-      });
-    }
-  });
-  const rules: StampRule[] = copied
-    ? keep.map((path) => {
-        const set = fields.get(path);
-        if (set !== undefined) return { path, rule: "merged", fields: [...set].sort(byText) };
-        return { path, rule: pinned.some((prefix) => path.startsWith(prefix)) ? "pinned" : "whole", fields: [] };
-      })
-    : [];
-  return { rules, fixes: [...new Set(fixes)].sort(byText) };
-}
-
-/** This function gives the rules of the stamp of the template checkout `root`. */
-export function stampRulesOfRepo(root: string, keep: readonly string[]): StampRules {
-  try {
-    return stampRulesOf(readFileSync(join(root, STAMP_PATH), "utf8"), keep);
-  } catch {
-    return { rules: [], fixes: [] };
-  }
-}
-
-/**
- * This function gives the form of a copy of a file of `KEEP` that the stamp freshness compares, by the rule of the
- * stamp. A pinned workflow gives its `workflowForm`. A merged JSON file loses the fields that the stamp sets. A whole
- * file gives its text.
- */
-export function copyForm(path: string, text: string, rules: StampRules | undefined): string {
-  const rule = rules?.rules.find((r) => r.path === path);
-  if (rule === undefined) return isSharedFile(path) ? workflowForm(text) : text;
-  if (rule.rule === "pinned") return workflowForm(text, { schedules: rules?.fixes.includes(SCHEDULE_FIX) ?? false });
-  if (rule.rule === "merged") {
-    try {
-      const json = objectOf(JSON.parse(text));
-      if (json === undefined) return text;
-      for (const field of rule.fields) delete json[field];
-      return JSON.stringify(sorted(json));
-    } catch {
-      return text;
-    }
-  }
-  return text;
-}
-
 /** This function gives the list `KEEP` of the template checkout `root`, or `undefined` when its stamp has none. */
 export function keepListOfRepo(root: string): string[] | undefined {
   try {
@@ -326,10 +178,9 @@ const isTemplateOnly = (condition: unknown): boolean => typeof condition === "st
  * This function gives the form of a workflow that the drift compares: its parsed YAML as JSON with sorted keys. Each
  * pin has the local form of the template. A call of a shared workflow loses its `with` and `secrets`. A step of a
  * shared action loses its `with`. Thus the inputs of a repository are not drift. A job that runs only in the
- * template goes, with its name in each `needs`. With `schedules`, the minute of each cron goes. A text that does not
- * parse gives its `localForm`.
+ * template goes, with its name in each `needs`. A text that does not parse gives its `localForm`.
  */
-export function workflowForm(text: string, options: { readonly schedules?: boolean } = {}): string {
+export function workflowForm(text: string): string {
   let workflow: unknown;
   try {
     workflow = parseYaml(localForm(text));
@@ -352,12 +203,6 @@ export function workflowForm(text: string, options: { readonly schedules?: boole
       if (s !== undefined && isShared(s["uses"])) delete s["with"];
     }
   }
-  // The fix of the schedules sets the minute of each cron for each repository
-  const schedules = options.schedules === true ? objectOf(objectOf(workflow)?.["on"])?.["schedule"] : undefined;
-  for (const entry of Array.isArray(schedules) ? schedules : []) {
-    const e = objectOf(entry);
-    if (e !== undefined && typeof e["cron"] === "string") e["cron"] = e["cron"].trim().replace(/^\S+/, "*");
-  }
   return JSON.stringify(sorted(workflow));
 }
 
@@ -365,9 +210,9 @@ const kept = (keep: readonly string[], path: string): boolean => keep.some((entr
 
 /**
  * This function gives the template records of one repository: each pin in its workflows, and each file of `keep`
- * that it has. The hash of a copy is the hash of its `copyForm`. The worktree must be a clean checkout of HEAD.
+ * that it has. The hash of a workflow is the hash of its `workflowForm`. The worktree must be a clean checkout of HEAD.
  */
-export function templateRecordsOfRepo(root: string, keep: readonly string[], tree: readonly TreeEntry[] = treeOf(root), rules?: StampRules): TemplateRecords {
+export function templateRecordsOfRepo(root: string, keep: readonly string[], tree: readonly TreeEntry[] = treeOf(root)): TemplateRecords {
   const pins: TemplatePin[] = [];
   const files: TemplateFileRecord[] = [];
   for (const entry of tree) {
@@ -376,7 +221,7 @@ export function templateRecordsOfRepo(root: string, keep: readonly string[], tre
     if ((!workflow && !copy) || entry.bytes > MAX_BYTES) continue;
     const text = readFileSync(join(root, entry.path), "utf8").replace(/\r\n/g, "\n");
     if (workflow) pins.push(...pinsOf(entry.path, text));
-    if (copy) files.push({ path: entry.path, oid: entry.blob, hash: createHash("sha256").update(copyForm(entry.path, text, rules)).digest("hex") });
+    if (copy) files.push({ path: entry.path, oid: entry.blob, hash: createHash("sha256").update(workflow ? workflowForm(text) : text).digest("hex") });
   }
   return { pins, files };
 }
@@ -590,45 +435,111 @@ export async function pinFreshness(q: CatalogQuery, template: string = TEMPLATE_
   };
 }
 
-/** The stamp freshness: the share of the repositories with copies of `KEEP` that are the same as the template by the rules of the stamp. */
+/** The path of the command of the stamp. Its option `--check` tells which files of `KEEP` the stamp changes in a repository. */
+export const STAMP_MAIN = "scripts/stamp/main.ts";
+
+/** One file of `KEEP` that the stamp changes in a repository, as `stamp --check` tells it. */
+export interface StampFileCheck {
+  readonly path: string;
+  /** The state of the copy: `differs` or `missing`. */
+  readonly state: string;
+  /** The fields of a JSON copy that differ, for example `scripts.typecheck`. */
+  readonly fields: readonly string[];
+}
+
+/** The result of `stamp --check` for one repository at one commit of the template. */
+export interface StampCheck {
+  readonly template: string;
+  readonly files: readonly StampFileCheck[];
+}
+
+const linesOf = (out: unknown): string[] =>
+  String(out ?? "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line !== "");
+
+const fileCheckOf = (line: string): StampFileCheck | undefined => {
+  let value: unknown;
+  try {
+    value = JSON.parse(line);
+  } catch {
+    return undefined;
+  }
+  const file = objectOf(value);
+  const path = file?.["path"];
+  const state = file?.["state"];
+  const fields = file?.["fields"];
+  if (typeof path !== "string" || typeof state !== "string") return undefined;
+  return { path, state, fields: Array.isArray(fields) ? fields.filter((field): field is string => typeof field === "string") : [] };
+};
+
+/**
+ * This function starts `stamp --check` of the template checkout `templateRoot` at the commit `sha` on the repository
+ * `repoRoot`. Exit code 0 tells that the stamp changes no file. Exit code 1 gives one JSON line for each file that the
+ * stamp changes. Each other result is an error.
+ */
+export function stampCheckOfRepo(templateRoot: string, repoRoot: string, sha: string): StampCheck | { readonly error: string } {
+  if (!SAFE_REF.test(sha)) return { error: `the ref ${sha} is not safe` };
+  try {
+    execFileSync(process.execPath, [join(templateRoot, STAMP_MAIN), "--check", repoRoot, "--ref", sha], { cwd: templateRoot, stdio: ["ignore", "pipe", "pipe"], maxBuffer: 16 * 1024 * 1024 });
+    return { template: sha, files: [] };
+  } catch (error) {
+    const result = error as { readonly status?: number | null; readonly stdout?: unknown; readonly stderr?: unknown };
+    const files = linesOf(result.stdout).flatMap((line) => fileCheckOf(line) ?? []);
+    if (result.status === 1 && files.length > 0) return { template: sha, files: files.sort((x, y) => byText(x.path, y.path)) };
+    const stderr = linesOf(result.stderr);
+    return { error: stderr.find((line) => line.includes("Error")) ?? stderr[0] ?? `exit code ${result.status ?? "none"}` };
+  }
+}
+
+/** The stamp freshness: the share of the repositories where `stamp --check` at the commit of the template changes no file. */
 export interface StampFreshness {
-  readonly rules: readonly StampRule[];
-  readonly fixes: readonly string[];
+  /** The commit of the template of the checks, or `null` when no repository has a check. */
+  readonly commit: string | null;
   readonly current: readonly string[];
-  /** Each repository with a copy that is changed or missing. */
-  readonly behind: readonly { readonly repo: string; readonly files: readonly { readonly path: string; readonly state: DriftState }[] }[];
-  /** The files of `KEEP` with no rule of the stamp. Their state is not known, so they do not count. */
-  readonly unknown: readonly string[];
+  /** Each repository where the stamp changes a file. */
+  readonly behind: readonly { readonly repo: string; readonly files: readonly StampFileCheck[] }[];
+  /** The repositories that pin the template and have no result of `stamp --check`. They do not count. */
+  readonly unchecked: readonly string[];
   readonly share: number;
 }
 
 /**
- * This function gives the stamp freshness. Each copy of a file of `KEEP` with a rule of the stamp is compared by that
- * rule. A repository is current when each of these copies is the same as the template. The most changes come first.
+ * This function gives the stamp freshness of the repositories that pin the template. A repository is current when
+ * `stamp --check` changes no file. The repository with the most changes comes first.
  */
 export async function stampFreshness(q: CatalogQuery, template: string = TEMPLATE_REPO): Promise<StampFreshness> {
-  const snapshot = await q.selectFrom("current_snapshot").select("id").where("repo", "=", template).executeTakeFirst();
-  const rows = await q.selectFrom("stamp_rule").select(["path", "rule", "fields"]).where("snapshot", "=", snapshot?.id ?? "").orderBy("path").execute();
-  const rules = rows.filter((r) => r.path !== "").map((r) => ({ path: r.path, rule: r.rule as StampRuleKind, fields: JSON.parse(r.fields) as string[] }));
-  const fixes = rows.filter((r) => r.path === "").map((r) => r.rule);
-  const ruled = new Set(rules.map((r) => r.path));
   const drift = await templateDrift(q, template);
-  const unknown = new Set<string>();
-  const current: string[] = [];
-  const behind: { repo: string; files: { path: string; state: DriftState }[] }[] = [];
-  for (const repo of drift.repos) {
-    for (const f of repo.files) if (!ruled.has(f.path)) unknown.add(f.path);
-    const files = repo.files.filter((f) => ruled.has(f.path) && f.state !== "same");
-    if (files.length === 0) current.push(repo.repo);
-    else behind.push({ repo: repo.repo, files });
+  const snapshots = new Map((await q.selectFrom("current_snapshot").select(["id", "repo"]).execute()).map((row) => [row.repo, row.id]));
+  const checks = new Map((await q.selectFrom("stamp_check").select(["snapshot", "template"]).execute()).map((row) => [row.snapshot, row.template]));
+  const files = new Map<string, StampFileCheck[]>();
+  for (const row of await q.selectFrom("stamp_check_file").select(["snapshot", "path", "state", "fields"]).orderBy("path").execute()) {
+    files.set(row.snapshot, [...(files.get(row.snapshot) ?? []), { path: row.path, state: row.state, fields: JSON.parse(row.fields) as string[] }]);
   }
+  let commit: string | null = null;
+  const current: string[] = [];
+  const unchecked: string[] = [];
+  const behind: { repo: string; files: StampFileCheck[] }[] = [];
+  for (const { repo } of drift.repos) {
+    const snapshot = snapshots.get(repo) ?? "";
+    const sha = checks.get(snapshot);
+    if (sha === undefined) {
+      unchecked.push(repo);
+      continue;
+    }
+    commit ??= sha;
+    const changed = files.get(snapshot) ?? [];
+    if (changed.length === 0) current.push(repo);
+    else behind.push({ repo, files: changed });
+  }
+  const counted = current.length + behind.length;
   return {
-    rules,
-    fixes,
+    commit,
     current: current.sort(byText),
-    behind: behind.sort((a, b) => b.files.length - a.files.length || byText(a.repo, b.repo)),
-    unknown: [...unknown].sort(byText),
-    share: drift.repos.length === 0 ? 0 : current.length / drift.repos.length,
+    behind: behind.sort((x, y) => y.files.length - x.files.length || byText(x.repo, y.repo)),
+    unchecked: unchecked.sort(byText),
+    share: counted === 0 ? 0 : current.length / counted,
   };
 }
 
@@ -644,23 +555,20 @@ export function driftMarkdown(pins: PinFreshness, stamp: StampFreshness): string
     "## Drift from the template",
     "",
     `- Pin freshness: ${share(pins.current.length, pins.behind.length, pins.share)}. Each pinned workflow and action, and each file that it uses, is the same at the pins and at ${at}.`,
-    `- Stamp freshness (provisional: the rules come from the syntax tree of the stamp): ${share(stamp.current.length, stamp.behind.length, stamp.share)}. Each copy of a file of the stamp is the same as the template, by the rule of the stamp for the file.`,
-    "",
+    `- Stamp freshness: ${share(stamp.current.length, stamp.behind.length, stamp.share)}. For each current repository, ${code("stamp --check")} at ${stamp.commit === null ? "the template" : `${code(short(stamp.commit))} of the template`} changes no file.`,
   ];
+  if (stamp.unchecked.length > 0) lines.push(`- Not checked: ${stamp.unchecked.map(code).join(", ")}. ${code("stamp --check")} gave no result, so these repositories do not count.`);
+  lines.push("");
   if (pins.behind.length > 0) {
     lines.push("### Pins behind", "", "| Repository | Oldest pin with a change | Age in days | Files that differ |", "| --- | --- | ---: | --- |");
     for (const b of pins.behind) lines.push(`| ${b.repo} | ${code(short(b.ref))} | ${b.days ?? "not known"} | ${b.files.map(code).join(", ")} |`);
     lines.push("");
   }
   if (stamp.behind.length > 0) {
-    lines.push("### Copies behind", "", "| Repository | Copies that differ |", "| --- | --- |");
-    for (const b of stamp.behind) lines.push(`| ${b.repo} | ${b.files.map((f) => `${code(f.path)} (${f.state})`).join(", ")} |`);
+    lines.push("### Copies behind", "", "| Repository | Files that the stamp changes |", "| --- | --- |");
+    const file = (f: StampFileCheck): string => `${code(f.path)} (${f.state}${f.fields.length > 0 ? `: ${f.fields.map(code).join(", ")}` : ""})`;
+    for (const b of stamp.behind) lines.push(`| ${b.repo} | ${b.files.map(file).join(", ")} |`);
     lines.push("");
   }
-  lines.push("### The rules of the stamp", "", "| File | Rule | Fields that the stamp sets |", "| --- | --- | --- |");
-  for (const r of stamp.rules) lines.push(`| ${code(r.path)} | ${r.rule} | ${r.fields.map(code).join(", ")} |`);
-  for (const path of stamp.unknown) lines.push(`| ${code(path)} | not known | |`);
-  lines.push("");
-  if (stamp.fixes.includes(SCHEDULE_FIX)) lines.push(`The stamp starts the fix ${code(SCHEDULE_FIX)}, so the minute of each schedule of a pinned workflow does not count.`, "");
   return lines.join("\n");
 }

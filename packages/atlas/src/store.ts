@@ -8,7 +8,7 @@ import { CLASS_MIN_NODES, type FactsSummary, type Unread } from "./summary.ts";
 import type { FileFacts, MarkerKind } from "./facts.ts";
 import type { ManifestRecord } from "./manifests.ts";
 import type { LockfileRecord } from "./lockfiles.ts";
-import type { StampRules, TemplateRecords, TemplateVersions } from "./templates.ts";
+import type { StampCheck, TemplateRecords, TemplateVersions } from "./templates.ts";
 
 /** The version of the tables. A database of another version gets new tables. */
 export const CATALOG_SCHEMA: string = "codeatlas/2";
@@ -80,8 +80,12 @@ CREATE TABLE IF NOT EXISTS template_version (
   snapshot TEXT NOT NULL REFERENCES snapshot(id), ref TEXT NOT NULL, committed_at TEXT NOT NULL, path TEXT NOT NULL, oid TEXT NOT NULL,
   PRIMARY KEY (snapshot, ref, path)
 );
-CREATE TABLE IF NOT EXISTS stamp_rule (
-  snapshot TEXT NOT NULL REFERENCES snapshot(id), path TEXT NOT NULL, rule TEXT NOT NULL, fields TEXT NOT NULL, PRIMARY KEY (snapshot, path, rule)
+DROP TABLE IF EXISTS stamp_rule;
+CREATE TABLE IF NOT EXISTS stamp_check (
+  snapshot TEXT PRIMARY KEY REFERENCES snapshot(id), template TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS stamp_check_file (
+  snapshot TEXT NOT NULL REFERENCES snapshot(id), path TEXT NOT NULL, state TEXT NOT NULL, fields TEXT NOT NULL, PRIMARY KEY (snapshot, path)
 );
 CREATE TABLE IF NOT EXISTS template_use (
   snapshot TEXT NOT NULL REFERENCES snapshot(id), target TEXT NOT NULL, path TEXT NOT NULL, PRIMARY KEY (snapshot, target, path)
@@ -210,7 +214,8 @@ export class Catalog {
       this.db.prepare("DELETE FROM template_file WHERE snapshot = ?").run(id);
       this.db.prepare("DELETE FROM template_version WHERE snapshot = ?").run(id);
       this.db.prepare("DELETE FROM template_use WHERE snapshot = ?").run(id);
-      this.db.prepare("DELETE FROM stamp_rule WHERE snapshot = ?").run(id);
+      this.db.prepare("DELETE FROM stamp_check WHERE snapshot = ?").run(id);
+      this.db.prepare("DELETE FROM stamp_check_file WHERE snapshot = ?").run(id);
       this.db.prepare("DELETE FROM snapshot WHERE id = ?").run(id);
       this.db
         .prepare('INSERT INTO snapshot (id, repo, "commit", scanned_at, scanner, files, parsed, reused, errors) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
@@ -326,16 +331,14 @@ export class Catalog {
     });
   }
 
-  /**
-   * This method replaces the rules of the stamp of the template snapshot `snapshot`. A fix of the conventions is a
-   * row with the path `""` and the name of the fix as its rule.
-   */
-  putStampRules(snapshot: string, rules: StampRules): void {
+  /** This method replaces the result of `stamp --check` for the snapshot `snapshot`. */
+  putStampCheck(snapshot: string, check: StampCheck): void {
     this.#transaction(() => {
-      this.db.prepare("DELETE FROM stamp_rule WHERE snapshot = ?").run(snapshot);
-      const rule = this.db.prepare("INSERT INTO stamp_rule (snapshot, path, rule, fields) VALUES (?, ?, ?, ?)");
-      for (const r of rules.rules) rule.run(snapshot, r.path, r.rule, JSON.stringify(r.fields));
-      for (const fix of rules.fixes) rule.run(snapshot, "", fix, "[]");
+      this.db.prepare("DELETE FROM stamp_check WHERE snapshot = ?").run(snapshot);
+      this.db.prepare("DELETE FROM stamp_check_file WHERE snapshot = ?").run(snapshot);
+      this.db.prepare("INSERT INTO stamp_check (snapshot, template) VALUES (?, ?)").run(snapshot, check.template);
+      const file = this.db.prepare("INSERT OR REPLACE INTO stamp_check_file (snapshot, path, state, fields) VALUES (?, ?, ?, ?)");
+      for (const f of check.files) file.run(snapshot, f.path, f.state, JSON.stringify(f.fields));
     });
   }
 

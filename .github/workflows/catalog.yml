@@ -69,6 +69,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: node packages/atlas/src/cli.ts clone --owner "$GITHUB_REPOSITORY_OWNER" --into "$RUNNER_TEMP/repos"
+      # The scan starts "stamp --check" of the template on each repository, and the stamp imports packages of the template
+      - name: Install the packages of the template
+        run: pnpm install --frozen-lockfile --ignore-scripts --dir "$RUNNER_TEMP/repos/template"
       # The command fails when a hash breaks the law of the chain, or when it reads no repository or no function.
       # Each file that the parser cannot read gets a warning annotation with its name: a "no read" is not a pass.
       - name: Scan into the catalog
@@ -84,7 +87,7 @@ jobs:
           set -euo pipefail
           node packages/atlas/src/cli.ts catalog --repos-dir "$RUNNER_TEMP/repos" --out "$RUNNER_TEMP/catalog.sqlite" --markdown "$RUNNER_TEMP/again.md" 2>&1 | tee "$RUNNER_TEMP/again.log"
           grep -q " 0 parsed," "$RUNNER_TEMP/again.log" || { echo "::error::The second scan parsed blobs again."; exit 1; }
-      # The share of the repositories that pin one of the newest commits of the template, and the changed copies
+      # The pin freshness and the stamp freshness of the repositories that pin the template
       - name: Drift from the template
         run: |
           set -euo pipefail
