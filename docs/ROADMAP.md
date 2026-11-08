@@ -10,7 +10,7 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 | --- | --- | --- | --- |
 | CA11 | in progress | P2 | Layer 1, more sources: coverage, dependency versions, template drift, conventions breaks |
 | CA4 | in progress | P2 | The private repositories: a local scan into a separate private database |
-| CA5 | in progress: 17 of 41 pairs are right (0.41), and `homeHas` names the module of a home | P2 | Planned duplication: two roadmap items in two repositories that make the same thing |
+| CA5 | in progress: 18 of 41 pairs are right (0.44), and 17 of 47 `homeHas` hits are right (0.36) | P2 | Planned duplication: two roadmap items in two repositories that make the same thing |
 
 ## Next
 

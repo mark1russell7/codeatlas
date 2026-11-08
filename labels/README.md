@@ -101,6 +101,31 @@ A gap is code with no allowed home. The pilot found these gaps:
 - A module counts when its path and its exported names have 2 or more shared words, and its path has 1 or more.
 - For 5 of the 9 splits, the right module is in the first 3 of `homeHas`. The 4 splits with a new part get no module.
 - `homeHas` does not find a module that has only one shared word, for example the explorer of `site-pages` for `CA5-P19`.
+- After round 2, the owner of `vex` changed `CA5-P40` from keep to split. Thus round 2 has 14 splits: 0.452 [0.292, 0.622]. Both rounds have 18 of 41: 0.439 [0.299, 0.590].
+
+### The precision of `homeHas`
+
+`homehas-1.jsonl` has a label for each of the 47 modules that `homeHas` gives for 19 pairs. The two owners of each pair read each module at the current `main`.
+
+- The question: does the module have a part that both items need? The answer is right, wrong or no part. A label is right or wrong, and no part counts as wrong.
+- In 14 hits the two owners did not agree. Then the owner of the repository of the module decides. The field `tieBreak` gives the reason.
+- In 6 of the 14 tie-breaks, the owner of the module was also an owner of the pair. The field `party` marks them.
+
+| Measure | Count | Rate and Wilson interval |
+| --- | --- | --- |
+| Each hit is right | 17 of 47 | 0.362 [0.240, 0.505] |
+| The first hit of a pair is right | 6 of 19 | 0.316 [0.154, 0.540] |
+| A pair has 1 or more right hits | 13 of 19 | 0.684 [0.460, 0.846] |
+| A split has a right hit | 9 of 18 | 0.500 [0.290, 0.710] |
+| A split with a module that an owner names has a right hit | 9 of 11 | 0.818 [0.523, 0.949] |
+
+- If the 6 party tie-breaks go the other way, the hit precision is between 13 of 47 (0.277) and 19 of 47 (0.404).
+- Thus a hit is a lead to read, not a fact. The first hit is not better than the others, so the order of the hits is weak.
+- Most right hits have specific words, for example `arm`, `order`, `sobol`, `probe` or `budget`. Most wrong hits have only general words, for example `model`, `run`, `route` or `data`.
+- A hit in a repository of the pair is right 11 of 20 times. A hit in a third repository is right 6 of 27 times.
+- In 4 of 8 keep pairs, a module of a home has a part that both items need. The owners keep the plans, but each plan can use that module.
+- The owners name modules that `homeHas` misses: `check/measure.ts` of `site-pages` for `CA5-P1`, its explorer for `CA5-P19`, and the field `supports` of `strategy-space.ts` in `layout-contract` for `CA5-P25`.
+- The owners also name `countOperators` of the package `strategy-space` for `CA5-P14` and `CA5-P37`. The homes list of `conventions` does not have that package, so `homeHas` does not read it.
 
 ## The owner verdicts of the class members (CA14)
 
