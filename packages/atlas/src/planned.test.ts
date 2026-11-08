@@ -104,6 +104,22 @@ describe("plannedPairs", () => {
     expect(markdown).not.toContain("`north` N1");
   });
 
+  it("finds the modules of a home with the shared words of a pair, the best first", () => {
+    const homeModules = [
+      { repo: "contract", path: "packages/contract/src/hash.ts", names: ["probeHash", "fingerprintOf"] },
+      { repo: "contract", path: "packages/contract/src/probe.ts", names: ["probeSet"] },
+      { repo: "stats", path: "packages/stats/src/hash.ts", names: ["hashOf"] },
+    ];
+    const both = [item("north", "N1", "A hash of the outputs on fixed probe inputs"), item("south", "S1", "One hash of its outputs on the probe inputs")];
+    const [pair] = plannedPairs(both, { homeModules });
+    expect(pair!.homeHas.map((m) => [m.repo, m.path, [...m.words].sort()])).toEqual([
+      ["contract", "packages/contract/src/hash.ts", ["hash", "probe"]],
+    ]);
+    expect(plannedPairs(both, { homeModules: homeModules.slice(1) })[0]!.homeHas).toEqual([]);
+    expect(plannedPairs(both)[0]!.homeHas).toEqual([]);
+    expect(plannedMarkdown([pair!])).toContain("`contract` packages/contract/src/hash.ts");
+  });
+
   it("escapes each backslash and each pipe of a title in a table cell", () => {
     const odd = plannedPairs([item("north", "A1", "Split a|b at C:\\temp paths"), item("south", "B1", "Split a|b at C:\\temp paths")]);
     expect(plannedMarkdown(odd)).toContain("a\\|b at C:\\\\temp");
