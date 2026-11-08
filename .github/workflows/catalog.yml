@@ -99,7 +99,7 @@ jobs:
 
   catalog-ok:
     name: Catalog OK
-    if: always()
+    if: ${{ !cancelled() }}
     needs: [changes, catalog]
     runs-on: ubuntu-latest
     timeout-minutes: 2
