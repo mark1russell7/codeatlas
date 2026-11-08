@@ -182,11 +182,13 @@ The template makes a new repository with its stamp. The stamp copies the files o
 - The table `stamp_check` has the commit of the template for each snapshot where `stamp --check` of the template gave a result. The table `stamp_check_file` has each file of `KEEP` that the stamp changes, with its state and the JSON fields that differ.
 - The scan starts `node scripts/stamp/main.ts --check <repository> --ref <commit>` of the template checkout on each repository that pins the template. Thus the stamp applies its own rules for each file. The catalog job installs the packages of the template for it.
 - The table `template_version` has the content of each ref that a repository pins, and of the commit of the template. It has the blob of each workflow and action of `.github/` and of each file of `KEEP`, and the commit time of the ref. The clone of the template has all of its history and no blobs.
+- The table `template_ref` has each ref of `template_version` with its commit time and the count of the commits of the template after it, from `git rev-list --count`.
 - The table `template_use` has each file that a shared workflow or action uses, through its `uses: ./.github/...` lines. A target uses itself.
 - The scan reads `KEEP` from `scripts/stamp/stamp.ts` of the template checkout. Without the template in the scan, only the pins count.
 - The query `templateDrift` gives each repository that pins the template. It gives each pin with a mark for the commit of the template, and each file of `KEEP` as `same`, `changed` or `missing`.
 - The query `pinFreshness` gives the pin freshness. A repository uses its pinned workflows and actions, and the files that they use. It is current when each of these files is the same at each pin and at the commit of the template. Thus a pin to an old commit with no real change is current.
 - The query `stampFreshness` gives the stamp freshness. A repository is current when `stamp --check` changes no file. A repository with no result of the check does not count.
+- The query `pinLag` gives the lag of the oldest pin of each repository, in commits and in days behind the commit of the template, and the median of each. The share of `pinFreshness` falls at each new commit of the template, so it measures the activity of the template. The lag measures the delay of the repositories.
 - For each repository that is not current, `pinFreshness` gives the files that differ and the age in days of the oldest pin with a change. The command `codeatlas drift` writes it, and the catalog job adds it to the summary.
 
 ### `conventions_check`, `conventions_rule` and `conventions_break`

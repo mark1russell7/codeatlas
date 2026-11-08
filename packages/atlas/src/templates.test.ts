@@ -11,6 +11,7 @@ import {
   keepListOf,
   localForm,
   pinFreshness,
+  pinLag,
   pinsOf,
   stampCheckOfRepo,
   stampFreshness,
@@ -253,6 +254,25 @@ describe("pinFreshness", () => {
     expect(markdown).toContain("- Pin freshness: **1 of 4** repositories (25%)");
     expect(markdown).toContain(`| stale | \`${A.slice(0, 7)}\` | 7 | \`.github/actions/setup/action.yml\` |`);
     expect(markdown).toContain("| unknown | `ddddddd` | not known |");
+  });
+
+  it("gives the lag of the oldest pin of each repository in commits and in days, and their median", async () => {
+    expect(versions.versions.map((v) => v.behind)).toEqual([0, 2, 1]);
+    const lag = await pinLag(q);
+    expect(lag).toEqual({
+      commit: C,
+      repos: [
+        { repo: "other", ref: A, behind: 2, days: 4 },
+        { repo: "stale", ref: A, behind: 2, days: 4 },
+        { repo: "bumped", ref: B, behind: 1, days: 2 },
+      ],
+      unknown: ["unknown"],
+      median: { behind: 2, days: 4 },
+    });
+    const markdown = driftMarkdown(await pinFreshness(q), await stampFreshness(q), lag);
+    expect(markdown).toContain(`- Pin lag: with its oldest pin, the median repository is **2 commits** and **4 days** behind \`${C.slice(0, 7)}\` of the template. The worst is other, with 2 commits and 4 days.`);
+    expect(markdown).toContain("- Lag not known: `unknown`.");
+    expect(markdown).toContain(`| bumped | \`${B.slice(0, 7)}\` | 1 | 2 |`);
   });
 });
 

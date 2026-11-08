@@ -4,6 +4,7 @@
  * template. This module reads the pins and the copied files of each repository. The query `templateDrift` compares
  * them with the template.
  */
+import { median } from "@mark1russell7/rigor-statistics";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -58,6 +59,8 @@ export interface TemplateVersion {
   readonly ref: string;
   /** The commit time of the ref, in ISO 8601 form. */
   readonly committedAt: string;
+  /** The count of the commits of the template after the ref, up to the commit of the template: `git rev-list --count <ref>..HEAD`. */
+  readonly behind: number;
   /** Each workflow and action of `.github/`, and each file of `KEEP`, with its blob. */
   readonly files: readonly { readonly path: string; readonly oid: string }[];
 }
@@ -322,13 +325,14 @@ export function templateVersionsOfRepo(root: string, refs: readonly string[], ke
     if (!SAFE_REF.test(ref)) continue;
     try {
       const committedAt = git("log", "-1", "--format=%cI", "--end-of-options", ref).trim();
+      const behind = Number(git("rev-list", "--count", "--end-of-options", `${ref}..${head}`).trim());
       const files = git("ls-tree", "-r", "--end-of-options", ref)
         .split("\n")
         .flatMap((line) => {
           const match = /^\d+ blob ([0-9a-f]+)\t(.+)$/.exec(line);
           return match?.[1] !== undefined && match[2] !== undefined && (isSharedFile(match[2]) || kept(keep, match[2])) ? [{ path: match[2], oid: match[1] }] : [];
         });
-      versions.push({ ref, committedAt, files });
+      versions.push({ ref, committedAt, behind, files });
     } catch {
       // A ref that is not in the history of the template: its content is not known
     }
@@ -432,6 +436,65 @@ export async function pinFreshness(q: CatalogQuery, template: string = TEMPLATE_
     current: current.sort(byText),
     behind: behind.sort((a, b) => (b.days ?? Number.POSITIVE_INFINITY) - (a.days ?? Number.POSITIVE_INFINITY) || byText(a.repo, b.repo)),
     share: pinsOfRepo.size === 0 ? 0 : current.length / pinsOfRepo.size,
+  };
+}
+
+/** The lag of the oldest pin of one repository behind the commit of the template. */
+export interface PinLag {
+  readonly repo: string;
+  /** The pin with the most commits of the template after it. */
+  readonly ref: string;
+  /** The count of the commits of the template after `ref`. */
+  readonly behind: number;
+  /** The days from the commit of `ref` to the commit of the template. */
+  readonly days: number;
+}
+
+/** The lag of the pins of each repository that pins the template. */
+export interface PinLags {
+  readonly commit: string | null;
+  /** The lag of each repository, the most commits behind first. */
+  readonly repos: readonly PinLag[];
+  /** The repositories with a pin that the catalog does not know. Their lag is not known. */
+  readonly unknown: readonly string[];
+  readonly median: { readonly behind: number; readonly days: number } | null;
+}
+
+/**
+ * This function gives the lag of the pins. For each repository, it takes the pin with the most commits of the
+ * template after it. It gives that lag in commits and in days. A new commit of the template adds one to each lag.
+ * Thus the median measures the delay of the repositories, and not the activity of the template.
+ */
+export async function pinLag(q: CatalogQuery, template: string = TEMPLATE_REPO): Promise<PinLags> {
+  const snapshot = await q.selectFrom("current_snapshot").select(["id", "commit"]).where("repo", "=", template).executeTakeFirst();
+  const rows = await q.selectFrom("template_ref").select(["ref", "committed_at", "behind"]).where("snapshot", "=", snapshot?.id ?? "").execute();
+  const refs = new Map(rows.map((r) => [r.ref, r]));
+  const head = Date.parse(refs.get(snapshot?.commit ?? "")?.committed_at ?? "");
+  const pinsOfRepo = new Map<string, Set<string>>();
+  for (const pin of await q.selectFrom("current_template_pin").select(["repo", "ref"]).where("repo", "!=", template).execute()) {
+    pinsOfRepo.set(pin.repo, (pinsOfRepo.get(pin.repo) ?? new Set<string>()).add(pin.ref));
+  }
+  const repos: PinLag[] = [];
+  const unknown: string[] = [];
+  for (const [repo, pins] of pinsOfRepo) {
+    const known = [...pins].flatMap((ref) => {
+      const row = refs.get(ref);
+      return row === undefined ? [] : [row];
+    });
+    const oldest = known.sort((a, b) => b.behind - a.behind || byText(a.ref, b.ref))[0];
+    if (known.length < pins.size || oldest === undefined || Number.isNaN(head)) {
+      unknown.push(repo);
+      continue;
+    }
+    const days = Math.max(0, Math.floor((head - Date.parse(oldest.committed_at)) / DAY_MS));
+    repos.push({ repo, ref: oldest.ref, behind: oldest.behind, days });
+  }
+  repos.sort((a, b) => b.behind - a.behind || b.days - a.days || byText(a.repo, b.repo));
+  return {
+    commit: snapshot?.commit ?? null,
+    repos,
+    unknown: unknown.sort(byText),
+    median: repos.length === 0 ? null : { behind: median(repos.map((r) => r.behind)), days: median(repos.map((r) => r.days)) },
   };
 }
 
@@ -548,7 +611,7 @@ const short = (ref: string): string => (/^[0-9a-f]{40}$/.test(ref) ? ref.slice(0
 const code = (text: string): string => `\`${text}\``;
 
 /** This function gives the Markdown of the drift from the template: the pin freshness, the stamp freshness and the changed copies. */
-export function driftMarkdown(pins: PinFreshness, stamp: StampFreshness): string {
+export function driftMarkdown(pins: PinFreshness, stamp: StampFreshness, lag?: PinLags): string {
   const share = (current: number, behind: number, value: number): string => `**${current} of ${current + behind}** repositories (${Math.round(value * 100)}%)`;
   const at = pins.commit === null ? "the template" : `${code(short(pins.commit))} of the template`;
   const lines = [
@@ -558,7 +621,19 @@ export function driftMarkdown(pins: PinFreshness, stamp: StampFreshness): string
     `- Stamp freshness: ${share(stamp.current.length, stamp.behind.length, stamp.share)}. For each current repository, ${code("stamp --check")} at ${stamp.commit === null ? "the template" : `${code(short(stamp.commit))} of the template`} changes no file.`,
   ];
   if (stamp.unchecked.length > 0) lines.push(`- Not checked: ${stamp.unchecked.map(code).join(", ")}. ${code("stamp --check")} gave no result, so these repositories do not count.`);
+  const worst = lag?.repos[0];
+  if (lag?.median !== undefined && lag.median !== null && worst !== undefined) {
+    lines.push(
+      `- Pin lag: with its oldest pin, the median repository is **${lag.median.behind} commits** and **${lag.median.days} days** behind ${at}. The worst is ${worst.repo}, with ${worst.behind} commits and ${worst.days} days.`,
+    );
+  }
+  if (lag !== undefined && lag.unknown.length > 0) lines.push(`- Lag not known: ${lag.unknown.map(code).join(", ")}. The catalog does not know a pin of these repositories.`);
   lines.push("");
+  if (lag !== undefined && lag.repos.length > 0) {
+    lines.push("### Pin lag", "", "| Repository | Oldest pin | Commits behind | Days behind |", "| --- | --- | ---: | ---: |");
+    for (const r of lag.repos) lines.push(`| ${r.repo} | ${code(short(r.ref))} | ${r.behind} | ${r.days} |`);
+    lines.push("");
+  }
   if (pins.behind.length > 0) {
     lines.push("### Pins behind", "", "| Repository | Oldest pin with a change | Age in days | Files that differ |", "| --- | --- | ---: | --- |");
     for (const b of pins.behind) lines.push(`| ${b.repo} | ${code(short(b.ref))} | ${b.days ?? "not known"} | ${b.files.map(code).join(", ")} |`);
