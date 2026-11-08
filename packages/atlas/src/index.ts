@@ -42,6 +42,10 @@ export type { DependencyFact, DependencyField, ManifestFacts, ManifestRecord, Ra
 export { UNRESOLVED_KINDS, pinnedDependencies, rangeDrift, versionDrift } from "./dependencies.ts";
 export type { DependencyPlace, DependencyRange, PinnedDependency, RangeDrift, ResolvedVersion, VersionDrift } from "./dependencies.ts";
 export { LOCK_FIELDS, MAX_LOCK_BYTES, bareVersion, lockfileOf, lockfilesOfRepo } from "./lockfiles.ts";
+export { roadmapOf, roadmapsOfRepo } from "./roadmaps.ts";
+export type { RoadmapItemFact, RoadmapRecord, StatusClass } from "./roadmaps.ts";
+export { PLAN_STOP_WORDS, PLANNED_VERSION, planWords, plannedDuplication, plannedMarkdown, plannedPairs } from "./planned.ts";
+export type { PlanItem, PlannedOptions, PlannedPair } from "./planned.ts";
 export type { LockfileFacts, LockfileRecord, ResolvedFact } from "./lockfiles.ts";
 export {
   DRIFT_STATES,

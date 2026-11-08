@@ -62,6 +62,7 @@ import { atlasMarkdown } from "./report.ts";
 import { mcpCommand, toolCommand } from "./tools-cli.ts";
 import { scanRepoInto } from "./rescan.ts";
 import { conventionsBreaks, conventionsMarkdown } from "./conventions.ts";
+import { plannedDuplication, plannedMarkdown } from "./planned.ts";
 import { FACTS_VERSION } from "./facts.ts";
 import { headOf, scanRepo, type RepoScan } from "./scan.ts";
 
@@ -118,6 +119,7 @@ const USAGE = `Usage:
   codeatlas facts [--out facts.jsonl] [--markdown facts.md] [--cache <facts.jsonl>] [--repos-dir <folder>] [<name>=<path> ...]
   codeatlas drift --db <catalog.sqlite> [--out drift.json] [--markdown drift.md]
   codeatlas breaks --db <catalog.sqlite> [--out breaks.json] [--markdown breaks.md]
+  codeatlas planned --db <catalog.sqlite> [--out planned.json] [--markdown planned.md] [--min 0.25]
   codeatlas clone --owner <owner> --into <folder>
   codeatlas mcp --db <catalog.sqlite> [--write]
   codeatlas tool <name> [<json input>] --db <catalog.sqlite>`;
@@ -146,6 +148,7 @@ function main(argv: readonly string[]): number | Promise<number> {
   if (command === "trend") return trend(rest);
   if (command === "drift") return drift(rest);
   if (command === "breaks") return breaks(rest);
+  if (command === "planned") return planned(rest);
   if (command === "queries") return queries(rest);
   if (command === "mcp") return mcpCommand(rest);
   if (command === "tool") return toolCommand(rest);
@@ -480,6 +483,29 @@ async function drift(argv: readonly string[]): Promise<number> {
     const line = (current: number, behind: number): string => `${current} of ${current + behind}`;
     const median = lag.median === null ? "not known" : `${lag.median.behind} commits, ${lag.median.days} days`;
     console.error(`drift: pins ${line(freshness.current.length, freshness.behind.length)} current, copies ${line(stamp.current.length, stamp.behind.length)} current, median pin lag ${median}`);
+    return 0;
+  } finally {
+    catalog.close();
+  }
+}
+
+/** This function writes the planned pairs of the roadmaps of the catalog `--db` as JSON `--out` and Markdown `--markdown`. */
+async function planned(argv: readonly string[]): Promise<number> {
+  const option = (name: string): string | undefined => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined);
+  const db = option("--db");
+  const min = Number(option("--min") ?? "0.25");
+  if (db === undefined || !Number.isFinite(min)) {
+    console.error(USAGE);
+    return 2;
+  }
+  const catalog = readOnlyCatalog(db);
+  try {
+    const pairs = await plannedDuplication(queryOf(catalog), { minScore: min });
+    const out = option("--out");
+    const markdown = option("--markdown");
+    if (out !== undefined) writeFileSync(out, `${JSON.stringify({ pairs })}\n`);
+    if (markdown !== undefined) writeFileSync(markdown, plannedMarkdown(pairs));
+    console.error(`planned: ${pairs.length} pairs, ${pairs.filter((p) => p.kind === "both open").length} of two open plans`);
     return 0;
   } finally {
     catalog.close();
