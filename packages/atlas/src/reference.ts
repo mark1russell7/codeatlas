@@ -227,6 +227,12 @@ const pick = (interval: { readonly low: number; readonly high: number }): { low:
 const AREA_OF_PACKAGE = new Map(HOMES.flatMap((home) => home.packages.map((name) => [name, home.area] as const)));
 
 /**
+ * This pattern finds the files of test support outside the test folders: fakes, mocks and stubs. A copy in such a file
+ * is not a home fact. The logic of a fake is test support, and its home is test generation.
+ */
+export const TEST_SUPPORT: RegExp = /(?:^|\/)(?:testing|fakes?|mocks?|stubs?)\/|(?:^|[/._-])(?:fakes?|mocks?|stubs?)\.[cm]?[jt]sx?$/;
+
+/**
  * This function gives the home facts of the items. An item can have the renamed hash of an exported function of a
  * home package, at another place. Then the item has the area of that package. The function of the home does the same
  * work, so the home is a fact and not a judgment. An item with copies in two areas gets no fact.
@@ -258,6 +264,7 @@ export async function homeFacts(q: CatalogQuery, items: readonly SampleItem[]): 
     if (copy.subject === null) continue;
     const item = placeOf.get(copy.subject);
     if (item !== undefined && item.repo === copy.repo && item.path === copy.path) continue;
+    if (TEST_SUPPORT.test(copy.path)) continue;
     const name = packageOf(copy.repo, copy.path);
     const area = name === undefined ? undefined : AREA_OF_PACKAGE.get(name);
     if (name === undefined || area === undefined) continue;

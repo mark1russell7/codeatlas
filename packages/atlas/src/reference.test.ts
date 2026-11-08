@@ -2,7 +2,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { factsOfRepo } from "./blobs.ts";
 import { manifestsOfRepo } from "./manifests.ts";
 import { queryOf } from "./query.ts";
-import { homeFacts, labelsOfLine, precisionOf, raterOfText, REFERENCE_NOTE, referenceMarkdown, referenceOf, type Rater } from "./reference.ts";
+import { homeFacts, labelsOfLine, TEST_SUPPORT, precisionOf, raterOfText, REFERENCE_NOTE, referenceMarkdown, referenceOf, type Rater } from "./reference.ts";
 import type { SampleFile, SampleItem } from "./sample.ts";
 import { Catalog } from "./store.ts";
 import { GitRepos } from "./testing/git-repo.ts";
@@ -100,6 +100,13 @@ describe("precisionOf", () => {
 });
 
 describe("homeFacts", () => {
+  it("finds the files of test support, and no other file", () => {
+    const support = ["packages/lag/src/vitals/test-fakes.ts", "src/testing/git-repo.ts", "src/fakes/clock.ts", "src/mock.ts", "src/http.stub.mts"];
+    const code = ["src/fake-news.ts", "src/stubborn.ts", "src/mockup/view.tsx", "src/vitals/fakes-of-time.ts"];
+    expect(support.filter((p) => TEST_SUPPORT.test(p))).toEqual(support);
+    expect(code.filter((p) => TEST_SUPPORT.test(p))).toEqual([]);
+  });
+
   const repos = new GitRepos();
   afterAll(() => repos.removeAll());
 
