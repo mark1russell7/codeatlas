@@ -8,18 +8,17 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 
 | ID | Status | Priority | Title |
 | --- | --- | --- | --- |
-| CA9 | in progress | P1 | Layer 1 in CI over all public repositories, into one SQLite database |
+| CA10 | in progress | P1 | Layer 3: the algebra, a SQLite schema with a typed query layer |
 
 ## Next
 
 | ID | Status | Priority | Title |
 | --- | --- | --- | --- |
-| CA10 | next | P1 | Layer 3: the algebra, a SQLite schema with a typed query layer |
-| CA12 | blocked by CA9 | P1 | A hand-labeled sample, for the precision and recall of each judgment category |
+| CA12 | next | P1 | A hand-labeled sample, for the precision and recall of each judgment category |
 | CA13 | blocked by CA10, CA12 | P1 | Layer 2 pilot on 3 repositories: cost per 1000 lines and precision |
 | CA14 | blocked by CA13 | P1 | A review of the measured cost before the fan-out |
 | CA17 | blocked by CA10 | P1 | The query set on the site: quality, features and duplication |
-| CA2 | blocked by CA9 | P2 | The trend: the catalog of each week as history, by repository |
+| CA2 | next | P2 | The trend: the catalog of each week as history, by repository |
 | CA3 | blocked by CA10 | P2 | The rigor candidates: for each topic, the classes that a shared library removes |
 
 ## Later
@@ -38,6 +37,7 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 
 | ID | Status | Priority | Title |
 | --- | --- | --- | --- |
+| CA9 | done 2026-11-08 | P1 | Layer 1 in CI over all public repositories, into one SQLite database |
 | CA8 | done 2026-11-08 | P1 | Layer 1: a parser scan of each file, with no model tokens |
 | CA7 | done 2026-11-08 | P0 | Phase 0: count the corpus and write the schema of the catalog |
 | CA1 | done 2026-11-05 | P1 | The site: the atlas as a page to explore, built each week |
