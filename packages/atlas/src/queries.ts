@@ -21,7 +21,7 @@ export interface CloneOptions {
 }
 
 /** One clone class: the functions with one hash at one level. */
-export interface CloneClass {
+export interface HashClass {
   readonly hash: string;
   readonly nodes: number;
   readonly copies: number;
@@ -66,7 +66,7 @@ function topFunctions(q: CatalogQuery, minNodes: number) {
 }
 
 /** This function gives the clone classes of one level, the largest duplication first. */
-export async function cloneClasses(q: CatalogQuery, level: CloneLevel, options: CloneOptions = {}): Promise<CloneClass[]> {
+export async function cloneClasses(q: CatalogQuery, level: CloneLevel, options: CloneOptions = {}): Promise<HashClass[]> {
   const hash = column(level);
   const rows = await topFunctions(q, options.minNodes ?? CLASS_MIN_NODES)
     .where(hash, "is not", null)

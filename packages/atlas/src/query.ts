@@ -10,7 +10,7 @@ import { Kysely, SqliteDialect, type SqliteDatabase } from "kysely";
 export type ColumnType = "text" | "text?" | "integer" | "integer?";
 
 /** The value of a column of type `T`. An `integer` of a flag is 0 or 1. */
-export type ValueOf<T extends ColumnType> = T extends "text" ? string : T extends "text?" ? string | null : T extends "integer" ? number : number | null;
+export type ValueOf<T> = T extends "text" ? string : T extends "text?" ? string | null : T extends "integer" ? number : T extends "integer?" ? number | null : never;
 
 const SNAPSHOT = {
   id: "text",
