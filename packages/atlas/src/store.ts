@@ -231,6 +231,17 @@ export class Catalog {
     for (const m of facts.markers) this.#marker.run(key, m.kind, m.line, m.text);
   }
 
+  #snapshotRefs: readonly string[] | undefined;
+
+  /** This method gives each table with a foreign key to `snapshot`, from the schema, so a new table is not missed. */
+  #snapshotTables(): readonly string[] {
+    this.#snapshotRefs ??= this.db
+      .prepare(`SELECT m.name AS name FROM sqlite_master m, pragma_foreign_key_list(m.name) f WHERE m.type = 'table' AND f."table" = 'snapshot' ORDER BY m.name`)
+      .all()
+      .map((row) => String(row["name"]));
+    return this.#snapshotRefs;
+  }
+
   #transaction(work: () => void): void {
     this.db.exec("BEGIN");
     try {
@@ -250,21 +261,8 @@ export class Catalog {
     const id = `${repo}@${commit ?? "worktree"}`;
     this.#transaction(() => {
       this.db.prepare("INSERT OR IGNORE INTO repo (name) VALUES (?)").run(repo);
-      this.db.prepare("DELETE FROM file WHERE snapshot = ?").run(id);
-      // The rows of the other sources of the snapshot refer to it. Their put methods write them again
-      this.db.prepare("DELETE FROM manifest WHERE snapshot = ?").run(id);
-      this.db.prepare("DELETE FROM lockfile WHERE snapshot = ?").run(id);
-      this.db.prepare("DELETE FROM roadmap WHERE snapshot = ?").run(id);
-      this.db.prepare("DELETE FROM template_pin WHERE snapshot = ?").run(id);
-      this.db.prepare("DELETE FROM template_file WHERE snapshot = ?").run(id);
-      this.db.prepare("DELETE FROM template_version WHERE snapshot = ?").run(id);
-      this.db.prepare("DELETE FROM template_use WHERE snapshot = ?").run(id);
-      this.db.prepare("DELETE FROM template_ref WHERE snapshot = ?").run(id);
-      this.db.prepare("DELETE FROM stamp_check WHERE snapshot = ?").run(id);
-      this.db.prepare("DELETE FROM stamp_check_file WHERE snapshot = ?").run(id);
-      this.db.prepare("DELETE FROM conventions_check WHERE snapshot = ?").run(id);
-      this.db.prepare("DELETE FROM conventions_rule WHERE snapshot = ?").run(id);
-      this.db.prepare("DELETE FROM conventions_break WHERE snapshot = ?").run(id);
+      // The rows of each table that refers to the snapshot go first. The put method of each source writes them again
+      for (const table of this.#snapshotTables()) this.db.prepare(`DELETE FROM ${table} WHERE snapshot = ?`).run(id);
       this.db.prepare("DELETE FROM snapshot WHERE id = ?").run(id);
       this.db
         .prepare('INSERT INTO snapshot (id, repo, "commit", scanned_at, scanner, files, parsed, reused, errors) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')

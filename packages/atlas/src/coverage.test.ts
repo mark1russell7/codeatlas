@@ -95,11 +95,17 @@ describe("the coverage of a repository", () => {
     const report = await coverageReport(queryOf(catalog.db));
     expect(report).toEqual({
       repos: 1,
-      covered: [{ repo: "app", commit: "c0", current: true, files: 1, lines: { total: 10, covered: 8 }, functions: { total: 2, covered: 1 }, exported: 2, exportedUnhit: 1 }],
+      covered: [{ repo: "app", commit: "c0", current: true, files: 1, lines: { total: 10, covered: 8 }, functions: { total: 2, covered: 1 }, reported: 2, exported: 2, exportedUnhit: 1 }],
     });
     const markdown = coverageMarkdown(report);
     expect(markdown).toContain("Repositories with a coverage artifact on `main`: **1** of 1.");
     expect(markdown).toContain("| `app` | `c0` | 1 | 80.0% | 50.0% | 1 of 2 |");
     expect(markdown).toContain("With an Istanbul report (`coverage-summary.json`): 1.");
+    expect(markdown).toContain("With a function report (`coverage-final.json`): 1.");
+    const summaryOnly = { ...report.covered[0]!, reported: 0, exported: 0, exportedUnhit: 0 };
+    expect(coverageMarkdown({ repos: 1, covered: [summaryOnly] })).toContain("| 80.0% | 50.0% | no function report |");
+    // A scan of the same commit again replaces the snapshot, so its coverage rows go first
+    catalog.putSnapshot("app", "c0", "2026-11-08T01:00:00Z", "test", result.files, result.counts);
+    expect((await coverageReport(queryOf(catalog.db))).covered).toEqual([]);
   });
 });
