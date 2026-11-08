@@ -7,6 +7,7 @@
  * - `codeatlas catalog [--out catalog.sqlite] [--markdown catalog.md] [--repos-dir <folder>] [<name>=<path> ...]`
  * - `codeatlas facts [--out facts.jsonl] [--markdown facts.md] [--cache <facts.jsonl>] [--repos-dir <folder>] [<name>=<path> ...]`
  * - `codeatlas sample --db <catalog.sqlite> --out <sample.json>`
+ * - `codeatlas agreement --sample <sample.json> --a <a.jsonl> --b <b.jsonl> --out <agreement.json>`
  * - `codeatlas clone --owner <owner> --into <folder>`
  *
  * The command build scans each repository (each folder of --repos-dir, and each name=path), and writes the
@@ -15,13 +16,15 @@
  * The command catalog writes the same facts into a SQLite database. Its blobs are the cache of the next run.
  * The command facts writes the Layer 1a facts of each blob as JSON Lines. A cache from an earlier output saves each parse of a known blob.
  * The command sample draws the seeded sample of functions of `SAMPLE_PLAN` from a catalog, for the labels of Layer 2.
+ * The command agreement compares two drafts of labels of the sample, and writes the kappa, the confusion and the audit.
  */
 import { closeSync, openSync, readFileSync, readdirSync, statSync, writeFileSync, writeSync } from "node:fs";
 import { join } from "node:path";
 import { buildAtlas } from "./atlas.ts";
 import { cacheOf, factsKey, factsOfRepo, type BlobFacts, type FactsLine } from "./blobs.ts";
 import { queryOf } from "./query.ts";
-import { populationOf, sampleFile, SAMPLE_PLAN } from "./sample.ts";
+import { agreementOf, type DraftLabel } from "./agreement.ts";
+import { populationOf, sampleFile, SAMPLE_PLAN, type SampleFile } from "./sample.ts";
 import { Catalog } from "./store.ts";
 import { factsMarkdown, factsSummary, gateVerdict, type GateVerdict } from "./summary.ts";
 import { clonePublic } from "./clone.ts";
@@ -75,6 +78,7 @@ const USAGE = `Usage:
   codeatlas corpus [--out corpus.json] [--markdown corpus.md] [--repos-dir <folder>] [<name>=<path> ...]
   codeatlas catalog [--out catalog.sqlite] [--markdown catalog.md] [--repos-dir <folder>] [<name>=<path> ...]
   codeatlas sample --db <catalog.sqlite> --out <sample.json>
+  codeatlas agreement --sample <sample.json> --a <a.jsonl> --b <b.jsonl> --out <agreement.json>
   codeatlas facts [--out facts.jsonl] [--markdown facts.md] [--cache <facts.jsonl>] [--repos-dir <folder>] [<name>=<path> ...]
   codeatlas clone --owner <owner> --into <folder>`;
 
@@ -95,6 +99,7 @@ function main(argv: readonly string[]): number | Promise<number> {
   if (command === "facts") return facts(rest);
   if (command === "catalog") return catalog(rest);
   if (command === "sample") return sample(rest);
+  if (command === "agreement") return agreement(rest);
   if (command !== "build") {
     console.error(USAGE);
     return 2;
@@ -226,6 +231,31 @@ async function sample(argv: readonly string[]): Promise<number> {
   } finally {
     catalog.close();
   }
+}
+
+/** This function compares the drafts `--a` and `--b` of the sample `--sample`, and writes the agreement file `--out`. */
+function agreement(argv: readonly string[]): number {
+  const arg = (name: string): string | undefined => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined);
+  const [samplePath, a, b, out] = [arg("--sample"), arg("--a"), arg("--b"), arg("--out")];
+  if (samplePath === undefined || a === undefined || b === undefined || out === undefined) {
+    console.error(USAGE);
+    return 2;
+  }
+  const draft = (path: string): DraftLabel[] =>
+    readFileSync(path, "utf8")
+      .split("\n")
+      .filter((line) => line.trim() !== "")
+      .map((line) => JSON.parse(line) as DraftLabel);
+  const file = agreementOf(JSON.parse(readFileSync(samplePath, "utf8")) as SampleFile, draft(a), draft(b));
+  writeFileSync(out, `${JSON.stringify(file, null, 1)}\n`);
+  const pct = (x: number): string => `${(100 * x).toFixed(1)}%`;
+  console.error(`agreement: other ${pct(file.other.a)} and ${pct(file.other.b)} (limit ${pct(file.other.limit)}, ${file.other.pass ? "pass" : "fail"})`);
+  for (const task of file.tasks) {
+    const k = task.kappa.kappa === undefined ? "none" : task.kappa.kappa.toFixed(3);
+    console.error(`agreement: ${task.task} n=${task.n} kappa ${k} [${task.interval.low.toFixed(3)}, ${task.interval.high.toFixed(3)}], ${task.disagree.length} disagree, audit ${task.audit.length}`);
+  }
+  console.error(`agreement: the person labels ${file.person.length} items`);
+  return file.other.pass ? 0 : 1;
 }
 
 /** This function prints the annotations of the gates, and gives the exit code. */

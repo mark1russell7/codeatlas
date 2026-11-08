@@ -22,5 +22,7 @@ export { CATALOG_COLUMNS, CATALOG_VIEWS, queryOf } from "./query.ts";
 export type { CatalogColumns, CatalogQuery, CatalogTables, ColumnType, ValueOf } from "./query.ts";
 export { CLONE_LEVELS, cloneClasses, complexFunctions, copiesOf, duplication, importersOf, markerCounts, membersOf } from "./queries.ts";
 export type { CloneLevel, CloneOptions, HashClass, ComplexFunction, Duplication, FunctionPlace, ImportPlace, LevelDuplication, MarkerCount } from "./queries.ts";
+export { agreementOf, OTHER_LIMIT } from "./agreement.ts";
+export type { AgreementFile, ConfusionCell, DraftLabel, OtherCheck, TaskAgreement } from "./agreement.ts";
 export { AUDIT_EXPECTED, SAMPLE_PLAN, SAMPLE_VERSION, auditOf, drawSample, populationOf, sampleFile, sizedTasks } from "./sample.ts";
 export type { SampleFile, SampleItem, SizedTask, TaskTarget } from "./sample.ts";
