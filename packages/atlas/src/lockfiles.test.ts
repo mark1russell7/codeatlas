@@ -92,6 +92,17 @@ describe("the lockfiles of the catalog", () => {
     ]);
   });
 
+  it("scans a snapshot again over its lockfiles", () => {
+    const again = new Catalog(":memory:");
+    for (let i = 0; i < 2; i++) {
+      const result = factsOfRepo("a", roots.a, again);
+      const snapshot = again.putSnapshot("a", "c0", "2026-11-08T00:00:00Z", "test", result.files, result.counts);
+      again.putLockfiles(snapshot, lockfilesOfRepo(roots.a));
+    }
+    expect(again.db.prepare("SELECT count(*) AS n FROM current_lockfile").get()).toEqual({ n: 1 });
+    again.close();
+  });
+
   it("gives each dependency with two resolved versions, with the paths of the manifests, and no link", async () => {
     const drift = await versionDrift(q);
     expect(drift.map((d) => [d.name, d.repos, d.versions.map((v) => [v.version, v.places.map((p) => `${p.repo}/${p.path}`)])])).toEqual([

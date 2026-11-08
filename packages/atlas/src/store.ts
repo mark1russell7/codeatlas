@@ -190,6 +190,7 @@ export class Catalog {
       this.db.prepare("DELETE FROM file WHERE snapshot = ?").run(id);
       // The rows of the other sources of the snapshot refer to it. Their put methods write them again
       this.db.prepare("DELETE FROM manifest WHERE snapshot = ?").run(id);
+      this.db.prepare("DELETE FROM lockfile WHERE snapshot = ?").run(id);
       this.db.prepare("DELETE FROM snapshot WHERE id = ?").run(id);
       this.db
         .prepare('INSERT INTO snapshot (id, repo, "commit", scanned_at, scanner, files, parsed, reused, errors) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
