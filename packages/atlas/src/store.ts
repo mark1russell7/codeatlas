@@ -1,5 +1,6 @@
 /**
- * The catalog database: the Layer 1a tables, and the manifests, lockfiles, roadmaps and template records of Layer 1c of `docs/SCHEMA.md`, in one SQLite file through `node:sqlite`.
+ * The catalog database: the Layer 1a tables, and the manifests, lockfiles, roadmaps and template records of Layer 1c. It
+ * is one SQLite file through `node:sqlite`. `docs/SCHEMA.md` tells the layers.
  * The blob tables are also the cache of the scan. A rescan with the database of the last run parses only new blobs.
  */
 import { DatabaseSync, type StatementSync } from "node:sqlite";

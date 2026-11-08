@@ -21,7 +21,7 @@ This document gives the layers, the keys, the relations, the measures and their 
 | --- | --- | --- | --- | --- |
 | 1a, syntax | The TypeScript parser reads one file and writes its declarations, imports, exports, call sites, shapes, measures and markers. | CPU only. No install of dependencies. | `(blob, scanner version)` | For a new blob, or a new scanner version. |
 | 1b, program | The TypeScript type checker reads a package with its installed dependencies. It finds the target of each import and each method use, and it writes signatures with their types. | CPU and an install for each repository. | `(snapshot, scanner version)` | For a new commit of the repository. |
-| 1c, outside sources | CI artifacts, lockfiles and the template give coverage, dependency versions, template drift and conventions breaks. | Small. | `(snapshot, source)` | For a new commit or a new CI run. |
+| 1c, outside sources | CI artifacts, lockfiles, roadmaps and the template give coverage, dependency versions, plans, template drift and conventions breaks. | Small. | `(snapshot, source)` | For a new commit or a new CI run. |
 | 2, judgment | An agent gives the purpose of a function, the features of a package, the home of a helper and findings that need judgment. | Model tokens. | `(subject, task, prompt version, model)` | For a new subject content or a new prompt version. |
 | 3, algebra | Typed queries over the relations of layers 1 and 2, and the measures of the site. | Small. | Not stored. A query is a function of the relations. | Each build of the site. |
 
@@ -171,6 +171,17 @@ From each `package.json` and its lockfile: the package, the dependency name, the
 - The table `resolution` has the resolved version of each dependency of each importer of a lockfile blob. The path of the manifest is from the folder of the lockfile.
 - The query `versionDrift` gives each dependency that the current lockfiles resolve to two versions or more.
 - A lockfile of npm (`package-lock.json`) is not read yet.
+
+### `roadmap` and `roadmap_item`
+
+The plans of each repository, from each `ROADMAP.md` that git keeps. The parse is `roadmapItems` of `@mark1russell7/site-pages`, the reader of the Status page of each site.
+
+- The table `roadmap` has one row for each roadmap of a snapshot: the path, the blob and a parse error.
+- The table `roadmap_item` has the items of each roadmap blob: the line, the ID, the title, the status, the class of the status, the section and the area.
+- The views `current_roadmap` and `current_roadmap_item` give the roadmaps and the items of the current snapshots.
+- The query `plannedDuplication` (CA5) gives each pair of items of two repositories with words in common. The score is the cosine of the TF-IDF vectors of the two titles.
+- A pair of two done items is history, so the query does not give it. A pair with one done item tells that one plan can use the other.
+- A title that names the repository of the other item is a plan that uses the other. Such a pair is not a copy.
 
 ### `template_pin`, `template_file`, `template_version`, `template_use` and `stamp_check`
 
