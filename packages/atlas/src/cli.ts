@@ -11,6 +11,8 @@
  * - `codeatlas verdict --sample <sample.json> --a <a.jsonl> --agreement <agreement.json> --answers <answers.jsonl> --out <verdict.json>`
  * - `codeatlas trend --db <catalog.sqlite> [--previous <trend.json>] --out <trend.json>`
  * - `codeatlas clone --owner <owner> --into <folder>`
+ * - `codeatlas mcp --db <catalog.sqlite>`
+ * - `codeatlas tool <name> [<json input>] --db <catalog.sqlite>`
  *
  * The command build scans each repository (each folder of --repos-dir, and each name=path), and writes the
  * atlas as JSON and as Markdown. The command corpus counts the files, lines and bytes of each kind in the same repositories.
@@ -23,6 +25,7 @@
  * The command verdict compares the answers of the person with the audit, and writes the verdict and the labels of the truth.
  * The command trend adds the point of a catalog to the trend file of the last build.
  * The command queries writes the answers of the query set of a catalog as JSON, for the site.
+ * The command mcp serves the tools of agents over a catalog as MCP tools. The command tool calls one of them.
  */
 import { closeSync, openSync, readFileSync, readdirSync, statSync, writeFileSync, writeSync } from "node:fs";
 import { join } from "node:path";
@@ -42,6 +45,7 @@ import { factsMarkdown, factsSummary, gateVerdict, type GateVerdict } from "./su
 import { clonePublic } from "./clone.ts";
 import { buildCorpus, corpusMarkdown, corpusOfRepo } from "./corpus.ts";
 import { atlasMarkdown } from "./report.ts";
+import { mcpCommand, toolCommand } from "./tools-cli.ts";
 import { FACTS_VERSION } from "./facts.ts";
 import { headOf, scanRepo, type RepoScan } from "./scan.ts";
 
@@ -95,7 +99,9 @@ const USAGE = `Usage:
   codeatlas trend --db <catalog.sqlite> [--previous <trend.json>] --out <trend.json>
   codeatlas queries --db <catalog.sqlite> --out <queries.json>
   codeatlas facts [--out facts.jsonl] [--markdown facts.md] [--cache <facts.jsonl>] [--repos-dir <folder>] [<name>=<path> ...]
-  codeatlas clone --owner <owner> --into <folder>`;
+  codeatlas clone --owner <owner> --into <folder>
+  codeatlas mcp --db <catalog.sqlite>
+  codeatlas tool <name> [<json input>] --db <catalog.sqlite>`;
 
 function main(argv: readonly string[]): number | Promise<number> {
   const [command, ...rest] = argv;
@@ -118,6 +124,8 @@ function main(argv: readonly string[]): number | Promise<number> {
   if (command === "verdict") return verdict(rest);
   if (command === "trend") return trend(rest);
   if (command === "queries") return queries(rest);
+  if (command === "mcp") return mcpCommand(rest);
+  if (command === "tool") return toolCommand(rest);
   if (command !== "build") {
     console.error(USAGE);
     return 2;
