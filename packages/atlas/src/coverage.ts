@@ -195,6 +195,8 @@ export interface RepoCoverage {
   readonly files: number;
   readonly lines: Measure;
   readonly functions: Measure;
+  /** The functions of `coverage-final.json`. The value is 0 when the artifact has no such report. */
+  readonly reported: number;
   /** The exported functions of the snapshot that the report has, and those with no hit. */
   readonly exported: number;
   readonly exportedUnhit: number;
@@ -225,6 +227,13 @@ export async function coverageReport(q: CatalogQuery): Promise<CoverageReport> {
     .innerJoin("coverage_file as f", "f.snapshot", "s.id")
     .select(["s.repo as repo", "f.lines as lines", "f.lines_covered as linesCovered", "f.functions as functions", "f.functions_covered as functionsCovered"])
     .execute();
+  const reported = await q
+    .selectFrom("current_snapshot as s")
+    .innerJoin("coverage_function as c", "c.snapshot", "s.id")
+    .select(["s.repo as repo"])
+    .select((eb) => eb.fn.countAll<number>().as("n"))
+    .groupBy("s.repo")
+    .execute();
   const exported = await q
     .selectFrom("current_file as f")
     .innerJoin("coverage_function as c", (join) => join.onRef("c.snapshot", "=", "f.snapshot").onRef("c.path", "=", "f.path"))
@@ -243,6 +252,7 @@ export async function coverageReport(q: CatalogQuery): Promise<CoverageReport> {
       files: mine.length,
       lines: sum(mine.map((f) => ({ total: f.lines, covered: f.linesCovered }))),
       functions: sum(mine.map((f) => ({ total: f.functions, covered: f.functionsCovered }))),
+      reported: Number(reported.find((r) => r.repo === run.repo)?.n ?? 0),
       exported: fns.length,
       exportedUnhit: fns.filter((e) => e.hits === 0).length,
     };
@@ -259,6 +269,7 @@ export function coverageMarkdown(report: CoverageReport): string {
   const read = report.covered.filter((r) => r.files > 0).length;
   lines.push(`- Repositories with a coverage artifact on \`main\`: **${report.covered.length}** of ${report.repos}. Of the current commit: ${current}.`);
   lines.push(`- With an Istanbul report (\`coverage-summary.json\`): ${read}. The others have their own format.`);
+  lines.push(`- With a function report (\`coverage-final.json\`): ${report.covered.filter((r) => r.reported > 0).length}.`);
   lines.push(`- Lines: ${percent(sum(report.covered.map((r) => r.lines)))}. Functions: ${percent(sum(report.covered.map((r) => r.functions)))}.`);
   const exported = report.covered.reduce((s, r) => s + r.exported, 0);
   const unhit = report.covered.reduce((s, r) => s + r.exportedUnhit, 0);
@@ -266,7 +277,7 @@ export function coverageMarkdown(report: CoverageReport): string {
   if (report.covered.length > 0) {
     lines.push("", "| Repository | Commit | Files | Lines | Functions | Exported, no hit |", "| --- | --- | ---: | ---: | ---: | ---: |");
     for (const r of report.covered) {
-      lines.push(`| \`${r.repo}\` | \`${r.commit.slice(0, 7)}\`${r.current ? "" : " (older)"} | ${r.files === 0 ? "no report" : r.files} | ${percent(r.lines)} | ${percent(r.functions)} | ${r.exportedUnhit} of ${r.exported} |`);
+      lines.push(`| \`${r.repo}\` | \`${r.commit.slice(0, 7)}\`${r.current ? "" : " (older)"} | ${r.files === 0 ? "no report" : r.files} | ${percent(r.lines)} | ${percent(r.functions)} | ${r.reported === 0 ? "no function report" : `${r.exportedUnhit} of ${r.exported}`} |`);
     }
   }
   return `${lines.join("\n")}\n`;
