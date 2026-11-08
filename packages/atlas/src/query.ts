@@ -76,10 +76,25 @@ export interface CatalogColumns {
   };
   readonly call_site: { readonly blob: "text"; readonly ordinal: "integer"; readonly caller: "text"; readonly callee: "text"; readonly is_new: "integer"; readonly line: "integer" };
   readonly marker: { readonly blob: "text"; readonly kind: "text"; readonly line: "integer"; readonly text: "text" };
+  readonly manifest: ManifestColumns;
+  readonly dependency: { readonly oid: "text"; readonly field: "text"; readonly name: "text"; readonly range: "text"; readonly kind: "text" };
   readonly label: { readonly subject: "text"; readonly task: "text"; readonly by: "text"; readonly label: "text"; readonly at: "text" };
   readonly current_snapshot: SnapshotColumns;
   readonly current_file: { readonly repo: "text" } & FileColumns;
+  readonly current_manifest: { readonly repo: "text" } & ManifestColumns;
 }
+
+interface ManifestColumns {
+  readonly snapshot: "text";
+  readonly path: "text";
+  readonly oid: "text";
+  readonly name: "text?";
+  readonly version: "text?";
+  readonly private: "integer";
+  readonly parse_error: "text?";
+}
+
+const MANIFEST: ManifestColumns = { snapshot: "text", path: "text", oid: "text", name: "text?", version: "text?", private: "integer", parse_error: "text?" };
 
 const SNAPSHOT: SnapshotColumns = {
   id: "text",
@@ -127,13 +142,16 @@ export const CATALOG_COLUMNS: CatalogColumns = {
   import: { blob: "text", ordinal: "integer", specifier: "text", package: "text?", kind: "text", names: "text", line: "integer" },
   call_site: { blob: "text", ordinal: "integer", caller: "text", callee: "text", is_new: "integer", line: "integer" },
   marker: { blob: "text", kind: "text", line: "integer", text: "text" },
+  manifest: MANIFEST,
+  dependency: { oid: "text", field: "text", name: "text", range: "text", kind: "text" },
   label: { subject: "text", task: "text", by: "text", label: "text", at: "text" },
   current_snapshot: SNAPSHOT,
   current_file: { repo: "text", ...FILE },
+  current_manifest: { repo: "text", ...MANIFEST },
 };
 
 /** The names of the views. A view has the columns of its tables, and `PRAGMA table_info` does not give `NOT NULL`. */
-export const CATALOG_VIEWS: ReadonlySet<string> = new Set(["current_snapshot", "current_file"]);
+export const CATALOG_VIEWS: ReadonlySet<string> = new Set(["current_snapshot", "current_file", "current_manifest"]);
 
 type Columns = CatalogColumns;
 

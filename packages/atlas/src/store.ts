@@ -1,11 +1,12 @@
 /**
- * The catalog database: the Layer 1a tables of `docs/SCHEMA.md` in one SQLite file, through `node:sqlite`.
+ * The catalog database: the Layer 1a tables and the manifests of Layer 1c of `docs/SCHEMA.md` in one SQLite file, through `node:sqlite`.
  * The blob tables are also the cache of the scan. A rescan with the database of the last run parses only new blobs.
  */
 import { DatabaseSync, type StatementSync } from "node:sqlite";
 import { factsKey, type BlobFacts, type FileRecord, type ScanCounts } from "./blobs.ts";
 import { CLASS_MIN_NODES, type FactsSummary, type Unread } from "./summary.ts";
 import type { FileFacts, MarkerKind } from "./facts.ts";
+import type { ManifestRecord } from "./manifests.ts";
 
 /** The version of the tables. A database of another version gets new tables. */
 export const CATALOG_SCHEMA: string = "codeatlas/2";
@@ -50,6 +51,16 @@ CREATE TABLE IF NOT EXISTS call_site (
 CREATE INDEX IF NOT EXISTS call_site_callee ON call_site(callee);
 CREATE TABLE IF NOT EXISTS marker (blob TEXT NOT NULL REFERENCES blob(key), kind TEXT NOT NULL, line INTEGER NOT NULL, text TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS marker_blob ON marker(blob);
+-- Layer 1c: the manifests of each snapshot, and the dependencies of each manifest blob
+CREATE TABLE IF NOT EXISTS manifest (
+  snapshot TEXT NOT NULL REFERENCES snapshot(id), path TEXT NOT NULL, oid TEXT NOT NULL, name TEXT, version TEXT,
+  private INTEGER NOT NULL, parse_error TEXT, PRIMARY KEY (snapshot, path)
+);
+CREATE INDEX IF NOT EXISTS manifest_oid ON manifest(oid);
+CREATE TABLE IF NOT EXISTS dependency (
+  oid TEXT NOT NULL, field TEXT NOT NULL, name TEXT NOT NULL, "range" TEXT NOT NULL, kind TEXT NOT NULL, PRIMARY KEY (oid, field, name)
+);
+CREATE INDEX IF NOT EXISTS dependency_name ON dependency(name);
 CREATE TABLE IF NOT EXISTS label (
   subject TEXT NOT NULL, task TEXT NOT NULL, "by" TEXT NOT NULL, label TEXT NOT NULL, at TEXT NOT NULL, PRIMARY KEY (subject, task, "by")
 );
@@ -58,6 +69,8 @@ CREATE VIEW IF NOT EXISTS current_snapshot AS
   SELECT s.* FROM snapshot s WHERE s.scanned_at = (SELECT max(t.scanned_at) FROM snapshot t WHERE t.repo = s.repo);
 CREATE VIEW IF NOT EXISTS current_file AS
   SELECT s.repo, f.* FROM file f JOIN current_snapshot s ON s.id = f.snapshot;
+CREATE VIEW IF NOT EXISTS current_manifest AS
+  SELECT s.repo, m.* FROM manifest m JOIN current_snapshot s ON s.id = m.snapshot;
 `;
 
 /** The catalog database, with the statements of the scan. */
@@ -156,6 +169,8 @@ export class Catalog {
     this.#transaction(() => {
       this.db.prepare("INSERT OR IGNORE INTO repo (name) VALUES (?)").run(repo);
       this.db.prepare("DELETE FROM file WHERE snapshot = ?").run(id);
+      // The rows of the other sources of the snapshot refer to it. Their put methods write them again
+      this.db.prepare("DELETE FROM manifest WHERE snapshot = ?").run(id);
       this.db.prepare("DELETE FROM snapshot WHERE id = ?").run(id);
       this.db
         .prepare('INSERT INTO snapshot (id, repo, "commit", scanned_at, scanner, files, parsed, reused, errors) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
@@ -218,6 +233,22 @@ export class Catalog {
   }
 
   /** The files of the current snapshots that the scan could not read, with the error of the parser. */
+/**
+   * This method puts the manifests of the snapshot `snapshot` in place of its old ones. The dependencies of a
+   * manifest blob that the catalog knows stay as they are: they depend on the blob only.
+   */
+  putManifests(snapshot: string, manifests: readonly ManifestRecord[]): void {
+    this.#transaction(() => {
+      this.db.prepare("DELETE FROM manifest WHERE snapshot = ?").run(snapshot);
+      const manifest = this.db.prepare("INSERT INTO manifest (snapshot, path, oid, name, version, private, parse_error) VALUES (?, ?, ?, ?, ?, ?, ?)");
+      const dependency = this.db.prepare('INSERT OR IGNORE INTO dependency (oid, field, name, "range", kind) VALUES (?, ?, ?, ?, ?)');
+      for (const m of manifests) {
+        manifest.run(snapshot, m.path, m.oid, m.facts?.name ?? null, m.facts?.version ?? null, m.facts?.private === true ? 1 : 0, m.error);
+        for (const d of m.facts?.dependencies ?? []) dependency.run(m.oid, d.field, d.name, d.range, d.kind);
+      }
+    });
+  }
+
   unread(): Unread[] {
     return (
       this.db
