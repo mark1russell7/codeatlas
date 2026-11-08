@@ -16,9 +16,9 @@
 import { closeSync, openSync, readFileSync, readdirSync, statSync, writeFileSync, writeSync } from "node:fs";
 import { join } from "node:path";
 import { buildAtlas } from "./atlas.ts";
-import { cacheOf, factsOfRepo, type BlobFacts, type FactsLine } from "./blobs.ts";
+import { cacheOf, factsKey, factsOfRepo, type BlobFacts, type FactsLine } from "./blobs.ts";
 import { Catalog } from "./store.ts";
-import { factsMarkdown, factsSummary } from "./summary.ts";
+import { factsMarkdown, factsSummary, gateVerdict, type GateVerdict } from "./summary.ts";
 import { clonePublic } from "./clone.ts";
 import { buildCorpus, corpusMarkdown, corpusOfRepo } from "./corpus.ts";
 import { atlasMarkdown } from "./report.ts";
@@ -160,9 +160,15 @@ function facts(argv: readonly string[]): number {
   }
   closeSync(fd);
   const summary = factsSummary(scans, cache, ms);
+  const unread = scans.flatMap((scan) =>
+    scan.files.flatMap((file) => {
+      const entry = cache.get(factsKey(file.blob, file.path));
+      return entry !== undefined && !entry.ok ? [{ repo: file.repo, path: file.path, error: entry.error }] : [];
+    }),
+  );
   if (args.markdown !== undefined) writeFileSync(args.markdown, factsMarkdown(summary));
   console.error(`facts: ${summary.repos} repositories, ${summary.files} files, ${summary.parsed} parsed, ${summary.reused} from the cache (${known.size} known), ${summary.errors} errors, ${Math.round(ms)} ms`);
-  return summary.lawBreaks === 0 ? 0 : 1;
+  return report(gateVerdict(summary, unread));
 }
 
 function catalog(argv: readonly string[]): number {
@@ -186,11 +192,18 @@ function catalog(argv: readonly string[]): number {
   }
   const ms = performance.now() - started;
   const summary = db.summary({ ...totals, ms });
+  const unread = db.unread();
   db.db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
   db.close();
   if (args.markdown !== undefined) writeFileSync(args.markdown, factsMarkdown(summary));
   console.error(`catalog: ${summary.repos} repositories, ${summary.files} files, ${summary.parsed} parsed, ${summary.reused} from the cache (${known} blobs known), ${summary.errors} errors, ${Math.round(ms)} ms`);
-  return summary.lawBreaks === 0 ? 0 : 1;
+  return report(gateVerdict(summary, unread));
+}
+
+/** This function prints the annotations of the gates, and gives the exit code. */
+function report(verdict: GateVerdict): number {
+  for (const line of verdict.lines) console.log(line);
+  return verdict.exit;
 }
 
 if (import.meta.main) process.exitCode = main(process.argv.slice(2));

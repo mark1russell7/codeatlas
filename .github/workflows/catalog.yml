@@ -10,12 +10,11 @@ on:
     paths:
       - "packages/atlas/**"
       - ".github/workflows/catalog.yml"
+  # Each pull request starts this workflow, so its summary check is always there. The job changes skips the
+  # work when the pull request changes no file of the gate (CI.md of the template, "A gate with paths").
   pull_request:
-    paths:
-      - "packages/atlas/**"
-      - ".github/workflows/catalog.yml"
   schedule:
-    - cron: "40 7 * * 1"
+    - cron: "36 7 * * 1"
   workflow_dispatch:
 
 permissions: {}
@@ -25,7 +24,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      match: ${{ steps.changes.outputs.match }}
+    steps:
+      - id: changes
+        uses: mark1russell7/template/.github/actions/changes@f05c6eeb35e33a040bdfdcd7d07a1d2c00640f8d # main
+        with:
+          paths: |
+            packages/atlas/**
+            .github/workflows/catalog.yml
+
   catalog:
+    needs: changes
+    if: needs.changes.outputs.match == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -52,7 +69,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: node packages/atlas/src/cli.ts clone --owner "$GITHUB_REPOSITORY_OWNER" --into "$RUNNER_TEMP/repos"
-      # The command fails when a hash breaks the law of the chain
+      # The command fails when a hash breaks the law of the chain, or when it reads no repository or no function.
+      # Each file that the parser cannot read gets a warning annotation with its name: a "no read" is not a pass.
       - name: Scan into the catalog
         run: |
           set -euo pipefail
@@ -78,3 +96,15 @@ jobs:
           path: ${{ runner.temp }}/catalog.sqlite
           retention-days: 14
           if-no-files-found: error
+
+  catalog-ok:
+    name: Catalog OK
+    if: always()
+    needs: [changes, catalog]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions: {}
+    steps:
+      - uses: mark1russell7/template/.github/actions/gate-summary@f05c6eeb35e33a040bdfdcd7d07a1d2c00640f8d # main
+        with:
+          needs: ${{ toJSON(needs) }}

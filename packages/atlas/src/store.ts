@@ -4,7 +4,7 @@
  */
 import { DatabaseSync, type StatementSync } from "node:sqlite";
 import { factsKey, type BlobFacts, type FileRecord, type ScanCounts } from "./blobs.ts";
-import { CLASS_MIN_NODES, type FactsSummary } from "./summary.ts";
+import { CLASS_MIN_NODES, type FactsSummary, type Unread } from "./summary.ts";
 import type { FileFacts, MarkerKind } from "./facts.ts";
 
 /** The version of the tables. A database of another version gets new tables. */
@@ -196,6 +196,15 @@ export class Catalog {
       classes: { exact: classes("hash_exact"), renamed: classes("hash_renamed"), shape: classes("hash_shape") },
       lawBreaks: breaks("hash_exact", "hash_renamed") + breaks("hash_renamed", "hash_shape"),
     };
+  }
+
+  /** The files of the current snapshots that the scan could not read, with the error of the parser. */
+  unread(): Unread[] {
+    return (
+      this.db
+        .prepare("SELECT f.repo AS repo, f.path AS path, b.parse_error AS error FROM current_file f JOIN blob b ON b.key = f.blob WHERE b.parse_error IS NOT NULL ORDER BY f.repo, f.path")
+        .all() as unknown as Unread[]
+    ).map((row) => ({ repo: row.repo, path: row.path, error: row.error }));
   }
 
   close(): void {

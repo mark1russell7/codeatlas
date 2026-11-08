@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { factsOfRepo, type BlobFacts } from "./blobs.ts";
 import { Catalog } from "./store.ts";
-import { factsSummary } from "./summary.ts";
+import { factsSummary, gateVerdict } from "./summary.ts";
 import { GitRepos } from "./testing/git-repo.ts";
 
 const repos = new GitRepos();
@@ -104,5 +104,36 @@ describe("Catalog", () => {
     catalog.db.prepare("UPDATE meta SET value = 'codeatlas/0' WHERE key = 'schema'").run();
     catalog.close();
     expect(() => new Catalog(path)).toThrow(/codeatlas\/0/);
+  });
+});
+
+describe("gateVerdict", () => {
+  const catalog = new Catalog(":memory:");
+  scan(catalog);
+  const summary = catalog.summary({ parsed: 0, reused: 0, errors: 0, bytesParsed: 0, ms: 1 });
+  const unread = catalog.unread();
+  catalog.close();
+
+  it("names each file that the scan could not read, as a warning, and passes", () => {
+    expect(unread).toEqual([{ repo: "a", path: "src/broken.ts", error: expect.any(String) }]);
+    const verdict = gateVerdict(summary, unread);
+    expect(verdict.exit).toBe(0);
+    expect(verdict.lines).toHaveLength(1);
+    expect(verdict.lines[0]).toMatch(/^::warning::No read for 1 of 5 files: the parse failed\. a\/src\/broken\.ts \(/);
+  });
+
+  it("fails a run that reads nothing, and does not show it as a pass", () => {
+    const empty = { ...summary, repos: 0, files: 0, functions: 0, lawBreaks: 0 };
+    const verdict = gateVerdict(empty, []);
+    expect(verdict.exit).toBe(1);
+    expect(verdict.lines[0]).toMatch(/^::error::No read: the scan read 0 repositories and 0 functions/);
+  });
+
+  it("fails on a break of the law, and caps the names of unread files", () => {
+    const many = Array.from({ length: 12 }, (_, i) => ({ repo: "r", path: `f${i}.ts`, error: "e" }));
+    const verdict = gateVerdict({ ...summary, lawBreaks: 2 }, many);
+    expect(verdict.exit).toBe(1);
+    expect(verdict.lines[0]).toMatch(/^::error::2 hashes break the law/);
+    expect(verdict.lines[1]).toMatch(/No read for 12 of 5 files.*r\/f9\.ts \(e\), and 2 more\.$/);
   });
 });
