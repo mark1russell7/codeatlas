@@ -52,6 +52,10 @@ export interface RepoScan {
 
 /** A JavaScript or TypeScript file. */
 export const SOURCE: RegExp = /\.(?:[cm]?[jt]s|[jt]sx)$/;
+
+/** A declaration file (`.d.ts`, `.d.mts`, `.d.cts`) has types and no bodies of functions, so the scan skips it. */
+export const DECLARATION: RegExp = /\.d\.[cm]?ts$/;
+
 /** A path in a folder of build output, installed packages or vendored code. */
 export const SKIP: RegExp = /(?:^|\/)(?:node_modules|build|dist|coverage|vendor|\.next|out)\//;
 /** Generated code: one generator writes all its copies, so they are one source, not duplication (the first atlas, 10-29). */
@@ -63,7 +67,7 @@ export const MAX_BYTES: number = 400_000;
 
 /** This function tells if the scan reads a file of the repository. */
 export function isSource(file: string): boolean {
-  return SOURCE.test(file) && !file.endsWith(".d.ts") && !SKIP.test(file) && !GENERATED.test(file) && !/\.min\.[cm]?js$/.test(file);
+  return SOURCE.test(file) && !DECLARATION.test(file) && !SKIP.test(file) && !GENERATED.test(file) && !/\.min\.[cm]?js$/.test(file);
 }
 
 /** The files of a repository that git keeps, with forward slashes. */
