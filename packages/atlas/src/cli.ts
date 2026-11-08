@@ -15,6 +15,7 @@
  * The command catalog writes the same facts into a SQLite database. Its blobs are the cache of the next run.
  * The command facts writes the Layer 1a facts of each blob as JSON Lines. A cache from an earlier output saves each parse of a known blob.
  * The command trend adds the point of a catalog to the trend file of the last build.
+ * The command queries writes the answers of the query set of a catalog as JSON, for the site.
  */
 import { closeSync, openSync, readFileSync, readdirSync, statSync, writeFileSync, writeSync } from "node:fs";
 import { join } from "node:path";
@@ -23,6 +24,7 @@ import { cacheOf, factsKey, factsOfRepo, type BlobFacts, type FactsLine } from "
 import { queryOf } from "./query.ts";
 import { Catalog } from "./store.ts";
 import { addPoint, trendPoint } from "./trend.ts";
+import { querySet } from "./query-set.ts";
 import { factsMarkdown, factsSummary, gateVerdict, type GateVerdict } from "./summary.ts";
 import { clonePublic } from "./clone.ts";
 import { buildCorpus, corpusMarkdown, corpusOfRepo } from "./corpus.ts";
@@ -75,6 +77,7 @@ const USAGE = `Usage:
   codeatlas corpus [--out corpus.json] [--markdown corpus.md] [--repos-dir <folder>] [<name>=<path> ...]
   codeatlas catalog [--out catalog.sqlite] [--markdown catalog.md] [--repos-dir <folder>] [<name>=<path> ...]
   codeatlas trend --db <catalog.sqlite> [--previous <trend.json>] --out <trend.json>
+  codeatlas queries --db <catalog.sqlite> --out <queries.json>
   codeatlas facts [--out facts.jsonl] [--markdown facts.md] [--cache <facts.jsonl>] [--repos-dir <folder>] [<name>=<path> ...]
   codeatlas clone --owner <owner> --into <folder>`;
 
@@ -95,6 +98,7 @@ function main(argv: readonly string[]): number | Promise<number> {
   if (command === "facts") return facts(rest);
   if (command === "catalog") return catalog(rest);
   if (command === "trend") return trend(rest);
+  if (command === "queries") return queries(rest);
   if (command !== "build") {
     console.error(USAGE);
     return 2;
@@ -230,6 +234,25 @@ async function trend(argv: readonly string[]): Promise<number> {
   }
 }
 
+
+async function queries(argv: readonly string[]): Promise<number> {
+  const option = (name: string): string | undefined => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined);
+  const db = option("--db");
+  const out = option("--out");
+  if (db === undefined || out === undefined) {
+    console.error(USAGE);
+    return 2;
+  }
+  const catalog = new Catalog(db);
+  try {
+    const set = await querySet(queryOf(catalog.db), new Date().toISOString(), FACTS_VERSION);
+    writeFileSync(out, `${JSON.stringify(set)}\n`);
+    console.error(`queries: ${set.exact.length} exact classes, ${set.complex.length} complex functions, ${set.markers.length} marker counts`);
+    return 0;
+  } finally {
+    catalog.close();
+  }
+}
 /** This function prints the annotations of the gates, and gives the exit code. */
 function report(verdict: GateVerdict): number {
   for (const line of verdict.lines) console.log(line);
