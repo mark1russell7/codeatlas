@@ -12,7 +12,75 @@ export type ColumnType = "text" | "text?" | "integer" | "integer?";
 /** The value of a column of type `T`. An `integer` of a flag is 0 or 1. */
 export type ValueOf<T> = T extends "text" ? string : T extends "text?" ? string | null : T extends "integer" ? number : T extends "integer?" ? number | null : never;
 
-const SNAPSHOT = {
+interface SnapshotColumns {
+  readonly id: "text";
+  readonly repo: "text";
+  readonly commit: "text?";
+  readonly scanned_at: "text";
+  readonly scanner: "text";
+  readonly files: "integer";
+  readonly parsed: "integer";
+  readonly reused: "integer";
+  readonly errors: "integer";
+}
+
+interface FileColumns {
+  readonly snapshot: "text";
+  readonly path: "text";
+  readonly blob: "text";
+  readonly oid: "text";
+  readonly bytes: "integer";
+  readonly test: "integer";
+}
+
+/**
+ * The type of `CATALOG_COLUMNS`. Each column has a literal type, so the compiler refuses a value that has a
+ * different column or type.
+ */
+export interface CatalogColumns {
+  readonly meta: { readonly key: "text"; readonly value: "text" };
+  readonly repo: { readonly name: "text"; readonly owner: "text?"; readonly visibility: "text" };
+  readonly snapshot: SnapshotColumns;
+  readonly blob: { readonly key: "text"; readonly oid: "text"; readonly syntax: "text"; readonly version: "text"; readonly parse_error: "text?" };
+  readonly file: FileColumns;
+  readonly symbol: {
+    readonly blob: "text";
+    readonly qualified_name: "text";
+    readonly name: "text";
+    readonly kind: "text";
+    readonly parent: "text?";
+    readonly line: "integer";
+    readonly end_line: "integer";
+    readonly exported: "integer";
+    readonly is_async: "integer?";
+    readonly is_generator: "integer?";
+    readonly params: "integer?";
+    readonly signature: "text?";
+    readonly nodes: "integer?";
+    readonly hash_exact: "text?";
+    readonly hash_renamed: "text?";
+    readonly hash_shape: "text?";
+    readonly cyclomatic: "integer?";
+    readonly depth: "integer?";
+    readonly type_hash: "text?";
+  };
+  readonly export: { readonly blob: "text"; readonly name: "text"; readonly symbol: "text?"; readonly from: "text?"; readonly type_only: "integer" };
+  readonly import: {
+    readonly blob: "text";
+    readonly ordinal: "integer";
+    readonly specifier: "text";
+    readonly package: "text?";
+    readonly kind: "text";
+    readonly names: "text";
+    readonly line: "integer";
+  };
+  readonly call_site: { readonly blob: "text"; readonly ordinal: "integer"; readonly caller: "text"; readonly callee: "text"; readonly is_new: "integer"; readonly line: "integer" };
+  readonly marker: { readonly blob: "text"; readonly kind: "text"; readonly line: "integer"; readonly text: "text" };
+  readonly current_snapshot: SnapshotColumns;
+  readonly current_file: { readonly repo: "text" } & FileColumns;
+}
+
+const SNAPSHOT: SnapshotColumns = {
   id: "text",
   repo: "text",
   commit: "text?",
@@ -22,12 +90,12 @@ const SNAPSHOT = {
   parsed: "integer",
   reused: "integer",
   errors: "integer",
-} as const;
+};
 
-const FILE = { snapshot: "text", path: "text", blob: "text", oid: "text", bytes: "integer", test: "integer" } as const;
+const FILE: FileColumns = { snapshot: "text", path: "text", blob: "text", oid: "text", bytes: "integer", test: "integer" };
 
 /** The columns of each table and view of the catalog, in the order of the DDL of `store.ts`. */
-export const CATALOG_COLUMNS = {
+export const CATALOG_COLUMNS: CatalogColumns = {
   meta: { key: "text", value: "text" },
   repo: { name: "text", owner: "text?", visibility: "text" },
   snapshot: SNAPSHOT,
@@ -60,12 +128,12 @@ export const CATALOG_COLUMNS = {
   marker: { blob: "text", kind: "text", line: "integer", text: "text" },
   current_snapshot: SNAPSHOT,
   current_file: { repo: "text", ...FILE },
-} as const satisfies Record<string, Record<string, ColumnType>>;
+};
 
 /** The names of the views. A view has the columns of its tables, and `PRAGMA table_info` does not give `NOT NULL`. */
 export const CATALOG_VIEWS: ReadonlySet<string> = new Set(["current_snapshot", "current_file"]);
 
-type Columns = typeof CATALOG_COLUMNS;
+type Columns = CatalogColumns;
 
 /** The rows of each table and view, for `Kysely`. */
 export type CatalogTables = { [T in keyof Columns]: { [C in keyof Columns[T]]: ValueOf<Columns[T][C]> } };
