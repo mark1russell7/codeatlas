@@ -35,7 +35,18 @@ import { buildAtlas } from "./atlas.ts";
 import { cacheOf, factsKey, factsOfRepo, treeOf, type BlobFacts, type FactsLine } from "./blobs.ts";
 import { manifestsOfRepo } from "./manifests.ts";
 import { lockfilesOfRepo } from "./lockfiles.ts";
-import { driftMarkdown, keepListOfRepo, pinFreshness, TEMPLATE_CLONE, TEMPLATE_REPO, templateDrift, templateRecordsOfRepo, templateVersionsOfRepo } from "./templates.ts";
+import {
+  driftMarkdown,
+  keepListOfRepo,
+  pinFreshness,
+  stampFreshness,
+  stampRulesOfRepo,
+  TEMPLATE_CLONE,
+  TEMPLATE_REPO,
+  templateDrift,
+  templateRecordsOfRepo,
+  templateVersionsOfRepo,
+} from "./templates.ts";
 import { queryOf } from "./query.ts";
 import { agreementOf, type AgreementFile, type DraftLabel } from "./agreement.ts";
 import { verdictOf, type PersonAnswer } from "./verdict.ts";
@@ -229,6 +240,9 @@ function catalog(argv: readonly string[]): number {
   const templateRoot = args.repos.find((repo) => repo.name === TEMPLATE_REPO)?.path;
   const keep = (templateRoot === undefined ? undefined : keepListOfRepo(templateRoot)) ?? [];
   if (templateRoot !== undefined && keep.length === 0) console.error("catalog: the stamp of the template has no list KEEP, so the scan compares no files");
+  // The rules of the stamp for each file of KEEP: the form of each copy that the scan compares
+  const rules = templateRoot === undefined ? undefined : stampRulesOfRepo(templateRoot, keep);
+  if (rules !== undefined && keep.length > 0 && rules.rules.length === 0) console.error("catalog: the stamp of the template has no loop over KEEP, so the state of each copy is not known");
   let templateSnapshot: string | undefined;
   for (const repo of args.repos) {
     const tree = treeOf(repo.path);
@@ -236,7 +250,7 @@ function catalog(argv: readonly string[]): number {
     const snapshot = db.putSnapshot(repo.name, headOf(repo.path), scannedAt, FACTS_VERSION, scan.files, scan.counts);
     db.putManifests(snapshot, manifestsOfRepo(repo.path, tree));
     db.putLockfiles(snapshot, lockfilesOfRepo(repo.path, tree));
-    db.putTemplateRecords(snapshot, templateRecordsOfRepo(repo.path, keep, tree));
+    db.putTemplateRecords(snapshot, templateRecordsOfRepo(repo.path, keep, tree, rules));
     if (repo.name === TEMPLATE_REPO) templateSnapshot = snapshot;
     totals.parsed += scan.counts.parsed;
     totals.reused += scan.counts.reused;
@@ -247,6 +261,7 @@ function catalog(argv: readonly string[]): number {
   if (templateRoot !== undefined && templateSnapshot !== undefined) {
     const refs = (db.db.prepare("SELECT DISTINCT ref FROM current_template_pin").all() as { ref: string }[]).map((row) => row.ref);
     db.putTemplateVersions(templateSnapshot, templateVersionsOfRepo(templateRoot, refs, keep));
+    if (rules !== undefined) db.putStampRules(templateSnapshot, rules);
   }
   const ms = performance.now() - started;
   const summary = db.summary({ ...totals, ms });
@@ -385,12 +400,13 @@ async function drift(argv: readonly string[]): Promise<number> {
   const catalog = readOnlyCatalog(db);
   try {
     const q = queryOf(catalog);
-    const [freshness, all] = [await pinFreshness(q), await templateDrift(q)];
+    const [freshness, stamp, all] = [await pinFreshness(q), await stampFreshness(q), await templateDrift(q)];
     const out = option("--out");
     const markdown = option("--markdown");
-    if (out !== undefined) writeFileSync(out, `${JSON.stringify({ freshness, drift: all })}\n`);
-    if (markdown !== undefined) writeFileSync(markdown, driftMarkdown(freshness, all));
-    console.error(`drift: ${freshness.current.length} of ${freshness.current.length + freshness.behind.length} repositories current (${Math.round(freshness.share * 100)}%)`);
+    if (out !== undefined) writeFileSync(out, `${JSON.stringify({ pins: freshness, stamp, drift: all })}\n`);
+    if (markdown !== undefined) writeFileSync(markdown, driftMarkdown(freshness, stamp));
+    const line = (current: number, behind: number): string => `${current} of ${current + behind}`;
+    console.error(`drift: pins ${line(freshness.current.length, freshness.behind.length)} current, copies ${line(stamp.current.length, stamp.behind.length)} current`);
     return 0;
   } finally {
     catalog.close();

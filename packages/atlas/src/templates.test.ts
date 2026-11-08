@@ -5,7 +5,21 @@ import { afterAll, describe, expect, it } from "vitest";
 import { factsOfRepo } from "./blobs.ts";
 import { queryOf } from "./query.ts";
 import { Catalog } from "./store.ts";
-import { driftMarkdown, fileOfTarget, keepListOf, localForm, pinFreshness, pinsOf, templateDrift, templateRecordsOfRepo, templateVersionsOfRepo, workflowForm } from "./templates.ts";
+import {
+  copyForm,
+  driftMarkdown,
+  fileOfTarget,
+  keepListOf,
+  localForm,
+  pinFreshness,
+  pinsOf,
+  stampFreshness,
+  stampRulesOf,
+  templateDrift,
+  templateRecordsOfRepo,
+  templateVersionsOfRepo,
+  workflowForm,
+} from "./templates.ts";
 import { GitRepos } from "./testing/git-repo.ts";
 
 const STAMP = `import { join } from "node:path";
@@ -236,9 +250,116 @@ describe("pinFreshness", () => {
   });
 
   it("writes the share and the repositories behind as Markdown", async () => {
-    const markdown = driftMarkdown(await pinFreshness(q), await templateDrift(q));
-    expect(markdown).toContain("Current: **1 of 4** repositories (25%)");
+    const markdown = driftMarkdown(await pinFreshness(q), await stampFreshness(q));
+    expect(markdown).toContain("- Pin freshness: **1 of 4** repositories (25%)");
     expect(markdown).toContain(`| stale | \`${A.slice(0, 7)}\` | 7 | \`.github/actions/setup/action.yml\` |`);
     expect(markdown).toContain("| unknown | `ddddddd` | not known |");
+  });
+});
+
+/** A short form of the stamp of the template, with the parts that `stampRulesOf` reads. */
+const STAMP_RULES_TEXT = `export const KEEP: readonly string[] = [".github/workflows/ci.yml", "CI.md", "package.json", "notes.txt"];
+export async function stamp({ name, template, out }: StampOptions): Promise<string> {
+  for (const path of KEEP) {
+    const target = join(out, path);
+    const blob = git(template, "show", path);
+    writeFileSync(target, path.startsWith(".github/workflows/") ? pinWorkflow(blob.toString("utf8"), sha) : blob);
+  }
+  const rootFile = join(out, "package.json");
+  const root = JSON.parse(readFileSync(rootFile, "utf8")) as { name: string; scripts: Record<string, string> };
+  root.name = \`\${name}-monorepo\`;
+  root.scripts = rootScripts(root.scripts);
+  writeFileSync(rootFile, JSON.stringify(root));
+  execFileSync(process.execPath, [conventions, "fix", "--rule", "runner-budget"], { cwd: out });
+  return sha;
+}
+`;
+
+describe("stampRulesOf and copyForm", () => {
+  const keep = keepListOf(STAMP_RULES_TEXT) ?? [];
+  const rules = stampRulesOf(STAMP_RULES_TEXT, keep);
+
+  it("reads the rule of the stamp for each file of KEEP, and the fixes that it starts", () => {
+    expect(rules.rules).toEqual([
+      { path: ".github/workflows/ci.yml", rule: "pinned", fields: [] },
+      { path: "CI.md", rule: "whole", fields: [] },
+      { path: "package.json", rule: "merged", fields: ["name", "scripts"] },
+      { path: "notes.txt", rule: "whole", fields: [] },
+    ]);
+    expect(rules.fixes).toEqual(["runner-budget"]);
+  });
+
+  it("gives no rule when the stamp has no loop over KEEP", () => {
+    expect(stampRulesOf("export const KEEP = [\"a\"];\n", ["a"]).rules).toEqual([]);
+  });
+
+  it("compares a merged file without the fields that the stamp sets", () => {
+    const form = (json: object): string => copyForm("package.json", JSON.stringify(json), rules);
+    expect(form({ name: "a-monorepo", scripts: { x: "1" }, type: "module" })).toBe(form({ type: "module", name: "template-monorepo" }));
+    expect(form({ type: "module" })).not.toBe(form({ type: "commonjs" }));
+  });
+
+  it("compares a pinned workflow without the minute of its schedules, because the stamp starts the fix of the schedules", () => {
+    const cron = (minute: string): string => `on:\n  schedule:\n    - cron: "${minute} 5 * * 1"\njobs: {}\n`;
+    expect(copyForm(".github/workflows/ci.yml", cron("28"), rules)).toBe(copyForm(".github/workflows/ci.yml", cron("56"), rules));
+    expect(copyForm(".github/workflows/ci.yml", cron("28"), { rules: rules.rules, fixes: [] })).not.toBe(copyForm(".github/workflows/ci.yml", cron("56"), { rules: rules.rules, fixes: [] }));
+  });
+});
+
+describe("stampFreshness", () => {
+  const repos = new GitRepos();
+  afterAll(() => repos.removeAll());
+  const keep = keepListOf(STAMP_RULES_TEXT) ?? [];
+  const rules = stampRulesOf(STAMP_RULES_TEXT, keep);
+  const workflow = (sha: string, minute: string): string =>
+    `on:\n  schedule:\n    - cron: "${minute} 5 * * 1"\njobs:\n  ci:\n    uses: mark1russell7/template/.github/workflows/reusable-ci.yml@${sha} # main\n`;
+  const roots = {
+    template: repos.with({
+      ".github/workflows/ci.yml": "on:\n  schedule:\n    - cron: \"28 5 * * 1\"\njobs:\n  ci:\n    uses: ./.github/workflows/reusable-ci.yml\n",
+      "CI.md": "# CI\n",
+      "package.json": '{"name":"template-monorepo","type":"module"}\n',
+    }),
+    fresh: repos.with({ ".github/workflows/ci.yml": workflow(SHA, "56"), "CI.md": "# CI\n", "package.json": '{"name":"fresh-monorepo","type":"module","scripts":{"a":"b"}}\n' }),
+    edited: repos.with({ ".github/workflows/ci.yml": workflow(OLD, "10"), "CI.md": "# CI of edited\n" }),
+  };
+  const catalog = new Catalog(":memory:");
+  let template = "";
+  for (const [name, root] of Object.entries(roots)) {
+    const result = factsOfRepo(name, root, catalog);
+    const snapshot = catalog.putSnapshot(name, name === "template" ? SHA : "c0", "2026-11-08T00:00:00Z", "test", result.files, result.counts);
+    catalog.putTemplateRecords(snapshot, templateRecordsOfRepo(root, keep, undefined, rules));
+    if (name === "template") template = snapshot;
+  }
+  catalog.putStampRules(template, rules);
+  const q = queryOf(catalog.db);
+  afterAll(() => catalog.close());
+
+  it("counts a repository as current when each copy with a rule is the same by that rule", async () => {
+    const stamp = await stampFreshness(q);
+    expect(stamp.current).toEqual(["fresh"]);
+    expect(stamp.behind).toEqual([{ repo: "edited", files: [{ path: "CI.md", state: "changed" }, { path: "package.json", state: "missing" }] }]);
+    expect(stamp.share).toBe(1 / 2);
+    expect(stamp.fixes).toEqual(["runner-budget"]);
+  });
+
+  it("lists a file of KEEP with no rule as not known, and does not count it", async () => {
+    const other = new Catalog(":memory:");
+    for (const [name, root] of Object.entries(roots)) {
+      const result = factsOfRepo(name, root, other);
+      const snapshot = other.putSnapshot(name, name === "template" ? SHA : "c0", "2026-11-08T00:00:00Z", "test", result.files, result.counts);
+      other.putTemplateRecords(snapshot, templateRecordsOfRepo(root, keep, undefined, rules));
+      if (name === "template") other.putStampRules(snapshot, { rules: rules.rules.filter((r) => r.path !== "CI.md"), fixes: rules.fixes });
+    }
+    const stamp = await stampFreshness(queryOf(other.db));
+    expect(stamp.unknown).toEqual(["CI.md"]);
+    expect(stamp.behind).toEqual([{ repo: "edited", files: [{ path: "package.json", state: "missing" }] }]);
+    other.close();
+  });
+
+  it("writes the rules of the stamp as Markdown", async () => {
+    const markdown = driftMarkdown(await pinFreshness(q), await stampFreshness(q));
+    expect(markdown).toContain("- Stamp freshness: **1 of 2** repositories (50%)");
+    expect(markdown).toContain("| `package.json` | merged | `name`, `scripts` |");
+    expect(markdown).toContain("| edited | `CI.md` (changed), `package.json` (missing) |");
   });
 });
