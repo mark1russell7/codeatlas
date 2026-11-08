@@ -25,8 +25,22 @@ The pilot labels each function of three repositories with the population rule of
 - Facts settle the home of 2 of the 172 items. The model labels most of the other items `none` or the area of the repository.
 - The labels propose 26 moves. 20 of them go to homes that are planned and not made: `text`, `cli` and `test-generation`. Thus they are not pull requests yet. The owners of the homes review the other 6.
 
+## The first run on the functions with copies or shared names
+
+`subset-1.jsonl` has the labels of 999 functions. Each function is in a clone class with 2 or more copies, or it has a name that 2 or more packages share. One model labeled them in 10 batches. The 40 check items of the sample were in the first batch. The check items are not in the file.
+
+- The cost was 1,290,881 tokens for 25,076 lines.
+- On the 40 check items, the home precision was 0.900 [0.769, 0.960] and the purpose precision was 0.875 [0.739, 0.945]. This precision is against the 3-rater majority and it is provisional.
+- `moveOf` gives 154 pull requests, 127 moves to planned homes, 13 moves that the dependency rules block, and 705 cases with no move.
+- Three of the blocked moves (`canonicalJson` two times, `stableStringify`) have a home now: `@mark1russell7/rigor-generators` 0.1.7. Thus the file has 157 pull requests and 10 blocked moves.
+- That is 12.2 pull requests for each 100k tokens. At a precision of 0.9, about 11 of them are correct.
+- `moves-1.md` lists the 157 moves by repository. The owner of each copy checks each move with a test before a pull request.
+- The labels have a text kind. There are 157 plain string helpers in 25 repositories, 12 Markdown parsers, 7 text measurement functions and 3 functions for English word forms.
+- No two of the 157 plain string helpers have the same shape. Thus 157 is a count by purpose, not a count of clones.
+
 ## Gaps of the map
 
 A gap is code with no allowed home. The pilot found these gaps:
 
 - File helpers for general packages. The home of file helpers is `@procedures/fs`, in the `client` monorepo. A general package must not use it. Thus the four file helpers of `ste-lint` (`resolvePath`, `findConfigFile`, `globBase`, `findFiles`) stay in `ste-lint`, with the home `none`.
+- JSON, glob and process helpers for general packages. `moveOf` blocks 10 moves to `system-io` from general packages. Examples are `globToRegExp`, `stopTree` and `packageFolders`.
