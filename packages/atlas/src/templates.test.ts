@@ -358,7 +358,7 @@ describe("stampFreshness", () => {
 
   it("writes the rules of the stamp as Markdown", async () => {
     const markdown = driftMarkdown(await pinFreshness(q), await stampFreshness(q));
-    expect(markdown).toContain("- Stamp freshness: **1 of 2** repositories (50%)");
+    expect(markdown).toContain("- Stamp freshness (provisional: the rules come from the syntax tree of the stamp): **1 of 2** repositories (50%)");
     expect(markdown).toContain("| `package.json` | merged | `name`, `scripts` |");
     expect(markdown).toContain("| edited | `CI.md` (changed), `package.json` (missing) |");
   });

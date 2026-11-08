@@ -631,7 +631,7 @@ export function driftMarkdown(pins: PinFreshness, stamp: StampFreshness): string
     "## Drift from the template",
     "",
     `- Pin freshness: ${share(pins.current.length, pins.behind.length, pins.share)}. Each pinned workflow and action, and each file that it uses, is the same at the pins and at ${at}.`,
-    `- Stamp freshness: ${share(stamp.current.length, stamp.behind.length, stamp.share)}. Each copy of a file of the stamp is the same as the template, by the rule of the stamp for the file.`,
+    `- Stamp freshness (provisional: the rules come from the syntax tree of the stamp): ${share(stamp.current.length, stamp.behind.length, stamp.share)}. Each copy of a file of the stamp is the same as the template, by the rule of the stamp for the file.`,
     "",
   ];
   if (pins.behind.length > 0) {
