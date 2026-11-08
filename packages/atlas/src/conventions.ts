@@ -3,7 +3,7 @@
  * on the checkout of each repository, and the catalog keeps the status of each rule and each break.
  */
 import { createRequire } from "node:module";
-import { runChecks } from "@mark1russell7/conventions";
+import { RULES, runChecks } from "@mark1russell7/conventions";
 import type { CatalogQuery } from "./query.ts";
 
 /** The version of `@mark1russell7/conventions` that the scan uses. */
@@ -37,12 +37,23 @@ export interface ConventionsCheck {
 }
 
 /**
- * This function starts each rule on the checkout `root`. The environment is empty, so the variables of the CI job of
+ * The rules that need an install of the packages of the repository. The clones of the scan have no install, so these
+ * rules only find the missing packages. The scan skips them and keeps a note.
+ */
+export const INSTALL_RULES: readonly string[] = ["typed-files"];
+
+const INSTALL_NOTE = "the rule needs an install of the packages, and the clone of the scan has none";
+
+/**
+ * This function starts each rule on the checkout `root`, except the rules of `INSTALL_RULES`. The environment is empty, so the variables of the CI job of
  * the scan do not change the rules. The rules that examine a change have no base, so they skip.
  */
 export function conventionsCheckOfRepo(root: string): ConventionsCheck | { readonly error: string } {
   try {
-    const result = runChecks({ root, env: {} });
+    const result = runChecks({ root, env: {}, rules: RULES.filter((rule) => !INSTALL_RULES.includes(rule.id)) });
+    const skipped = RULES.filter((rule) => INSTALL_RULES.includes(rule.id)).map(
+      (rule): ConventionsRule => ({ rule: rule.id, status: "skipped", ignored: 0, note: INSTALL_NOTE, breaks: [] }),
+    );
     const rules = result.rules.map(
       (rule): ConventionsRule => ({
         rule: rule.id,
@@ -52,7 +63,7 @@ export function conventionsCheckOfRepo(root: string): ConventionsCheck | { reado
         breaks: rule.breaks.map((b) => ({ file: b.file, line: b.line ?? null, message: b.message, fixable: (b.edits?.length ?? 0) > 0 })),
       }),
     );
-    return { version: CONVENTIONS_VERSION, rules: rules.sort((a, b) => a.rule.localeCompare(b.rule)) };
+    return { version: CONVENTIONS_VERSION, rules: [...rules, ...skipped].sort((a, b) => a.rule.localeCompare(b.rule)) };
   } catch (error) {
     return { error: error instanceof Error ? error.message.split("\n")[0]! : String(error) };
   }
@@ -145,6 +156,7 @@ export function conventionsMarkdown(breaks: ConventionsBreaks): string {
   ];
   if (breaks.unchecked.length > 0) lines.push(`- Not checked: ${breaks.unchecked.map((r) => `\`${r}\``).join(", ")}.`);
   lines.push("- The rules that examine a change skip, because the scan gives them no base.");
+  lines.push(`- The rules that need an install of the packages skip, because the clones of the scan have none: ${INSTALL_RULES.map((r) => `\`${r}\``).join(", ")}.`);
   if (breaks.rules.length > 0) {
     lines.push("", "### Breaks of each rule", "", "| Rule | Repositories | Breaks | Fixable | Errors |", "| --- | ---: | ---: | ---: | --- |");
     for (const r of breaks.rules) lines.push(`| \`${r.rule}\` | ${r.repos.length} | ${r.breaks} | ${r.fixable} | ${r.errors.join(", ")} |`);

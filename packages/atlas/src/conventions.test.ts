@@ -23,6 +23,8 @@ describe("conventionsCheckOfRepo", () => {
     expect(license?.breaks[0]).toMatchObject({ file: "package.json", fixable: expect.any(Boolean) });
     // The rules that examine a change have no base in the scan
     expect(result.rules.find((r) => r.rule === "home-package")?.status).toBe("skipped");
+    // The clones of the scan have no install, so the rules that need one skip with a note
+    expect(result.rules.find((r) => r.rule === "typed-files")).toEqual({ rule: "typed-files", status: "skipped", ignored: 0, note: expect.stringContaining("install"), breaks: [] });
   });
 });
 
@@ -67,6 +69,7 @@ describe("conventionsBreaks", () => {
     const markdown = conventionsMarkdown(result);
     expect(markdown).toContain("- Clean: **1 of 4** repositories (25%). In each clean repository, `conventions check` 0.35.0 finds no break, and no rule throws.");
     expect(markdown).toContain("- Not checked: `none`.");
+    expect(markdown).toContain("- The rules that need an install of the packages skip, because the clones of the scan have none: `typed-files`.");
     expect(markdown).toContain("| `pipe-fails` | 2 | 3 | 2 |  |");
     expect(markdown).toContain("| `runner-budget` | 0 | 0 | 0 | threw |");
     expect(markdown).toContain("| one | 2 | 1 |");
