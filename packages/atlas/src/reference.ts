@@ -30,6 +30,42 @@ export interface Rater {
 /** A label that a fact of Layer 1 settles, with the fact in words. */
 export interface FactLabel extends RaterLabel {
   readonly fact: string;
+  /** The kind of the move to the home that the fact gives. */
+  readonly move?: MoveKind;
+}
+
+/**
+ * The kind of a move of code to its home. `pr` is a pull request to the home. `planned` goes to the gap list of a
+ * planned home. `blocked by the rule` is a move that the dependency rules forbid. `none` is no move.
+ */
+export type MoveKind = "pr" | "planned" | "blocked by the rule" | "none";
+
+/** The package that holds the code of a move: its repository, and true when it is an app (`private` in its manifest). */
+export interface MoveCaller {
+  readonly repo: string;
+  readonly app: boolean;
+}
+
+/**
+ * The repositories of a monorepo whose packages a general package must not use. A general package is a published
+ * package in another repository. An app can use them.
+ */
+export const MONOREPOS: ReadonlySet<string> = new Set(["client"]);
+
+const HOME_OF_AREA = new Map(HOMES.map((home) => [home.area, home] as const));
+
+/**
+ * This function gives the kind of the move of code in `caller` to the home of the area `area`. A label that names a
+ * home must also obey the dependency rules. Thus a general package gets no move to a home in a monorepo.
+ */
+export function moveOf(caller: MoveCaller, area: string): MoveKind {
+  const home = HOME_OF_AREA.get(area);
+  if (home === undefined) return "none";
+  const repo = home.repo.slice(home.repo.indexOf("/") + 1);
+  if (repo === caller.repo) return "none";
+  if (home.state === "planned" || home.state === "none") return "planned";
+  if (MONOREPOS.has(repo) && !MONOREPOS.has(caller.repo) && !caller.app) return "blocked by the rule";
+  return "pr";
 }
 
 /** The label of the reference for one item and one task. */
@@ -240,16 +276,17 @@ export const TEST_SUPPORT: RegExp = /(?:^|\/)(?:testing|fakes?|mocks?|stubs?)\/|
 export async function homeFacts(q: CatalogQuery, items: readonly SampleItem[]): Promise<FactLabel[]> {
   const subjects = [...new Set(items.map((item) => item.subject))];
   if (subjects.length === 0) return [];
-  const manifests = await q.selectFrom("current_manifest").select(["repo", "path", "name"]).where("name", "is not", null).execute();
-  const packageOf = (repo: string, path: string): string | undefined => {
-    let best: { readonly name: string; readonly depth: number } | undefined;
+  const manifests = await q.selectFrom("current_manifest").select(["repo", "path", "name", "private"]).where("name", "is not", null).execute();
+  const manifestOf = (repo: string, path: string): { readonly name: string; readonly app: boolean } | undefined => {
+    let best: { readonly name: string; readonly app: boolean; readonly depth: number } | undefined;
     for (const manifest of manifests) {
       if (manifest.repo !== repo || manifest.name === null) continue;
       const folder = manifest.path.slice(0, manifest.path.length - "package.json".length);
-      if (path.startsWith(folder) && (best === undefined || folder.length > best.depth)) best = { name: manifest.name, depth: folder.length };
+      if (path.startsWith(folder) && (best === undefined || folder.length > best.depth)) best = { name: manifest.name, app: manifest.private === 1, depth: folder.length };
     }
-    return best?.name;
+    return best;
   };
+  const packageOf = (repo: string, path: string): string | undefined => manifestOf(repo, path)?.name;
   const copies = await q
     .selectFrom("current_file as f")
     .innerJoin("symbol as s", "s.blob", "f.blob")
@@ -276,7 +313,9 @@ export async function homeFacts(q: CatalogQuery, items: readonly SampleItem[]): 
     .filter(([, found]) => found.size === 1)
     .map(([subject, found]) => {
       const [area, fact] = [...found][0]!;
-      return { subject, task: "home", label: area, fact };
+      const item = placeOf.get(subject)!;
+      const move = moveOf({ repo: item.repo, app: manifestOf(item.repo, item.path)?.app ?? false }, area);
+      return { subject, task: "home", label: area, fact, move };
     })
     .sort((a, b) => (a.subject < b.subject ? -1 : 1));
 }

@@ -2,7 +2,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { factsOfRepo } from "./blobs.ts";
 import { manifestsOfRepo } from "./manifests.ts";
 import { queryOf } from "./query.ts";
-import { homeFacts, labelsOfLine, TEST_SUPPORT, precisionOf, raterOfText, REFERENCE_NOTE, referenceMarkdown, referenceOf, type Rater } from "./reference.ts";
+import { homeFacts, labelsOfLine, moveOf, TEST_SUPPORT, precisionOf, raterOfText, REFERENCE_NOTE, referenceMarkdown, referenceOf, type Rater } from "./reference.ts";
 import type { SampleFile, SampleItem } from "./sample.ts";
 import { Catalog } from "./store.ts";
 import { GitRepos } from "./testing/git-repo.ts";
@@ -99,6 +99,19 @@ describe("precisionOf", () => {
   });
 });
 
+describe("moveOf", () => {
+  it("gives a pull request, a gap list, a block by the dependency rules or no move", () => {
+    const general = { repo: "ste-lint", app: false };
+    expect(moveOf(general, "random")).toBe("pr");
+    expect(moveOf(general, "text")).toBe("planned");
+    expect(moveOf(general, "system-io")).toBe("blocked by the rule");
+    expect(moveOf({ repo: "shop-app", app: true }, "system-io")).toBe("pr");
+    expect(moveOf({ repo: "client", app: false }, "system-io")).toBe("none");
+    expect(moveOf(general, "prose")).toBe("none");
+    expect(moveOf(general, "none")).toBe("none");
+  });
+});
+
 describe("homeFacts", () => {
   it("finds the files of test support, and no other file", () => {
     const support = ["packages/lag/src/vitals/test-fakes.ts", "src/testing/git-repo.ts", "src/fakes/clock.ts", "src/mock.ts", "src/http.stub.mts"];
@@ -124,7 +137,7 @@ describe("homeFacts", () => {
     const q = queryOf(catalog.db);
     const subject = (await q.selectFrom("current_file as f").innerJoin("symbol as s", "s.blob", "f.blob").select("s.hash_renamed as h").where("f.repo", "=", "app").executeTakeFirstOrThrow()).h!;
     const facts = await homeFacts(q, [item(subject, "app", "src/a.ts")]);
-    expect(facts).toEqual([{ subject, task: "home", label: "statistics", fact: "an exported copy in @mark1russell7/rigor-statistics (rigor/packages/statistics/src/spread.ts:1)" }]);
+    expect(facts).toEqual([{ subject, task: "home", label: "statistics", fact: "an exported copy in @mark1russell7/rigor-statistics (rigor/packages/statistics/src/spread.ts:1)", move: "pr" }]);
     // The copy in the home package itself is its own place, so the home function gets no fact from itself
     expect(await homeFacts(q, [item(subject, "rigor", "packages/statistics/src/spread.ts")])).toEqual([]);
     catalog.close();

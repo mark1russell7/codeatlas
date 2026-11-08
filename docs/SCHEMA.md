@@ -296,6 +296,8 @@ No person labels the sample. Thus the reference of Layer 2 comes from facts and 
 - Each precision has the words "against the 3-rater majority, provisional" and a Wilson 95 % interval.
 - The file also gives the share of the hits and misses that a fact settles, and the share that the raters settle.
 - A move of code that a label proposes is a pull request to its home, and the owner of the home reviews it.
+- A move also obeys the dependency rules (`moveOf`). A general package must not use a package of the `client` monorepo. Such a move is "blocked by the rule", not a pull request.
+- A move to a planned home goes to the gap list of that home, not to a pull request.
 - The label sets keep a slot for a sample of a person. Then the verdict compares the raters with that sample.
 
 The home rule: the logic of a function decides its home, not the package that holds it. The package of each file is a fact of Layer 1. Thus a label that copies the package cannot find code outside its home in a home package.
