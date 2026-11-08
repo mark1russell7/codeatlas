@@ -119,7 +119,7 @@ export function sizedTasks(tasks: readonly TaskTarget[]): SizedTask[] {
  * This function gives the sample file. Its size is the larger of `size` and the largest `n` of the tasks, so one
  * sample serves each task.
  */
-export function sampleFile(population: readonly SampleItem[], seed: string, tasks: readonly TaskTarget[], size = 0): SampleFile {
+export function sampleFile(population: readonly SampleItem[], seed: string, tasks: readonly TaskTarget[], size: number = 0): SampleFile {
   const sized = sizedTasks(tasks);
   const want = Math.max(size, ...sized.map((task) => task.n));
   if (want > population.length) throw new RangeError(`The sample needs ${want} items, and the population has ${population.length}.`);
