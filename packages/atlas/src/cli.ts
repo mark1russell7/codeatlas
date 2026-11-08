@@ -8,6 +8,7 @@
  * - `codeatlas facts [--out facts.jsonl] [--markdown facts.md] [--cache <facts.jsonl>] [--repos-dir <folder>] [<name>=<path> ...]`
  * - `codeatlas sample --db <catalog.sqlite> --out <sample.json>`
  * - `codeatlas agreement --sample <sample.json> --a <a.jsonl> --b <b.jsonl> --out <agreement.json>`
+ * - `codeatlas reference --sample <sample.json> --rater <name>=<labels.jsonl> ... [--labeler <name>=<labels.jsonl> ...] [--db <catalog.sqlite>] --out <reference.json> [--markdown <reference.md>]`
  * - `codeatlas verdict --sample <sample.json> --a <a.jsonl> --agreement <agreement.json> --answers <answers.jsonl> --out <verdict.json>`
  * - `codeatlas trend --db <catalog.sqlite> [--previous <trend.json>] --out <trend.json>`
  * - `codeatlas drift --db <catalog.sqlite> [--out drift.json] [--markdown drift.md]`
@@ -48,6 +49,7 @@ import {
 import { queryOf } from "./query.ts";
 import { agreementOf, type AgreementFile, type DraftLabel } from "./agreement.ts";
 import { verdictOf, type PersonAnswer } from "./verdict.ts";
+import { homeFacts, precisionOf, raterOfText, referenceMarkdown, referenceOf, type Rater } from "./reference.ts";
 import { populationOf, sampleFile, SAMPLE_PLAN, type SampleFile } from "./sample.ts";
 import { Catalog, readOnlyCatalog } from "./store.ts";
 import { addPoint, trendPoint } from "./trend.ts";
@@ -109,6 +111,7 @@ const USAGE = `Usage:
   codeatlas sample --db <catalog.sqlite> --out <sample.json>
   codeatlas agreement --sample <sample.json> --a <a.jsonl> --b <b.jsonl> --out <agreement.json>
   codeatlas verdict --sample <sample.json> --a <a.jsonl> --agreement <agreement.json> --answers <answers.jsonl> --out <verdict.json>
+  codeatlas reference --sample <sample.json> --rater <name>=<labels.jsonl> ... [--labeler <name>=<labels.jsonl> ...] [--db <catalog.sqlite>] --out <reference.json> [--markdown <reference.md>]
   codeatlas trend --db <catalog.sqlite> [--previous <trend.json>] --out <trend.json>
   codeatlas queries --db <catalog.sqlite> --out <queries.json>
   codeatlas facts [--out facts.jsonl] [--markdown facts.md] [--cache <facts.jsonl>] [--repos-dir <folder>] [<name>=<path> ...]
@@ -138,6 +141,7 @@ function main(argv: readonly string[]): number | Promise<number> {
   if (command === "sample") return sample(rest);
   if (command === "agreement") return agreement(rest);
   if (command === "verdict") return verdict(rest);
+  if (command === "reference") return reference(rest);
   if (command === "trend") return trend(rest);
   if (command === "drift") return drift(rest);
   if (command === "breaks") return breaks(rest);
@@ -369,6 +373,49 @@ function verdict(argv: readonly string[]): number {
   }
   console.error(`verdict: ${file.sentence.right} of ${file.sentence.checked} sentences right, ${file.truth.length} labels of the truth`);
   return file.tasks.every((task) => task.pass) ? 0 : 1;
+}
+
+/**
+ * This function writes the provisional reference of the sample `--sample` from the raters `--rater`, and the home
+ * facts of the catalog `--db`. Each `--labeler` gets its precision against the reference.
+ */
+async function reference(argv: readonly string[]): Promise<number> {
+  const arg = (name: string): string | undefined => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined);
+  const all = (name: string): string[] => argv.flatMap((value, i) => (argv[i - 1] === name ? [value] : []));
+  const [samplePath, out, markdown, db] = [arg("--sample"), arg("--out"), arg("--markdown"), arg("--db")];
+  const named = (spec: string): Rater | undefined => {
+    const at = spec.indexOf("=");
+    return at <= 0 ? undefined : raterOfText(spec.slice(0, at), readFileSync(spec.slice(at + 1), "utf8"));
+  };
+  const raters = all("--rater").map(named);
+  const labelers = all("--labeler").map(named);
+  if (samplePath === undefined || out === undefined || raters.length < 3 || [...raters, ...labelers].includes(undefined)) {
+    console.error(USAGE);
+    return 2;
+  }
+  const sample = JSON.parse(readFileSync(samplePath, "utf8")) as SampleFile;
+  let facts: Awaited<ReturnType<typeof homeFacts>> = [];
+  if (db !== undefined) {
+    const catalog = readOnlyCatalog(db);
+    try {
+      facts = await homeFacts(queryOf(catalog), sample.items);
+    } finally {
+      catalog.close();
+    }
+  }
+  const file = referenceOf(sample, raters.filter((r) => r !== undefined), facts);
+  const precisions = labelers.filter((r) => r !== undefined).map((labeler) => precisionOf(file, labeler));
+  writeFileSync(out, `${JSON.stringify({ reference: file, facts, precisions }, null, 1)}
+`);
+  if (markdown !== undefined) writeFileSync(markdown, referenceMarkdown(file, precisions));
+  for (const t of file.tasks) console.error(`reference: ${t.task} ${t.items} items, ${t.fact} by a fact (${t.factAgree} of ${t.factChecked} confirmed by the raters), ${t.raters} by the raters, ${t.unknown} unknown`);
+  for (const p of precisions) {
+    for (const t of p.tasks) {
+      const value = t.precision === null ? "not known" : t.precision.toFixed(3);
+      console.error(`precision: ${p.by} ${t.task} ${value} [${t.low.toFixed(3)}, ${t.high.toFixed(3)}] ${p.note}, ${t.hits} hits, ${t.misses} misses, ${t.unknown} unknown`);
+    }
+  }
+  return 0;
 }
 
 /** This function adds the point of the catalog `--db` to the trend `--previous`, and writes the trend `--out`. */
