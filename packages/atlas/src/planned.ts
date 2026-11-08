@@ -114,7 +114,7 @@ export async function plannedDuplication(q: CatalogQuery, options: PlannedOption
 }
 
 const cell = (text: string): string => {
-  const flat = text.replace(/\|/g, "\\|").replace(/\s+/g, " ");
+  const flat = text.replace(/[\\|]/g, (c) => `\\${c}`).replace(/\s+/g, " ");
   return flat.length > 160 ? `${flat.slice(0, 159)}…` : flat;
 };
 

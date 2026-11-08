@@ -77,6 +77,12 @@ describe("plannedPairs", () => {
     const markdown = plannedMarkdown(pairs);
     expect(markdown).toContain("### Two open plans");
     expect(markdown).toContain("`highways` ARM-ORDER (open)");
+
+  });
+
+  it("escapes each backslash and each pipe of a title in a table cell", () => {
+    const odd = plannedPairs([item("north", "A1", "Split a|b at C:\\temp paths"), item("south", "B1", "Split a|b at C:\\temp paths")]);
+    expect(plannedMarkdown(odd)).toContain("a\\|b at C:\\\\temp");
   });
 });
 
