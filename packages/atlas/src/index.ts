@@ -17,3 +17,7 @@ export type { BlobFacts, FactsCache, FactsLine, FileRecord, ScanCounts, TreeEntr
 export { factsMarkdown, factsSummary, gateVerdict, CLASS_MIN_NODES } from "./summary.ts";
 export type { FactsSummary, GateVerdict, Unread } from "./summary.ts";
 export { Catalog, CATALOG_SCHEMA } from "./store.ts";
+export { CATALOG_COLUMNS, CATALOG_VIEWS, queryOf } from "./query.ts";
+export type { CatalogColumns, CatalogQuery, CatalogTables, ColumnType, ValueOf } from "./query.ts";
+export { CLONE_LEVELS, cloneClasses, complexFunctions, copiesOf, duplication, importersOf, markerCounts, membersOf } from "./queries.ts";
+export type { CloneLevel, CloneOptions, HashClass, ComplexFunction, Duplication, FunctionPlace, ImportPlace, LevelDuplication, MarkerCount } from "./queries.ts";

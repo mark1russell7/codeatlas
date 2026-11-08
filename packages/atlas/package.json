@@ -16,7 +16,8 @@
   },
   "dependencies": {
     "@mark1russell7/conventions": "^0.15.0",
-    "@swc/core": "^1.15.0"
+    "@swc/core": "^1.15.0",
+    "kysely": "^0.29.8"
   },
   "devDependencies": {
     "@mark1russell7/cue": "^2.1.1",
