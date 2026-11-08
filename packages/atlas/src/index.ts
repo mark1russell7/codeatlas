@@ -28,5 +28,7 @@ export { AUDIT_EXPECTED, SAMPLE_PLAN, SAMPLE_VERSION, auditOf, drawSample, popul
 export type { SampleFile, SampleItem, SizedTask, TaskTarget } from "./sample.ts";
 export { TREND_VERSION, addPoint, trendPoint } from "./trend.ts";
 export type { RepoPoint, Trend, TrendPoint } from "./trend.ts";
+export { homeCandidates } from "./candidates.ts";
+export type { HomeCandidate, HomeCopy } from "./candidates.ts";
 export { QUERY_SET_LIMITS, QUERY_SET_VERSION, querySet } from "./query-set.ts";
 export type { ExactClass, QuerySet, QuerySetLimits, RepoCommit } from "./query-set.ts";

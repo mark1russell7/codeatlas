@@ -16,7 +16,6 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 | --- | --- | --- | --- |
 | CA13 | blocked by CA12 | P1 | Layer 2 pilot on 3 repositories: cost per 1000 lines and precision |
 | CA14 | blocked by CA13 | P1 | A review of the measured cost before the fan-out |
-| CA3 | next | P2 | The rigor candidates: for each topic, the classes that a shared library removes |
 
 ## Later
 
@@ -34,6 +33,7 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 
 | ID | Status | Priority | Title |
 | --- | --- | --- | --- |
+| CA3 | done 2026-11-08 | P2 | The rigor candidates: for each topic, the classes that a shared library removes |
 | CA17 | done 2026-11-08 | P1 | The query set on the site: quality, features and duplication |
 | CA2 | done 2026-11-08 | P2 | The trend: the catalog of each week as history, by repository |
 | CA10 | done 2026-11-08 | P1 | Layer 3: the algebra, a SQLite schema with a typed query layer |
