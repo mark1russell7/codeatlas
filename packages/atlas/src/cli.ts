@@ -1,15 +1,17 @@
 #!/usr/bin/env node
 /**
  * codeatlas build [--out atlas.json] [--markdown atlas.md] [--min-nodes 40] [--repos-dir <folder>] [<name>=<path> ...]
+ * codeatlas corpus [--out corpus.json] [--markdown corpus.md] [--repos-dir <folder>] [<name>=<path> ...]
  * codeatlas clone --owner <owner> --into <folder>
  *
- * The command scans each repository (each folder of --repos-dir, and each name=path), and writes the
- * atlas as JSON and as Markdown.
+ * The command build scans each repository (each folder of --repos-dir, and each name=path), and writes the
+ * atlas as JSON and as Markdown. The command corpus counts the files, lines and bytes of each kind in the same repositories.
  */
 import { readdirSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildAtlas } from "./atlas.ts";
 import { clonePublic } from "./clone.ts";
+import { buildCorpus, corpusMarkdown, corpusOfRepo } from "./corpus.ts";
 import { atlasMarkdown } from "./report.ts";
 import { scanRepo, type RepoScan } from "./scan.ts";
 
@@ -20,8 +22,8 @@ export interface BuildArgs {
   readonly repos: readonly { readonly name: string; readonly path: string }[];
 }
 
-export function parseBuildArgs(argv: readonly string[], list: (dir: string) => string[] = subfolders): BuildArgs | { readonly error: string } {
-  let out = "atlas.json";
+export function parseBuildArgs(argv: readonly string[], list: (dir: string) => string[] = subfolders, defaultOut = "atlas.json"): BuildArgs | { readonly error: string } {
+  let out = defaultOut;
   let markdown: string | undefined;
   let minNodes = 40;
   const repos: { name: string; path: string }[] = [];
@@ -55,6 +57,7 @@ function subfolders(dir: string): string[] {
 
 const USAGE = `Usage:
   codeatlas build [--out atlas.json] [--markdown atlas.md] [--min-nodes 40] [--repos-dir <folder>] [<name>=<path> ...]
+  codeatlas corpus [--out corpus.json] [--markdown corpus.md] [--repos-dir <folder>] [<name>=<path> ...]
   codeatlas clone --owner <owner> --into <folder>`;
 
 function main(argv: readonly string[]): number {
@@ -70,6 +73,7 @@ function main(argv: readonly string[]): number {
     for (const name of failed) console.log(`::warning::${name} did not clone`);
     return 0;
   }
+  if (command === "corpus") return corpus(rest);
   if (command !== "build") {
     console.error(USAGE);
     return 2;
@@ -90,6 +94,22 @@ function main(argv: readonly string[]): number {
   if (args.markdown !== undefined) writeFileSync(args.markdown, atlasMarkdown(atlas));
   const { totals } = atlas;
   console.error(`atlas: ${totals.classes} clone classes, ${totals.crossRepoClasses} cross-repo, ${totals.duplicatedNodes} duplicated nodes of ${totals.nodes}`);
+  return 0;
+}
+
+function corpus(argv: readonly string[]): number {
+  const args = parseBuildArgs(argv, subfolders, "corpus.json");
+  if ("error" in args) {
+    console.error(args.error);
+    return 2;
+  }
+  const repos = args.repos.map((repo) => corpusOfRepo(repo.name, repo.path));
+  const result = buildCorpus(repos);
+  writeFileSync(args.out, `${JSON.stringify(result, null, 1)}
+`);
+  if (args.markdown !== undefined) writeFileSync(args.markdown, corpusMarkdown(result));
+  const { totals } = result;
+  console.error(`corpus: ${totals.repos} repositories, ${totals.files} files, ${totals.kinds.source?.lines ?? 0} source lines, ${totals.kinds.test?.lines ?? 0} test lines`);
   return 0;
 }
 

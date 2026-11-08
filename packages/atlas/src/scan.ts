@@ -50,13 +50,16 @@ export interface RepoScan {
   readonly errors: readonly { readonly file: string; readonly error: string }[];
 }
 
-const SOURCE = /\.(?:[cm]?[jt]s|[jt]sx)$/;
-const SKIP = /(?:^|\/)(?:node_modules|build|dist|coverage|vendor|\.next|out)\//;
+/** A JavaScript or TypeScript file. */
+export const SOURCE: RegExp = /\.(?:[cm]?[jt]s|[jt]sx)$/;
+/** A path in a folder of build output, installed packages or vendored code. */
+export const SKIP: RegExp = /(?:^|\/)(?:node_modules|build|dist|coverage|vendor|\.next|out)\//;
 /** Generated code: one generator writes all its copies, so they are one source, not duplication (the first atlas, 10-29). */
-const GENERATED = /(?:^|\/)(?:__golden__|__snapshots__|generated)\/|\.generated\.[cm]?[jt]sx?$/;
-const TEST = /(?:^|\/)(?:test|tests|__tests__|e2e|fixtures?)\/|\.(?:test|spec|bench)\.[cm]?[jt]sx?$/;
+export const GENERATED: RegExp = /(?:^|\/)(?:__golden__|__snapshots__|generated)\/|\.generated\.[cm]?[jt]sx?$/;
+/** A test file, or a file of a test folder. */
+export const TEST: RegExp = /(?:^|\/)(?:test|tests|__tests__|e2e|fixtures?)\/|\.(?:test|spec|bench)\.[cm]?[jt]sx?$/;
 /** A larger file is a bundle or generated output. */
-const MAX_BYTES = 400_000;
+export const MAX_BYTES: number = 400_000;
 
 /** This function tells if the scan reads a file of the repository. */
 export function isSource(file: string): boolean {
