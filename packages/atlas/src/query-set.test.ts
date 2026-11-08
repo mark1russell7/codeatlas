@@ -2,6 +2,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { factsOfRepo } from "./blobs.ts";
 import { duplication } from "./queries.ts";
 import { queryOf } from "./query.ts";
+import { homeCandidates } from "./candidates.ts";
 import { querySet, QUERY_SET_LIMITS, QUERY_SET_VERSION } from "./query-set.ts";
 import { Catalog } from "./store.ts";
 import { GitRepos } from "./testing/git-repo.ts";
@@ -54,6 +55,7 @@ describe("querySet", () => {
     const set = await querySet(q, "2026-11-09T06:40:00Z", "facts/1");
     expect(set.complex.map((f) => [f.repo, f.name, f.cyclomatic])).toEqual([["a", "choose", 21]]);
     expect(set.markers).toEqual([{ repo: "a", kind: "todo", count: 1 }]);
+    expect(set.homes).toEqual(await homeCandidates(q));
   });
 
   it("keeps to its limits", async () => {
