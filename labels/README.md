@@ -10,6 +10,7 @@ This folder holds the hand-labeled sample of Layer 2. `docs/SCHEMA.md` gives the
 | `rater-c.jsonl` | A third blind model rater of the 97 items of the audit: the home, the category and a verdict on the sentence. It is not a person. |
 | `owners-1.jsonl` | The verdicts of the owners of the copies on 50 moves of `moves-1.md`, each with its reason. |
 | `missed-1.jsonl` | The copies that the owners found and the atlas did not list. |
+| `owner-homes-1.jsonl` | The home of each of the 50 functions with an owner verdict, from that verdict. It is a labeled sample for CA12. |
 | `pilot-1.jsonl` | The labels of the first pilot of Layer 2 (CA13): 172 functions of `otel-ts`, `page-lifecycle-tracker` and `ste-lint`, from one blind model. |
 
 The command `codeatlas sample` wrote `sample.json` from the catalog of the CI run 42455568174, at the commit `1b710df` of this repository. The function of an item is at its `repo`, `commit`, `path` and lines `line` to `endLine`.
@@ -47,6 +48,17 @@ The pilot labels each function of three repositories with the population rule of
 - `moves-1.md` lists the 149 moves by repository. The owner of each copy checks each move with a test before a pull request.
 - The labels have a text kind. There are 157 plain string helpers in 25 repositories, 12 Markdown parsers, 7 text measurement functions and 3 functions for English word forms.
 - No two of the 157 plain string helpers have the same shape. Thus 157 is a count by purpose, not a count of clones.
+
+## The owner sample for CA12
+
+The owners of the copies are the agents that keep each repository. They read the home and test the behavior. Thus their verdicts give a labeled sample of the task `home`. `owner-homes-1.jsonl` has this sample.
+
+- The rule: a verdict `right`, `partial` or `later` keeps the area of the model. `wrong-home` gives the other area of the reason. `wrong` gives the home `none`.
+- The model labeled the home of 14 of the 50 correctly: 0.280 [0.175, 0.417]. The move precision is lower (0.160), because a correct area can wait for its home.
+- 32 of the 50 have the home `none`. The model sees a general helper. The owner sees local policy that the home does not cover.
+- The sample is not random. It has only functions with a proposed move. Thus it measures the precision of the moves, not the recall.
+- No person labeled it. The owners are agents with tests, so it is better evidence than a blind rater, but it is not a human truth set.
+- `raterOfText` reads the file as a rater, with the field `home` of each line.
 
 ## Gaps of the map
 
