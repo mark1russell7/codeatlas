@@ -10,7 +10,7 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 | --- | --- | --- | --- |
 | CA11 | in progress | P2 | Layer 1, more sources: coverage, dependency versions, template drift, conventions breaks |
 | CA13 | in progress | P1 | Layer 2 pilot on 3 repositories: cost per 1000 lines and precision |
-| CA12 | waits for the audit of the owner | P1 | A hand-labeled sample, for the precision and recall of each judgment category |
+| CA4 | in progress | P2 | The private repositories: a local scan into a separate private database |
 
 ## Next
 
@@ -24,7 +24,7 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 | --- | --- | --- | --- |
 | CA15 | later | P2 | Layer 2 fan-out over all public repositories |
 | CA18 | later | P2 | Gates: freshness of each repository, cost per 1000 lines, precision of each category |
-| CA4 | later | P2 | The private repositories: a local scan into a separate private database |
+| CA12 | later: a third blind model agrees, a human sample is next | P1 | A hand-labeled sample, for the precision and recall of each judgment category |
 | CA5 | later | P2 | Planned duplication: two roadmap items in two repositories that make the same thing |
 | CA6 | later | P3 | Near copies: functions with one shape after small edits (type-3 clones) |
 
