@@ -44,13 +44,14 @@ export interface ManifestRecord {
 }
 
 const MANIFEST = /(^|\/)package\.json$/;
-const SEMVER = /^[\s\d.xX*^~<>=|-]+$|^v?\d+\.\d+\.\d+[-+.\w]*$/;
+// Each part of these patterns has one way to match, so a long range cannot make them backtrack.
+const SEMVER = /^[\s\d.xX*^~<>=|-]+$|^v?\d+\.\d+\.\d+(?:[-+][-+.\w]*)?$/;
 
 /** This function gives the kind of a range of a dependency. */
 export function rangeKind(range: string): RangeKind {
   if (range.startsWith("workspace:")) return "workspace";
   if (range.startsWith("github:") || /^[\w.-]+\/[\w.-]+(#.*)?$/.test(range)) return "github";
-  if (/^git(\+[a-z]+)?:|^git@|\.git(#.*)?$/.test(range)) return "git";
+  if (/^git(\+[a-z]+)?:|^git@/.test(range) || range.endsWith(".git") || range.includes(".git#")) return "git";
   if (range.startsWith("file:")) return "file";
   if (range.startsWith("link:")) return "link";
   if (range.startsWith("npm:")) return "npm";
