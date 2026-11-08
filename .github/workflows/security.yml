@@ -1,6 +1,6 @@
-# The security scans of this repository (reusable-security.yml, CI.md): dependency review,
-# osv-scanner and CodeQL. A pull request fails only for a new finding at or above high.
-# Other repositories call mark1russell7/template/.github/workflows/reusable-security.yml@<commit> # main
+# The security scans of this repository (the action security-scan, CI.md, Security): dependency review,
+# osv-scanner and CodeQL, in one job. A pull request fails only for a new finding at or above high.
+# Other repositories use mark1russell7/template/.github/actions/security-scan@<commit> # main
 name: Security
 
 on:
@@ -19,9 +19,13 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  security:
-    uses: mark1russell7/template/.github/workflows/reusable-security.yml@e077054e0f2ebb8441e4bc525b56cf2acc2afb6f # main
+  security-ok:
+    name: Security OK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       security-events: write
       actions: read
+    steps:
+      - uses: mark1russell7/template/.github/actions/security-scan@e077054e0f2ebb8441e4bc525b56cf2acc2afb6f # main

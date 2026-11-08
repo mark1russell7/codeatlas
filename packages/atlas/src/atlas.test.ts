@@ -111,6 +111,9 @@ describe("isSource", () => {
     expect(isSource("site/src/Tabs.tsx")).toBe(true);
     expect(isSource("packages/core/dist/index.js")).toBe(false);
     expect(isSource("src/types.d.ts")).toBe(false);
+    expect(isSource("scripts/lib/workspace.d.mts")).toBe(false);
+    expect(isSource("scripts/lib/old-names.d.cts")).toBe(false);
+    expect(isSource("src/router.mts")).toBe(true);
     expect(isSource("public/app.min.js")).toBe(false);
     expect(isSource("packages/ireko/src/core/engine/place.generated.js")).toBe(false);
     expect(isSource("packages/compiler/src/__golden__/module-sheet.js")).toBe(false);

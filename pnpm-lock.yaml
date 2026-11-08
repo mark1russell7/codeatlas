@@ -208,9 +208,18 @@ importers:
       '@mark1russell7/conventions':
         specifier: ^0.35.0
         version: 0.35.0
+      '@mark1russell7/rigor-generators':
+        specifier: ^0.1.6
+        version: 0.1.6
+      '@mark1russell7/rigor-statistics':
+        specifier: ^0.1.17
+        version: 0.1.17
       '@swc/core':
         specifier: ^1.15.0
         version: 1.16.20
+      kysely:
+        specifier: ^0.29.8
+        version: 0.29.8
     devDependencies:
       '@mark1russell7/cue':
         specifier: ^2.1.1
@@ -232,7 +241,7 @@ importers:
         version: link:../atlas
       '@mark1russell7/site-pages':
         specifier: ^0.3.4
-        version: 0.3.4
+        version: 0.3.5
       '@swc/core':
         specifier: ^1.15.0
         version: 1.16.20
@@ -453,16 +462,16 @@ packages:
     engines: {node: '>=22'}
     hasBin: true
 
-  '@mark1russell7/rigor-generators@0.1.5':
-    resolution: {integrity: sha512-YkABrG6+AV4oZKWoSIayDGxKTqcTMbp/eGa+3u00X09Jv9TfpHFDeqHlEQARMBzJ/kvy/EMNIXQZMGa3Nobuzw==}
+  '@mark1russell7/rigor-generators@0.1.6':
+    resolution: {integrity: sha512-eSuVS6nNd2H63dMrfleop+ffBtNd8Ua0/JrcUWUMxf2jHWw432fSwJ+aSa4ecAYq1Pa2ReCfwpqFUP4MII5+GA==}
     engines: {node: '>=22'}
 
-  '@mark1russell7/rigor-statistics@0.1.11':
-    resolution: {integrity: sha512-5tD7QqLE7Y6wWsoImXuszH3JA5VHwGDHjVzobn/JGtYgo24AFTzXlngEPxfW9A5kHD9GFXgWbkgUCNa0RlLToA==}
+  '@mark1russell7/rigor-statistics@0.1.17':
+    resolution: {integrity: sha512-euqZuWFcX8ufU7/+pOPbTPWHqwzKDwuINf1I06FaFyqtD+Tn30TFUHUUmWkgQCVoJ86sZdjV/UnN1nBuWEcRWQ==}
     engines: {node: '>=22'}
 
-  '@mark1russell7/site-pages@0.3.4':
-    resolution: {integrity: sha512-xxYaeElE6/HvADgO+2yu00c7svWw0ICQ99iD/2rYQVTLEvRqn40MDzi0gnCk37/LakH443xwYVvRw/YeZhj4PQ==}
+  '@mark1russell7/site-pages@0.3.5':
+    resolution: {integrity: sha512-3/VryGHcANgpTwAdAeyWL08I2qpfyUoXCVBUYtzjRQDpGT4i/wCUgJpAziiJrhY5g8HDOOsKgP/9Nf+kGh0a7Q==}
     engines: {node: '>=22'}
     hasBin: true
 
@@ -975,6 +984,10 @@ packages:
     resolution: {integrity: sha512-eTIzlVOSUR+JxdDFepEYcBMtZ9Qqdef+rnzWdRZuMbOywu5tO2w2N7rqjoANZ5k9vywhL6Br1VRjUIgTQx4E8w==}
     engines: {node: '>=6'}
 
+  kysely@0.29.8:
+    resolution: {integrity: sha512-ixHU1H4R+LeC5Y0nAhYgiGRFpFRHm2DXKEmJSs/vbes9sKXyssyzxzE/NYiOJX5fY0BL28biCre3GqlCqUwyXQ==}
+    engines: {node: '>=22.0.0'}
+
   lightningcss-android-arm64@1.33.0:
     resolution: {integrity: sha512-gEpRTalKdosp4Bb8qWtc2iOgE5SeIHlpS1up9bFq2wAyYhl1UdTObYiHe98zEM9SQvSoqQZ1IQD0JNpg3Ml5pg==}
     engines: {node: '>= 12.0.0'}
@@ -1401,15 +1414,15 @@ snapshots:
 
   '@mark1russell7/cue@2.1.1': {}
 
-  '@mark1russell7/rigor-generators@0.1.5': {}
+  '@mark1russell7/rigor-generators@0.1.6': {}
 
-  '@mark1russell7/rigor-statistics@0.1.11':
+  '@mark1russell7/rigor-statistics@0.1.17':
     dependencies:
-      '@mark1russell7/rigor-generators': 0.1.5
+      '@mark1russell7/rigor-generators': 0.1.6
 
-  '@mark1russell7/site-pages@0.3.4':
+  '@mark1russell7/site-pages@0.3.5':
     dependencies:
-      '@mark1russell7/rigor-statistics': 0.1.11
+      '@mark1russell7/rigor-statistics': 0.1.17
 
   '@mark1russell7/ste-lint@0.1.2':
     dependencies:
@@ -1771,6 +1784,8 @@ snapshots:
   json5@2.2.3: {}
 
   kleur@3.0.3: {}
+
+  kysely@0.29.8: {}
 
   lightningcss-android-arm64@1.33.0:
     optional: true

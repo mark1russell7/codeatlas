@@ -95,7 +95,7 @@ export function pageHtml(script: string, atlas: Atlas, owner: string, line: stri
   <h1>codeatlas</h1>
   <p class="sub">The code that the repositories of ${escapeHtml(owner)} write again and again. The atlas scans each public repository every week.</p>
   ${line}
-  <nav><a href="#homes">Homes</a><a href="#topics">Topics</a><a href="#pairs">Pairs</a><a href="#repos">Repositories</a><a href="#classes">Classes</a><a href="#names">Names</a><a href="#purposes">Purposes</a><a href="data/atlas.json">Data</a><a href="status/">Status</a><a href="releases/">Releases</a><a href="https://github.com/${escapeHtml(owner)}/codeatlas">Source</a></nav>
+  <nav><a href="#homes">Homes</a><a href="#topics">Topics</a><a href="#pairs">Pairs</a><a href="#trend">Trend</a><a href="#levels">Levels</a><a href="#exact">Exact</a><a href="#repos">Repositories</a><a href="#classes">Classes</a><a href="#names">Names</a><a href="#purposes">Purposes</a><a href="#complex">Complex</a><a href="#markers">Markers</a><a href="data/queries.json">Queries</a><a href="data/atlas.json">Data</a><a href="status/">Status</a><a href="releases/">Releases</a><a href="https://github.com/${escapeHtml(owner)}/codeatlas">Source</a></nav>
 </header>
 <main id="app" data-owner="${escapeHtml(owner)}"><p class="empty">Loading the atlas.</p></main>
 <script type="module">${script.replace(/<\/script/gi, "<\\/script")}</script>
@@ -172,6 +172,7 @@ svg .axis{font-size:11px;fill:var(--ink-2)}
 .reset,.more{font:inherit;font-size:14px;padding:6px 12px;border:1px solid var(--line);border-radius:6px;background:var(--surface-2);color:var(--ink);cursor:pointer}
 .more{margin-top:10px}
 .count{color:var(--ink-3);font-size:13px;margin:4px 0 8px}
+.cell-sub{color:var(--ink-3);font-size:12px;margin-top:2px;overflow-wrap:anywhere}
 .card{border:1px solid var(--line);border-radius:8px;margin:6px 0;background:var(--surface)}
 .card summary{cursor:pointer;padding:8px 12px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
 .card[open] summary{border-bottom:1px solid var(--line)}
@@ -186,6 +187,13 @@ code{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;color:var(--in
 .chip b{margin-left:6px;color:var(--ink-3);font-weight:500}
 .tip{position:absolute;display:none;z-index:10;max-width:320px;background:var(--ink);color:var(--surface);font-size:13px;padding:6px 9px;border-radius:6px;pointer-events:none}
 .empty{color:var(--ink-3)}
+.trend-chart{display:block;width:100%;height:auto;max-height:240px;margin-bottom:6px}
+.trend-chart .grid{stroke:var(--line);stroke-width:1}
+.trend-line{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round}
+.trend-dot{fill:var(--accent);stroke:var(--surface);stroke-width:2}
+.trend-chart .cross{stroke:var(--ink-3);stroke-width:1;stroke-dasharray:3 3}
+.trend-chart .hit{fill:transparent;cursor:crosshair}
+.trend-chart .hit:focus{outline:none;fill:var(--surface-2);fill-opacity:.4}
 @media (max-width:560px){.kpi-value{font-size:24px}section{padding:14px}.bar-row{grid-template-columns:minmax(80px,110px) 1fr auto}}
 `;
 

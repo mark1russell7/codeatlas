@@ -16,7 +16,10 @@
   },
   "dependencies": {
     "@mark1russell7/conventions": "^0.35.0",
-    "@swc/core": "^1.15.0"
+    "@mark1russell7/rigor-generators": "^0.1.6",
+    "@mark1russell7/rigor-statistics": "^0.1.17",
+    "@swc/core": "^1.15.0",
+    "kysely": "^0.29.8"
   },
   "devDependencies": {
     "@mark1russell7/cue": "^2.1.1",

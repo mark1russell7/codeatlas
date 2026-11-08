@@ -2,7 +2,7 @@
  * The page of the codeatlas site. The build compiles this file with swc and puts it into index.html
  * as a module. The functions above `start` are pure, so the tests run them without a browser.
  */
-import type { Atlas, CloneClass, Member, RepoRow } from "@mark1russell7/codeatlas";
+import type { Atlas, CloneClass, CloneLevel, ComplexFunction, FunctionPlace, Member, QuerySet, RepoRow, Trend } from "@mark1russell7/codeatlas";
 
 /** The choices of the filter row of the clone classes. An empty string is "all". */
 export interface Filter {
@@ -85,8 +85,53 @@ export function stepOf(value: number, max: number, steps: number): number {
   return Math.min(steps - 1, Math.floor((Math.log(value) / Math.log(max)) * steps));
 }
 
+/** The duplication of one level of the chain of clone hashes, with its name for the page. */
+export interface LevelRow {
+  readonly level: CloneLevel;
+  readonly title: string;
+  readonly classes: number;
+  readonly members: number;
+  readonly duplicatedNodes: number;
+  readonly ratio: number;
+}
+
+const LEVEL_TITLES: Readonly<Record<CloneLevel, string>> = {
+  exact: "The same code, character for character",
+  renamed: "The same code with other names",
+  shape: "The same shape, with other literals and types",
+};
+
+/** This function gives one row for each level of the query set, in the order of the chain. */
+export function levelRows(set: QuerySet): LevelRow[] {
+  const levels: readonly CloneLevel[] = ["exact", "renamed", "shape"];
+  return levels.map((level) => ({ level, title: LEVEL_TITLES[level], ...set.duplication.levels[level], ratio: set.duplication.ratio[level] }));
+}
+
+/** The markers of each repository: one count for each kind. */
+export interface MarkerTable {
+  readonly kinds: readonly string[];
+  readonly rows: readonly { readonly repo: string; readonly counts: Readonly<Record<string, number>>; readonly total: number }[];
+}
+
+/** This function gives the markers as a table, the repository with the most markers first. */
+export function markerTable(set: QuerySet): MarkerTable {
+  const kinds = [...new Set(set.markers.map((m) => m.kind))].sort();
+  const byRepo = new Map<string, Record<string, number>>();
+  for (const m of set.markers) {
+    const counts = byRepo.get(m.repo) ?? {};
+    counts[m.kind] = (counts[m.kind] ?? 0) + m.count;
+    byRepo.set(m.repo, counts);
+  }
+  const rows = [...byRepo].map(([repo, counts]) => ({ repo, counts, total: Object.values(counts).reduce((sum, n) => sum + n, 0) }));
+  rows.sort((a, b) => b.total - a.total || (a.repo < b.repo ? -1 : 1));
+  return { kinds, rows };
+}
+
+/** The place of a function of the catalog as a member of the page, for its link. */
+export const placeOf = (f: FunctionPlace): Pick<Member, "repo" | "file" | "line"> => ({ repo: f.repo, file: f.path, line: f.line });
+
 /** The link to a member at the commit that the scan read. */
-export function sourceUrl(owner: string, commit: string | null, m: Member): string {
+export function sourceUrl(owner: string, commit: string | null, m: Pick<Member, "repo" | "file" | "line">): string {
   const path = m.file.split("/").map(encodeURIComponent).join("/");
   return `https://github.com/${owner}/${encodeURIComponent(m.repo)}/blob/${commit ?? "HEAD"}/${path}#L${m.line}`;
 }
@@ -97,6 +142,49 @@ export function titleOf(c: CloneClass): string {
   if (named !== undefined) return named.name;
   const first = c.members[0];
   return first === undefined ? c.hash : `<anonymous> in ${first.file.split("/").pop() ?? first.file}`;
+}
+
+/** One point of the trend of all repositories: the nodes, the duplicated nodes of one level and their ratio. */
+export interface TrendRow {
+  readonly at: string;
+  readonly nodes: number;
+  readonly duplicated: number;
+  readonly ratio: number;
+}
+
+/** This function gives the totals of each point of the trend, in the order of time. */
+export function trendRows(trend: Trend, level: CloneLevel = "renamed"): TrendRow[] {
+  return trend.points.map((point) => {
+    const nodes = point.repos.reduce((sum, repo) => sum + repo.nodes, 0);
+    const duplicated = point.repos.reduce((sum, repo) => sum + repo.duplicated[level], 0);
+    return { at: point.at, nodes, duplicated, ratio: nodes === 0 ? 0 : duplicated / nodes };
+  });
+}
+
+/** The ratio of one repository at the first point that has it, and at the last point. */
+export interface RepoChange {
+  readonly repo: string;
+  readonly first: number;
+  readonly last: number;
+  /** The value `last − first`. A positive change tells that the share of copies grew. */
+  readonly change: number;
+}
+
+/** This function gives the change of each repository of the last point, the largest growth first. */
+export function repoChanges(trend: Trend, level: CloneLevel = "renamed"): RepoChange[] {
+  const ratio = (repo: { readonly nodes: number; readonly duplicated: Readonly<Record<CloneLevel, number>> }): number =>
+    repo.nodes === 0 ? 0 : repo.duplicated[level] / repo.nodes;
+  const last = trend.points[trend.points.length - 1];
+  if (last === undefined) return [];
+  return last.repos
+    .filter((repo) => repo.nodes > 0)
+    .map((repo) => {
+      const firstPoint = trend.points.find((point) => point.repos.some((each) => each.repo === repo.repo && each.nodes > 0));
+      const before = firstPoint?.repos.find((each) => each.repo === repo.repo);
+      const first = before === undefined ? ratio(repo) : ratio(before);
+      return { repo: repo.repo, first, last: ratio(repo), change: ratio(repo) - first };
+    })
+    .sort((a, b) => b.change - a.change || (a.repo < b.repo ? -1 : 1));
 }
 
 export const int = (n: number): string => Math.round(n).toLocaleString("en-US");
@@ -255,17 +343,253 @@ export async function start(): Promise<void> {
         )),
       ));
 
+  const trendBox = h("div", { class: "trend" }, h("p", { class: "empty" }, "Loading the trend."));
+  void loadTrend();
+
+  const loading = (): HTMLElement => h("p", { class: "empty" }, "Loading the query set.");
+  const levelsBox = h("div", {}, loading());
+  const exactBox = h("div", { class: "classes" }, loading());
+  const complexBox = h("div", {}, loading());
+  const markersBox = h("div", {}, loading());
+  void loadQueries();
+
   root.replaceChildren(
     kpis,
     section("homes", "Copies that have a home", "Functions whose name is a signature of a home package of the map of homes, outside that home. The fix is an import from the home, or a pull request that adds the function to the home.", homed),
     section("topics", "Where the copies are", "Duplicated nodes of the cross-repo classes, by topic. Each topic is an area of a shared library. Click a bar to list its classes.", topicChart),
     section("pairs", "Which repositories share code", "Each cell is the size of the code that two repositories both have: the legend below gives the scale. Click a cell to list the classes of the pair.", heat),
+    section("trend", "The trend", "The share of the code that is a copy, at each build. A class keeps its first function, and each other function counts as a copy.", trendBox),
+    section("levels", "Copies at each level", "Each level of the chain finds more copies than the level before it. A function of a class at one level is in a class at each next level.", levelsBox),
+    section("exact", "Exact copies", "The same code, character for character after the format. Each of these functions can be one import. The largest first.", exactBox),
     section("repos", "Repositories", "Click a column to sort and a row to list its classes. The ratio is the share of the code of the repository that is a copy.", repoTable),
     section("classes", "Clone classes", "Functions with one shape: the same code, with other names, literals or types. The largest first.", controls, countLine, classesBox),
     section("names", "Names that two or more repositories export", "The number is the count of repositories.", names),
     section("purposes", "Packages by purpose", "Two packages for one purpose show a split. No package shows code that each repository writes again.", purposes),
+    section("complex", "Complex functions", "Functions outside tests with many paths. The complexity is the count of paths, and the depth is the deepest nesting. Click a column to sort.", complexBox),
+    section("markers", "Markers", "The count of each kind of marker in each repository, test files included. A marker is a comment such as TODO, or a code form such as a non-null assertion.", markersBox),
   );
   renderClasses();
+
+  async function loadTrend(): Promise<void> {
+    let trend: Trend;
+    try {
+      const res = await fetch("data/trend.json");
+      if (!res.ok) throw new Error(String(res.status));
+      trend = (await res.json()) as Trend;
+    } catch {
+      trendBox.replaceChildren(h("p", { class: "empty" }, "The trend data did not load."));
+      return;
+    }
+    const rows = trendRows(trend);
+    const first = rows[0];
+    const last = rows[rows.length - 1];
+    if (first === undefined || last === undefined) {
+      trendBox.replaceChildren(h("p", { class: "empty" }, "The trend has no point yet."));
+      return;
+    }
+    const note =
+      rows.length === 1
+        ? `The trend starts on ${first.at.slice(0, 10)}. Each build adds a point, one for each day.`
+        : `${rows.length} points from ${first.at.slice(0, 10)} to ${last.at.slice(0, 10)}.`;
+    trendBox.replaceChildren(trendChart(rows), h("p", { class: "count" }, note), changeTable(repoChanges(trend), rows.length > 1));
+  }
+
+  function trendChart(rows: readonly TrendRow[]): SVGSVGElement {
+    const width = 640;
+    const height = 200;
+    const pad = { left: 44, right: 16, top: 12, bottom: 24 };
+    // The axis ends at the next whole percent above the largest ratio.
+    const max = Math.ceil(Math.max(0.01, ...rows.map((row) => row.ratio)) * 100) / 100;
+    const x = (i: number): number => (rows.length === 1 ? (pad.left + width - pad.right) / 2 : pad.left + (i / (rows.length - 1)) * (width - pad.left - pad.right));
+    const y = (ratio: number): number => pad.top + (1 - ratio / max) * (height - pad.top - pad.bottom);
+    const svg = s("svg", { viewBox: `0 0 ${width} ${height}`, class: "trend-chart", role: "img", "aria-label": "The share of the code that is a copy, at each build" }) as SVGSVGElement;
+    for (const tick of [0, max / 2, max]) {
+      svg.append(s("line", { x1: pad.left, x2: width - pad.right, y1: y(tick), y2: y(tick), class: "grid" }));
+      const label = s("text", { x: pad.left - 6, y: y(tick), class: "axis", "text-anchor": "end", "dominant-baseline": "central" });
+      label.textContent = pct(tick);
+      svg.append(label);
+    }
+    for (const i of rows.length === 1 ? [0] : [0, rows.length - 1]) {
+      const label = s("text", { x: x(i), y: height - 6, class: "axis", "text-anchor": rows.length === 1 ? "middle" : i === 0 ? "start" : "end" });
+      label.textContent = (rows[i] as TrendRow).at.slice(0, 10);
+      svg.append(label);
+    }
+    if (rows.length > 1) svg.append(s("path", { d: rows.map((row, i) => `${i === 0 ? "M" : "L"}${x(i)},${y(row.ratio)}`).join(""), class: "trend-line" }));
+    const cross = s("line", { y1: pad.top, y2: height - pad.bottom, class: "cross", visibility: "hidden" });
+    svg.append(cross);
+    const step = rows.length === 1 ? width : (width - pad.left - pad.right) / (rows.length - 1);
+    rows.forEach((row, i) => {
+      svg.append(s("circle", { cx: x(i), cy: y(row.ratio), r: 4, class: "trend-dot" }));
+      // The hit target is the full column of the point, so the pointer finds it with no aim.
+      const hit = s("rect", { x: x(i) - step / 2, y: 0, width: step, height, class: "hit", tabindex: 0 });
+      const text = `${row.at.slice(0, 10)}: ${pct(row.ratio)} of the code is a copy (${int(row.duplicated)} of ${int(row.nodes)} nodes).`;
+      const show = (e: Event): void => {
+        cross.setAttribute("x1", String(x(i)));
+        cross.setAttribute("x2", String(x(i)));
+        cross.setAttribute("visibility", "visible");
+        tip.show(e as MouseEvent, text);
+      };
+      const hide = (): void => {
+        cross.setAttribute("visibility", "hidden");
+        tip.hide();
+      };
+      hit.addEventListener("mouseenter", show);
+      hit.addEventListener("focus", show);
+      hit.addEventListener("mouseleave", hide);
+      hit.addEventListener("blur", hide);
+      svg.append(hit);
+    });
+    return svg;
+  }
+
+  function changeTable(changes: readonly RepoChange[], history: boolean): HTMLElement {
+    const head = history ? ["Repository", "First", "Now", "Change"] : ["Repository", "Now"];
+    const signed = (n: number): string => `${n > 0 ? "+" : ""}${(n * 100).toFixed(1)} pts`;
+    return h("div", { class: "scroll scroll-cue" },
+      h("table", { class: "table" },
+        h("thead", {}, h("tr", {}, ...head.map((title, i) => h("th", i === 0 ? {} : { class: "num" }, title)))),
+        h("tbody", {}, ...changes.map((row) =>
+          h("tr", {},
+            h("td", {}, row.repo),
+            history ? h("td", { class: "num" }, pct(row.first)) : null,
+            h("td", { class: "num" }, pct(row.last)),
+            history ? h("td", { class: "num" }, signed(row.change)) : null,
+          ),
+        )),
+      ),
+    );
+  }
+
+  async function loadQueries(): Promise<void> {
+    let set: QuerySet;
+    try {
+      const res = await fetch("data/queries.json");
+      if (!res.ok) throw new Error(String(res.status));
+      set = (await res.json()) as QuerySet;
+    } catch {
+      for (const box of [levelsBox, exactBox, complexBox, markersBox]) box.replaceChildren(h("p", { class: "empty" }, "The query set did not load."));
+      return;
+    }
+    const commitOf = new Map(set.repos.map((r) => [r.repo, r.commit]));
+    const link = (f: FunctionPlace): HTMLElement =>
+      h("a", { href: sourceUrl(owner, commitOf.get(f.repo) ?? null, placeOf(f)), target: "_blank", rel: "noopener" }, `${f.repo}/${f.path}:${f.line}`);
+    levelsBox.replaceChildren(
+      levelTable(levelRows(set)),
+      h("p", { class: "count" }, `The base is ${int(set.duplication.topNodes)} nodes: the functions outside tests of ${atlas.minNodes} nodes or more. The features of each package need Layer 2 of the catalog. The site shows them when that layer exists.`),
+    );
+    exactBox.replaceChildren(
+      ...(set.exact.length === 0
+        ? [h("p", { class: "empty" }, "No function has an exact copy.")]
+        : set.exact.map((c) =>
+            h("details", { class: "card" },
+              h("summary", {},
+                h("span", { class: "card-title" }, c.members[0]?.name ?? c.hash.slice(0, 12)),
+                h("span", { class: "card-meta" }, `${c.copies} copies · ${c.nodes} nodes · ${c.repos} repos`),
+              ),
+              h("ul", {}, ...c.members.map((m) => h("li", {}, link(m), " ", h("code", {}, m.name)))),
+            ),
+          )),
+    );
+    complexBox.replaceChildren(complexTable(set.complex, set.limits.complexMin, link));
+    markersBox.replaceChildren(markerView(markerTable(set)));
+  }
+
+  function levelTable(rows: readonly LevelRow[]): HTMLElement {
+    const max = Math.max(0.0001, ...rows.map((r) => r.ratio));
+    return h("div", { class: "scroll scroll-cue" },
+      h("table", { class: "table" },
+        h("thead", {}, h("tr", {}, h("th", {}, "Level"), h("th", { class: "num" }, "Classes"), h("th", { class: "num" }, "Functions"), h("th", { class: "num" }, "Copied nodes"), h("th", { class: "num" }, "Share"))),
+        h("tbody", {}, ...rows.map((r) =>
+          h("tr", {},
+            h("td", {}, h("strong", {}, r.level), h("div", { class: "cell-sub" }, r.title)),
+            h("td", { class: "num" }, int(r.classes)),
+            h("td", { class: "num" }, int(r.members)),
+            h("td", { class: "num" }, int(r.duplicatedNodes)),
+            h("td", { class: "num" }, h("span", { class: "ratio" }, h("span", { class: "track" }, h("span", { class: "mini", style: `width:${(r.ratio / max) * 100}%` })), pct(r.ratio))),
+          ),
+        )),
+      ),
+    );
+  }
+
+  function complexTable(rows: readonly ComplexFunction[], min: number, link: (f: FunctionPlace) => HTMLElement): HTMLElement {
+    if (rows.length === 0) return h("p", { class: "empty" }, `No function has a complexity of ${min} or more.`);
+    type Key = "name" | "repo" | "cyclomatic" | "depth" | "nodes";
+    const cols: { key: Key; title: string }[] = [
+      { key: "name", title: "Function" },
+      { key: "repo", title: "Repository" },
+      { key: "cyclomatic", title: "Complexity" },
+      { key: "depth", title: "Depth" },
+      { key: "nodes", title: "Nodes" },
+    ];
+    const LIMIT = 25;
+    let sortKey: Key = "cyclomatic";
+    let desc = true;
+    let repo = "";
+    let all = false;
+    const repos = [...new Set(rows.map((r) => r.repo))].sort();
+    const pick = h("select", { "aria-label": "All repositories" }, h("option", { value: "" }, "All repositories"), ...repos.map((r) => h("option", { value: r }, r)));
+    const head = h("tr", {});
+    const body = h("tbody", {});
+    const count = h("p", { class: "count" });
+    const more = h("button", { type: "button", class: "more" });
+    pick.addEventListener("change", () => {
+      repo = pick.value;
+      render();
+    });
+    more.addEventListener("click", () => {
+      all = true;
+      render();
+    });
+    function render(): void {
+      head.replaceChildren(...cols.map((c) => {
+        const btn = h("button", { type: "button" }, c.title, c.key === sortKey ? (desc ? " ↓" : " ↑") : "");
+        btn.addEventListener("click", () => {
+          desc = c.key === sortKey ? !desc : c.key !== "name" && c.key !== "repo";
+          sortKey = c.key;
+          render();
+        });
+        return h("th", { class: c.key === "name" || c.key === "repo" ? "" : "num", "aria-sort": c.key === sortKey ? (desc ? "descending" : "ascending") : "none" }, btn);
+      }));
+      const list = rows.filter((r) => repo === "" || r.repo === repo).sort((a, b) => {
+        const x = a[sortKey];
+        const y = b[sortKey];
+        const order = typeof x === "string" ? x.localeCompare(String(y)) : x - (y as number);
+        return desc ? -order : order;
+      });
+      const shown = all ? list : list.slice(0, LIMIT);
+      body.replaceChildren(...shown.map((r) =>
+        h("tr", {},
+          h("td", {}, h("code", {}, r.name), h("div", { class: "cell-sub" }, link(r))),
+          h("td", {}, r.repo),
+          h("td", { class: "num" }, int(r.cyclomatic)),
+          h("td", { class: "num" }, int(r.depth)),
+          h("td", { class: "num" }, int(r.nodes)),
+        ),
+      ));
+      count.textContent = `${shown.length} of ${list.length} functions with a complexity of ${min} or more.`;
+      more.textContent = `Show all ${list.length}`;
+      more.hidden = shown.length === list.length;
+    }
+    render();
+    return h("div", {}, h("div", { class: "filters" }, pick), count, h("div", { class: "scroll scroll-cue" }, h("table", { class: "table sortable" }, h("thead", {}, head), body)), more);
+  }
+
+  function markerView(table: MarkerTable): HTMLElement {
+    if (table.rows.length === 0) return h("p", { class: "empty" }, "No repository has a marker.");
+    return h("div", { class: "scroll scroll-cue" },
+      h("table", { class: "table" },
+        h("thead", {}, h("tr", {}, h("th", {}, "Repository"), ...table.kinds.map((k) => h("th", { class: "num" }, k)), h("th", { class: "num" }, "All"))),
+        h("tbody", {}, ...table.rows.map((r) =>
+          h("tr", {},
+            h("td", {}, r.repo),
+            ...table.kinds.map((k) => h("td", { class: "num" }, r.counts[k] === undefined ? "" : int(r.counts[k] ?? 0))),
+            h("td", { class: "num" }, h("strong", {}, int(r.total))),
+          ),
+        )),
+      ),
+    );
+  }
 
   function kpi(value: string, label: string, detail: string): HTMLElement {
     return h("div", { class: "kpi" }, h("div", { class: "kpi-value" }, value), h("div", { class: "kpi-label" }, label), h("div", { class: "kpi-detail" }, detail));
