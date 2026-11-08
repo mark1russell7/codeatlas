@@ -162,6 +162,13 @@ A debt marker of a file: `TODO`, `FIXME`, `HACK`, `XXX`, `@ts-ignore`, `@ts-expe
 
 From each `package.json` and its lockfile: the package, the dependency name, the range, the resolved version, and the field (`dependencies`, `devDependencies`, `peerDependencies`). A `github:` or `workspace:` range is a value of its own.
 
+- The table `manifest` has one row for each `package.json` of a snapshot: the path, the blob, the package name, the version, `private` and a parse error.
+- The table `dependency` has the dependencies of each manifest blob: the field, the name, the range and the kind of the range (`rangeKind`).
+- The view `current_manifest` gives the manifests of the current snapshots.
+- The query `rangeDrift` gives each dependency with two registry ranges or more. The query `pinnedDependencies` gives each range that the registry does not resolve.
+- The new tables do not change `CATALOG_SCHEMA`: a database of `codeatlas/2` gets them, and its blobs stay the cache.
+- The resolved versions from the lockfiles come in a next step.
+
 ### `home`
 
 The areas of the map of homes, from `conventions map`: the area, its home packages, its home repository and its signatures.

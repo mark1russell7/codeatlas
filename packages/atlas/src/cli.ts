@@ -27,7 +27,8 @@
 import { closeSync, openSync, readFileSync, readdirSync, statSync, writeFileSync, writeSync } from "node:fs";
 import { join } from "node:path";
 import { buildAtlas } from "./atlas.ts";
-import { cacheOf, factsKey, factsOfRepo, type BlobFacts, type FactsLine } from "./blobs.ts";
+import { cacheOf, factsKey, factsOfRepo, treeOf, type BlobFacts, type FactsLine } from "./blobs.ts";
+import { manifestsOfRepo } from "./manifests.ts";
 import { queryOf } from "./query.ts";
 import { agreementOf, type AgreementFile, type DraftLabel } from "./agreement.ts";
 import { verdictOf, type PersonAnswer } from "./verdict.ts";
@@ -210,8 +211,10 @@ function catalog(argv: readonly string[]): number {
   const started = performance.now();
   const totals = { parsed: 0, reused: 0, errors: 0, bytesParsed: 0 };
   for (const repo of args.repos) {
-    const scan = factsOfRepo(repo.name, repo.path, db);
-    db.putSnapshot(repo.name, headOf(repo.path), scannedAt, FACTS_VERSION, scan.files, scan.counts);
+    const tree = treeOf(repo.path);
+    const scan = factsOfRepo(repo.name, repo.path, db, tree);
+    const snapshot = db.putSnapshot(repo.name, headOf(repo.path), scannedAt, FACTS_VERSION, scan.files, scan.counts);
+    db.putManifests(snapshot, manifestsOfRepo(repo.path, tree));
     totals.parsed += scan.counts.parsed;
     totals.reused += scan.counts.reused;
     totals.errors += scan.counts.errors;

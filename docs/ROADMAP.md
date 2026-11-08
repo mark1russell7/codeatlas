@@ -8,6 +8,7 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 
 | ID | Status | Priority | Title |
 | --- | --- | --- | --- |
+| CA11 | in progress | P2 | Layer 1, more sources: coverage, dependency versions, template drift, conventions breaks |
 | CA12 | in progress | P1 | A hand-labeled sample, for the precision and recall of each judgment category |
 
 ## Next
@@ -21,7 +22,6 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 
 | ID | Status | Priority | Title |
 | --- | --- | --- | --- |
-| CA11 | later | P2 | Layer 1, more sources: coverage, dependency versions, template drift, conventions breaks |
 | CA15 | later | P2 | Layer 2 fan-out over all public repositories |
 | CA16 | later | P2 | Tools for agents: query the catalog and scan again, fast and cheap |
 | CA18 | later | P2 | Gates: freshness of each repository, cost per 1000 lines, precision of each category |
