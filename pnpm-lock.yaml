@@ -173,8 +173,8 @@ importers:
         specifier: ^0.2.0
         version: 0.2.0(@swc/core@1.16.20)(dependency-cruiser@18.7.0)
       '@mark1russell7/conventions':
-        specifier: ^0.35.0
-        version: 0.35.0
+        specifier: ^0.38.3
+        version: 0.38.3
       '@mark1russell7/cue':
         specifier: ^2.1.1
         version: 2.1.1
@@ -206,8 +206,8 @@ importers:
   packages/atlas:
     dependencies:
       '@mark1russell7/conventions':
-        specifier: ^0.35.0
-        version: 0.35.0
+        specifier: ^0.38.3
+        version: 0.38.3
       '@mark1russell7/rigor-generators':
         specifier: ^0.1.6
         version: 0.1.6
@@ -493,8 +493,8 @@ packages:
     resolution: {integrity: sha512-C5lHeQXAHtwgsdjK1rktRwaGvssMoEiBK5Wx2XBJkejhrjvaK7qATjumlp8EGNNVjkHNfIBw15UevBO7wyKj5g==}
     engines: {node: '>=22.12'}
 
-  '@mark1russell7/conventions@0.35.0':
-    resolution: {integrity: sha512-zEG/7kK6BDsgJu1IXD4Q70Odg1N1A2mzgu/Hp/Qk8ZYJKhgiuSBt0ATHhc8xDZb4AtIstP/6QTUxCzMtRjOesg==}
+  '@mark1russell7/conventions@0.38.3':
+    resolution: {integrity: sha512-IlxqpEsY6y7mQ58AOkOGA+WFQ7TepZhsxrxeYuwgyaVl6pQyHA7WFuYT2skhuy5GsjLTzGeBqNtJXjQqBlI8pA==}
     engines: {node: '>=22'}
     hasBin: true
 
@@ -1908,7 +1908,7 @@ snapshots:
     dependencies:
       '@mark1russell7/optional': 1.2.0
 
-  '@mark1russell7/conventions@0.35.0':
+  '@mark1russell7/conventions@0.38.3':
     dependencies:
       yaml: 2.9.1
 
