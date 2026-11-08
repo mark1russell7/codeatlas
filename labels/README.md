@@ -10,6 +10,7 @@ This folder holds the hand-labeled sample of Layer 2. `docs/SCHEMA.md` gives the
 | `rater-c.jsonl` | A third blind model rater of the 97 items of the audit: the home, the category and a verdict on the sentence. It is not a person. |
 | `owners-1.jsonl` | The verdicts of the owners of the copies on 50 moves of `moves-1.md`, each with its reason. |
 | `missed-1.jsonl` | The copies that the owners found and the atlas did not list. |
+| `members-1.jsonl` | The other copies of each clone class of the subset, with their moves. The lists named only one copy of each class. |
 | `owner-homes-1.jsonl` | The home of each of the 50 functions with an owner verdict, from that verdict. It is a labeled sample for CA12. |
 | `pilot-1.jsonl` | The labels of the first pilot of Layer 2 (CA13): 172 functions of `otel-ts`, `page-lifecycle-tracker` and `ste-lint`, from one blind model. |
 

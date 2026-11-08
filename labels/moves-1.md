@@ -280,3 +280,104 @@ If the behavior is not the same, or the home has no such function, record the la
 | Function | File | Home | Copies | What it does |
 | --- | --- | --- | --- | --- |
 | `layersOf` | `site/src/model.ts` | repo-structure: `@mark1russell7/conventions`, `@mark1russell7/template-cli` | 1 | This function resolves a tsconfig file into the ordered layers of its base chain. |
+
+## Other copies of a listed clone class
+
+The subset keeps one function of each clone class. Thus the lists above named only that function, and 37 other copies reached no owner. `members-1.jsonl` has them, with the same rules: the body-call rule and the dependency rules. `classOf` names the listed function of the class.
+
+### `AsyncBrowserContext`: 1 copies
+
+| Function | File | Area | Move | Listed copy |
+| --- | --- | --- | --- | --- |
+| `random` | `test/interleave/order-variation.test.ts` | random | pr | `algebra/packages/expression/src/generate.ts#random` |
+
+### `algebra`: 3 copies
+
+| Function | File | Area | Move | Listed copy |
+| --- | --- | --- | --- | --- |
+| `corpusCaseOf` | `packages/expression-bench/src/cases.ts` | bench | planned | `algebra/packages/evaluator-bench/src/arms.ts#corpusCaseOf` |
+| `checkReads` | `packages/evaluator-bench/src/report.ts` | bench | planned | `algebra/packages/bigfloat-bench/src/report.ts#checkReads` |
+| `checkReads` | `packages/polynomial-bench/src/report.ts` | bench | planned | `algebra/packages/bigfloat-bench/src/report.ts#checkReads` |
+
+### `client`: 2 copies
+
+| Function | File | Area | Move | Listed copy |
+| --- | --- | --- | --- | --- |
+| `seededRandom` | `packages/client/test/faults/random.ts` | random | pr | `algebra/packages/expression/src/generate.ts#random` |
+| `parseWriteCase` | `packages/client-mongo/bench/write-cases.ts` | bench | planned | `client/packages/client-mongo/bench/read-cases.ts#parseReadCase` |
+
+### `grafana-infra`: 1 copies
+
+| Function | File | Area | Move | Listed copy |
+| --- | --- | --- | --- | --- |
+| `mulberry32` | `scripts/send-sample-data.mjs` | random | pr | `algebra/packages/expression/src/generate.ts#random` |
+
+### `highways`: 3 copies
+
+| Function | File | Area | Move | Listed copy |
+| --- | --- | --- | --- | --- |
+| `oldRng` | `packages/core/src/bench/screen/homes.test.ts` | random | pr | `algebra/packages/expression/src/generate.ts#random` |
+| `inflate` | `packages/site/src/outlines.ts` | geometry | pr | `ireko/packages/ireko/src/core/geometry.ts#inflate` |
+| `crossPoint` | `packages/core/src/highways/crossbars/index.ts` | exact-math | pr | `highways/packages/core/src/highways/mesh/index.ts#crossing` |
+
+### `ireko`: 2 copies
+
+| Function | File | Area | Move | Listed copy |
+| --- | --- | --- | --- | --- |
+| `random` | `packages/site/src/playground/fuzz.ts` | random | pr | `algebra/packages/expression/src/generate.ts#random` |
+| `grow` | `packages/ireko/src/core/avoid.ts` | geometry | pr | `ireko/packages/ireko/src/core/geometry.ts#inflate` |
+
+### `lag`: 2 copies
+
+| Function | File | Area | Move | Listed copy |
+| --- | --- | --- | --- | --- |
+| `createRandom` | `packages/site/src/fixtures/sample-results.ts` | random | pr | `algebra/packages/expression/src/generate.ts#random` |
+| `median` | `packages/experiments/src/e8-async-context/runner/stats.ts` | statistics | pr | `crawler/packages/site/src/lib/eval-b.ts#median` |
+
+### `layout-contract`: 6 copies
+
+| Function | File | Area | Move | Listed copy |
+| --- | --- | --- | --- | --- |
+| `rng` | `packages/layout-contract/src/balance.test.ts` | random | pr | `algebra/packages/expression/src/generate.ts#random` |
+| `rng` | `packages/layout-contract/src/measures.test.ts` | random | pr | `algebra/packages/expression/src/generate.ts#random` |
+| `rng` | `packages/layout-contract/src/text-cache.test.ts` | random | pr | `algebra/packages/expression/src/generate.ts#random` |
+| `rng` | `packages/layout-contract/src/text.test.ts` | random | pr | `algebra/packages/expression/src/generate.ts#random` |
+| `sweepGrid` | `packages/layout-contract/src/strategy-options.ts` | test-generation | planned | `highways/packages/core/src/strategies/options.ts#sweepGrid` |
+| `sweepValues` | `packages/layout-contract/src/strategy-options.ts` | random | pr | `highways/packages/core/src/strategies/options.ts#sweepValues` |
+
+### `packing`: 12 copies
+
+| Function | File | Area | Move | Listed copy |
+| --- | --- | --- | --- | --- |
+| `quantileOf` | `packages/packing/bench/paired-time.ts` | statistics | pr | `client/scripts/lib/paired-time.ts#quantileOf` |
+| `mulberry32` | `packages/packing/bench/coverage.ts` | random | pr | `algebra/packages/expression/src/generate.ts#random` |
+| `random` | `packages/site/src/model.ts` | random | pr | `algebra/packages/expression/src/generate.ts#random` |
+| `inline` | `packages/packing/bench/anchor.ts` | plain-text | planned | `packing/packages/packing/bench/adversary.ts#inline` |
+| `inline` | `packages/packing/bench/classes.ts` | plain-text | planned | `packing/packages/packing/bench/adversary.ts#inline` |
+| `inline` | `packages/packing/bench/known.ts` | plain-text | planned | `packing/packages/packing/bench/adversary.ts#inline` |
+| `inline` | `packages/packing/bench/strip.ts` | plain-text | planned | `packing/packages/packing/bench/adversary.ts#inline` |
+| `inline` | `packages/packing/bench/worst.ts` | plain-text | planned | `packing/packages/packing/bench/adversary.ts#inline` |
+| `changeCorpusText` | `packages/packing/bench/change.ts` | random | pr | `packing/packages/packing/bench/anchor.ts#anchorCorpusText` |
+| `knownCorpusText` | `packages/packing/bench/known.ts` | random | pr | `packing/packages/packing/bench/anchor.ts#anchorCorpusText` |
+| `stripCorpusText` | `packages/packing/bench/strip.ts` | random | pr | `packing/packages/packing/bench/anchor.ts#anchorCorpusText` |
+| `worstCorpusText` | `packages/packing/bench/worst.ts` | random | pr | `packing/packages/packing/bench/anchor.ts#anchorCorpusText` |
+
+### `strategy-space`: 2 copies
+
+| Function | File | Area | Move | Listed copy |
+| --- | --- | --- | --- | --- |
+| `sweepGrid` | `packages/strategy-space/src/strategy-options.ts` | test-generation | planned | `highways/packages/core/src/strategies/options.ts#sweepGrid` |
+| `sweepValues` | `packages/strategy-space/src/strategy-options.ts` | random | pr | `highways/packages/core/src/strategies/options.ts#sweepValues` |
+
+### `template`: 1 copies
+
+| Function | File | Area | Move | Listed copy |
+| --- | --- | --- | --- | --- |
+| `releaseNotes` | `scripts/release/tags.ts` | releases | pr | `template/packages/conventions/src/release-text.ts#releaseNotes` |
+
+### `vex`: 2 copies
+
+| Function | File | Area | Move | Listed copy |
+| --- | --- | --- | --- | --- |
+| `moveShape` | `packages/pilots/src/ireko-shapes.ts` | geometry | pr | `ireko/packages/ireko/src/core/engine/shape.ts#moveShape` |
+| `contains` | `packages/pilots/src/ireko-audit.ts` | geometry | pr | `ireko/packages/ireko/src/core/geometry.ts#contains` |
