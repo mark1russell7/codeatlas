@@ -1,0 +1,130 @@
+{"subject": "ffcbcc5ce0675009", "area": "none", "category": "config-build", "sentence": "Writes the kube-proxy configuration YAML of a kind scenario, and throws when the scenario has no kube-proxy."}
+{"subject": "73b3238c4e7599a4", "area": "procedures", "category": "validate", "sentence": "Checks that an unknown value is a valid stored program record, and throws a TypeError for each broken field."}
+{"subject": "a9490a6f557ea82c", "area": "system-io", "category": "format-text", "sentence": "Writes a JSON value as compact text on one line, with spaces after commas and colons."}
+{"subject": "f9e7e32e31fefba9", "area": "system-io", "category": "process-io", "sentence": "Runs git remote get-url for a named remote and returns the name with its URL."}
+{"subject": "4d85edb8e44d300f", "area": "browser-monitoring", "category": "state-control", "sentence": "Makes a queue that runs each posted callback as a separate message task through a MessageChannel, and can close it."}
+{"subject": "a136d6828f580f23", "area": "none", "category": "transform-data", "sentence": "Builds the list of KPI measure records for the site: the count of JavaScript scripts and, when available, the nightly green runs."}
+{"subject": "497daeefcaaa0d46", "area": "formulas", "category": "test-support", "sentence": "Groups the generated cells of an arbitrary test sheet into a map from column to key to formula."}
+{"subject": "39eff1a1a4f1d093", "area": "bench", "category": "format-text", "sentence": "Writes the bigfloat benchmark report as Markdown tables of ratios, costs and stage precision results."}
+{"subject": "8cc254b86ac561ed", "area": "geometry", "category": "compute", "sentence": "Counts the proper crossings between straight segments that share no endpoint node, with orientation tests and a tolerance."}
+{"subject": "707e47660b8add4b", "area": "edge-routing", "category": "compute", "sentence": "Finds the nearest skeleton grid cell center to a point within a reach distance."}
+{"subject": "91ed4344a1bb1dc4", "area": "exact-math", "category": "compute", "sentence": "Compiles an expression document into a bigfloat function that evaluates interval bounds and their error at a given precision."}
+{"subject": "8a15df84fc3036e5", "area": "repo-structure", "category": "config-build", "sentence": "Gives the declaration file path that matches a JavaScript output path, or the path itself if it is a declaration."}
+{"subject": "eec6fc1ebf7efce8", "area": "none", "category": "compute", "sentence": "Calculates the median, mean and range of request intervals per client from log lines in a time window."}
+{"subject": "9af12803bae02999", "area": "bench", "category": "compute", "sentence": "Calculates the duration of each startup phase (spawn, node, import, call, exit) from timing marks."}
+{"subject": "5e87dd1e6420d430", "area": "test-generation", "category": "test-support", "sentence": "Asserts that a method returns a promise that rejects, and returns the rejection error, else throws a contract violation."}
+{"subject": "b9b4701ce1dbb17f", "area": "none", "category": "config-build", "sentence": "Makes a Vite build plugin that adds preload links for the bundled font files to the HTML head."}
+{"subject": "88771a7bc5e745ac", "area": "state-machines", "category": "validate", "sentence": "Lists the problems of a machine document: timer and set expressions that do not parse or name an unknown model."}
+{"subject": "4626c3cb331c7ce9", "area": "duplication", "category": "compute", "sentence": "Counts the lines and the non-blank lines of a text."}
+{"subject": "cc95c99261b3fed7", "area": "system-io", "category": "parse", "sentence": "Parses a text of concatenated JSON objects or arrays into a list of values, and throws on stray characters."}
+{"subject": "26169d8991d80d12", "area": "test-generation", "category": "test-support", "sentence": "Makes a fast-check arbitrary of router edges with source and target boxes, an optional direction and obstacles."}
+{"subject": "c604b4b9323d3699", "area": "formulas", "category": "transform-data", "sentence": "Replaces the computed moves of a Vex address with fixed key or index moves from values, with a kind check."}
+{"subject": "b83a6541d75d2c43", "area": "reactive-ui", "category": "state-control", "sentence": "Walks a seat path again from an index, updates each seat value and notifies or invalidates the seats that changed."}
+{"subject": "00274cde945fca6d", "area": "system-io", "category": "process-io", "sentence": "Runs one git rebase step and reports the new head hash, completion, and conflicts when the rebase stops."}
+{"subject": "a1e50bdca6e8f882", "area": "procedures", "category": "transform-data", "sentence": "Converts a procedure registry entry into a public info record with path, description and schemas."}
+{"subject": "104a52ed73f91af9", "area": "none", "category": "ui-render", "sentence": "Renders an interactive React stepper that shows each step of a Vex evaluation trace over draggable boxes."}
+{"subject": "5f06f6cb09788819", "area": "edge-routing", "category": "compute", "sentence": "Makes an edge router that relaxes straight routes away from obstacles, simplifies them and keeps the routing rules."}
+{"subject": "9e49be999b159d10", "area": "test-generation", "category": "test-support", "sentence": "Tells whether two values are deeply equal by structure and prototype, for law checks in tests."}
+{"subject": "d774110424bf1b83", "area": "none", "category": "parse", "sentence": "Reads the new bytes of a Claude CLI output file and parses its complete lines into turn events."}
+{"subject": "a97600985785725e", "area": "packing", "category": "compute", "sentence": "Packs rectangles into rows inside an outer rectangle, around locked rectangles and the free space bands."}
+{"subject": "2708277833ce2d77", "area": "none", "category": "validate", "sentence": "Compares stored snapshot rows with fresh rows and reports moved labels, missing rows and added rows."}
+{"subject": "a0efb93cea57d28c", "area": "browser-monitoring", "category": "test-support", "sentence": "Starts a repeating timer that records tick times, and gives timer stall statistics when stopped, for integration tests."}
+{"subject": "5c1c1f85d6ab8da8", "area": "service", "category": "validate", "sentence": "Lists the problems of a client's close and request bounds against the shutdown phase cap and the jittered checks."}
+{"subject": "a508cd646b664ba5", "area": "none", "category": "config-build", "sentence": "Makes the configuration of a three-broker Kafka test group with given min in-sync replicas and writers."}
+{"subject": "03fe34ca32c9f2db", "area": "bench", "category": "compute", "sentence": "Runs each bench arm in a fresh child process per round in turned order, and summarizes medians, spreads and the A/A interval."}
+{"subject": "7ca29b987eafb81e", "area": "none", "category": "parse", "sentence": "Reads a claim name from text, and throws a RangeError when the text is not a known claim."}
+{"subject": "31f907bc11c97275", "area": "statistics", "category": "compute", "sentence": "Calculates the mean of an iterable of numbers, or undefined when it is empty."}
+{"subject": "45b10217f27ba5ef", "area": "system-io", "category": "validate", "sentence": "Tells whether a git config key and value are refused for safety, such as commands, remote helpers or signing keys."}
+{"subject": "6eadc0f97de668c1", "area": "random", "category": "compute", "sentence": "Draws a random strategy configuration from one stratum of a strategy space for the packing bench sample."}
+{"subject": "abe307630e41ee32", "area": "none", "category": "ui-render", "sentence": "Renders the strategy space viewer into a DOM element and redraws it on clicks, inputs and selection changes."}
+{"subject": "c18c545b49c71173", "area": "edge-routing", "category": "compute", "sentence": "Moves a point out of padded obstacle boxes by the shortest step, up to four times."}
+{"subject": "1e78b83551531f37", "area": "none", "category": "compute", "sentence": "Calculates the relay delays up and down a network hop from kernel socket records of a run."}
+{"subject": "e8dd46a94e2b3b9b", "area": "bench", "category": "config-build", "sentence": "Bundles the bench cases with a given kernel file into one ESM file with esbuild, and checks the tsconfig resolves."}
+{"subject": "7c534440c951474d", "area": "system-io", "category": "transform-data", "sentence": "Builds a command argv list from a command path, flags, named arguments and positional arguments."}
+{"subject": "4c80d8ad281ebc74", "area": "system-io", "category": "process-io", "sentence": "Reads the commit time of the current commit with git, as an ISO time, and throws when git fails."}
+{"subject": "394744bb87105f65", "area": "bench", "category": "compute", "sentence": "Calculates the result of one paired bench case: the request share and the A/A ratio and band."}
+{"subject": "0471d9f42e152d8d", "area": "system-io", "category": "file-io", "sentence": "Extracts a zip or tar archive into a target folder inside the allowed root, with limits and overwrite rules."}
+{"subject": "a21cb86cfd94b140", "area": "geometry", "category": "compute", "sentence": "Grows a box by a margin on each side, with no negative size."}
+{"subject": "d2be5fe446a68417", "area": "bench", "category": "compute", "sentence": "Times warm passes of a workload until the times are stable, and gives the median time per call."}
+{"subject": "f67a1da4b5f67b00", "area": "none", "category": "transform-data", "sentence": "Selects the best near-miss records per function where a float predicate was wrong, and converts them to display records."}
+{"subject": "42273159460e9da5", "area": "text", "category": "compute", "sentence": "Calculates the width of words from glyph advances and kernings with the rounding rule of a text engine."}
+{"subject": "ee8f81f5c7df16e8", "area": "prose", "category": "transform-data", "sentence": "Removes up to a number of columns of leading spaces and tabs from a source line."}
+{"subject": "691ea4d19bdfa11b", "area": "test-generation", "category": "compute", "sentence": "Finds the import paths that leave the package, starting from test and config files, for mutation testing."}
+{"subject": "3bdffd60eff7c123", "area": "none", "category": "transform-data", "sentence": "Builds the data stamp of the tokens-per-claim page: its time limit and the evaluation run it comes from."}
+{"subject": "36a86ec40cae8302", "area": "formulas", "category": "compute", "sentence": "Calculates the luminance of each palette color, its contrast ratios with the others, and the colors that pass AA."}
+{"subject": "24095dd65af6404c", "area": "bench", "category": "compute", "sentence": "Combines the paired bench samples into a verdict with ratios, an effect interval widened by the A/A spread, and a reason."}
+{"subject": "f142a83661770fe0", "area": "service", "category": "network-io", "sentence": "Writes the outcome of a request stream to an HTTP response, whole or streamed, with backpressure and client disconnects."}
+{"subject": "6d00b1892dd088ba", "area": "text", "category": "compute", "sentence": "Calculates the difference between the widest and the narrowest line of a paragraph."}
+{"subject": "d552b899c2d119a7", "area": "web-crawling", "category": "file-io", "sentence": "Appends an override record to the crawl log when a person provides a URL for a document."}
+{"subject": "7985e0af8bda3805", "area": "none", "category": "transform-data", "sentence": "Replaces one line of a text with other lines and keeps the line ending style."}
+{"subject": "15f2e56b7e52c4b3", "area": "browser-monitoring", "category": "other", "sentence": "Wraps a metrics meter so that only the focus metrics make histograms under their labels, and counters do nothing."}
+{"subject": "0cd6a1963e71d4a8", "area": "none", "category": "compute", "sentence": "Calculates the predicted time window of denied calls after a fault and a heal, from the policy propagation delay."}
+{"subject": "08627c2b9339bdd1", "area": "random", "category": "transform-data", "sentence": "Gives the dimension values of an input family that differ from their defaults."}
+{"subject": "15e3ec6bf2904aa4", "area": "system-io", "category": "process-io", "sentence": "Runs a command with quoted arguments synchronously in a folder and returns its output."}
+{"subject": "02601722be2d6372", "area": "text", "category": "parse", "sentence": "Reads the horizontal advance of each glyph from the hhea and hmtx tables of a font."}
+{"subject": "39cf92c48d45be27", "area": "formulas", "category": "parse", "sentence": "Parses a spreadsheet formula text into a syntax tree, with navigation, aggregates, loops, ranges and syntax errors."}
+{"subject": "8f752425a59def6c", "area": "none", "category": "format-text", "sentence": "Gives a text name of the JSON kind of a value, with the kinds of array items."}
+{"subject": "5512c441af1ae2a6", "area": "text", "category": "parse", "sentence": "Reads the point count of each glyph from the glyf and loca tables of a font."}
+{"subject": "ad5f6df14615b03c", "area": "machine-resources", "category": "parse", "sentence": "Parses the Linux /proc/net/dev text into each interface name with its received and sent bytes."}
+{"subject": "2d6c74204b52c7e8", "area": "none", "category": "compute", "sentence": "Calculates TCP reordering measures, such as out-of-order and duplicate arrivals and retransmits, from kernel records."}
+{"subject": "55a0a7edb7b16957", "area": "browser-monitoring", "category": "transform-data", "sentence": "Converts page visit events into time segments of the page state, with the last segment open until now."}
+{"subject": "6102310fdf9ccaef", "area": "packing", "category": "compute", "sentence": "Counts per leaf how often strategy b beats strategy a on packing fill with no more breaks."}
+{"subject": "0ce0a809d2d15486", "area": "web-crawling", "category": "compute", "sentence": "Makes a Web Bot Auth signer that checks its options and signs HTTP request parts for a URL with a private key."}
+{"subject": "78e1824f7a6eb535", "area": "bench", "category": "parse", "sentence": "Parses one output line of a bench process into a case sample with ratio, tier, limits and A/A interval."}
+{"subject": "2dc1075cd5879165", "area": "none", "category": "format-text", "sentence": "Writes a short text of how many inputs a strategy is better or worse on, with ties or wins and losses."}
+{"subject": "a96b9858052263ea", "area": "geometry", "category": "transform-data", "sentence": "Converts a nightly row into a strategy configuration of the joint layout pipeline."}
+{"subject": "e2a9fe745c90f295", "area": "edge-routing", "category": "transform-data", "sentence": "Removes the room field from the runs and bundles of a routing result."}
+{"subject": "d256d856e4c4c970", "area": "none", "category": "ui-render", "sentence": "Renders an interactive architecture map with React Flow, a panel for the selected part and a list view."}
+{"subject": "91b7053d7a46028f", "area": "none", "category": "compute", "sentence": "Finds by bisection the range of round-trip times where the race of an HTTP spec keeps its nominal ordering."}
+{"subject": "ddb53e2344ad021f", "area": "none", "category": "ui-render", "sentence": "React hook that tracks the width of an element with a ResizeObserver."}
+{"subject": "e100ac71cad24803", "area": "language-kernel", "category": "other", "sentence": "Declares the kinds of the formula language, with their evaluators, parts, scopes, laziness and summaries."}
+{"subject": "7d5a8ee648a7a209", "area": "bench", "category": "parse", "sentence": "Parses JSON lines of paired times and counts broken lines and lines with another stamp."}
+{"subject": "e6f4d3adb01533a8", "area": "browser-monitoring", "category": "compute", "sentence": "Moves late timer windows on a timeline to earlier gaps that are long enough, for display."}
+{"subject": "56623de67871dc06", "area": "bench", "category": "compute", "sentence": "Estimates by simulation the power of the timing verdict to detect a given speed ratio."}
+{"subject": "b566125dac88c043", "area": "bench", "category": "parse", "sentence": "Parses the last stdout line of a bench child into its time and peak memory, and throws with no time."}
+{"subject": "c5d1d38a1da2c5dd", "area": "none", "category": "validate", "sentence": "Checks that the right number of clients answer with the expected MAC address, and describes each mismatch."}
+{"subject": "f6d1af8f492fd305", "area": "exact-math", "category": "compute", "sentence": "Makes a normalized rational from a numerator and a denominator, for tests."}
+{"subject": "839f929e914bc546", "area": "machine-resources", "category": "process-io", "sentence": "Makes a launcher that starts a detached client process for a deferred job and reports a failed start once."}
+{"subject": "0eaed886ad43442e", "area": "edge-routing", "category": "compute", "sentence": "Calculates the share of ink that bundling saves: one minus drawn length over total route length."}
+{"subject": "9c33a1e4c8b172f3", "area": "none", "category": "ui-render", "sentence": "Renders the page that tells that no page exists at the current path."}
+{"subject": "bc0252038f0b3089", "area": "none", "category": "transform-data", "sentence": "Gives the expected inputs that are missing and the extra inputs that are present."}
+{"subject": "9cf348b8cb4aa17b", "area": "none", "category": "process-io", "sentence": "Starts an entry from a fresh prebuilt bundle, building it in a child process if needed, else through tsx."}
+{"subject": "70c5bdcd5d71ebfb", "area": "data-structures", "category": "transform-data", "sentence": "Groups the items of an iterable into a hash map of lists by a key function."}
+{"subject": "56fe2e8ff8c2a768", "area": "edge-routing", "category": "compute", "sentence": "Crops a graph to the nodes nearest a point, and replaces cut edges with stub nodes on the border."}
+{"subject": "977daa52bf5b3c96", "area": "none", "category": "compute", "sentence": "Compares two stored values for query ordering by type rank, then by value, arrays and objects recursively."}
+{"subject": "dba64e6c466cc3a4", "area": "none", "category": "transform-data", "sentence": "Converts an algebraic structure into a description record with its carrier, operations, laws, parts and construction."}
+{"subject": "57bfb7e5480cbabf", "area": "none", "category": "parse", "sentence": "Reads the tenants hash from the last JSON line of a text, and throws when it is missing."}
+{"subject": "2a5c0be2d3fdcb4c", "area": "statistics", "category": "compute", "sentence": "Calculates a seeded bootstrap 95% interval of the Spearman correlation between predicted and measured values."}
+{"subject": "fb9ccdb31c65abd4", "area": "repo-structure", "category": "config-build", "sentence": "Makes the package.json and tsconfig of a new workspace package from a preset and known versions."}
+{"subject": "74329075700b7119", "area": "browser-monitoring", "category": "transform-data", "sentence": "Builds the OpenTelemetry resource from the service config and optional browser attributes."}
+{"subject": "55a0533e0b99e5fd", "area": "edge-routing", "category": "compute", "sentence": "Routes a graph with several pipelines, then improves each edge route from the pool by staged crossing cost rules."}
+{"subject": "9a9d80677d3cf637", "area": "browser-monitoring", "category": "test-support", "sentence": "Test browser command that reads the Chrome performance metrics through the DevTools protocol as a name-to-value record."}
+{"subject": "d723a28307ffcdce", "area": "geometry", "category": "compute", "sentence": "Counts how many corpus inputs declare each id."}
+{"subject": "fc84835afc466f6c", "area": "system-io", "category": "file-io", "sentence": "Gives a resolver of paths that keeps each path inside a root folder when a root is set."}
+{"subject": "befa194417fbae6e", "area": "system-io", "category": "process-io", "sentence": "Starts vitest in watch mode as a managed process with safe test patterns and returns its id and pid."}
+{"subject": "8a47dc385f13d445", "area": "graph-layout", "category": "ui-render", "sentence": "Makes a pan and zoom viewport for a layout view, with fit, coordinate conversion, listeners and pointer handlers."}
+{"subject": "057e00a44275d1fd", "area": "none", "category": "transform-data", "sentence": "Removes the JSON lines of one strategy, and blank lines, from a records text."}
+{"subject": "850f6b34f6a24844", "area": "system-io", "category": "parse", "sentence": "Parses npm dist-tag ls output into a map from tag to version."}
+{"subject": "3e55f7f430e706d0", "area": "none", "category": "state-control", "sentence": "Runs the runs of a harness cell in batches of environments, and extends the run count until the verdict decides."}
+{"subject": "26c7e4c0abe46d4b", "area": "edge-routing", "category": "compute", "sentence": "Builds a corner graph for seam routing from node boxes shrunk by an inset."}
+{"subject": "72711523fb773521", "area": "web-crawling", "category": "transform-data", "sentence": "Builds an in-memory search index of the site's sample corpus pages."}
+{"subject": "e01ae18ad5bae72a", "area": "prose", "category": "compute", "sentence": "Tells whether a sentence of tokens is an instruction that starts with an imperative verb, for the STE rules."}
+{"subject": "b4761211d0b30b95", "area": "none", "category": "compute", "sentence": "Calculates the pooled medians of selector, single and oracle results, and the share of the gain that the selector gets."}
+{"subject": "df6ecdd34953f629", "area": "edge-routing", "category": "compute", "sentence": "Calculates the density of route lanes along each side of each node box, with a grid of segments."}
+{"subject": "22ec6a08a216f492", "area": "system-io", "category": "network-io", "sentence": "Sends an HTTP request under a host policy and follows redirects with method and header rules, with errors and stops."}
+{"subject": "fc8ee3ac92e4b3ba", "area": "service", "category": "state-control", "sentence": "Gives the health probe state of an MCP server from its run state, failure and exit count."}
+{"subject": "5e0dde33320f0daa", "area": "bench", "category": "validate", "sentence": "Compares two OS stamp reads and lists findings, such as the same platform, missing rows and hashes that did not move."}
+{"subject": "9144a3691391ab2f", "area": "test-generation", "category": "test-support", "sentence": "Waits for a number of animation frames in a browser test."}
+{"subject": "d8a868eaabbb171a", "area": "formulas", "category": "compute", "sentence": "Calculates the area, perimeter and centroid of a polygon with Vex programs over its vertices."}
+{"subject": "293097bd6590cbbb", "area": "none", "category": "compute", "sentence": "Calculates the expected low and high connection counts per replica for a dataplane mode, with a binomial interval."}
+{"subject": "88d1c075a73a5307", "area": "procedures", "category": "transform-data", "sentence": "Gives the child nodes of a procedure IR node by its kind."}
+{"subject": "4e7fd583a0b4c063", "area": "prose", "category": "transform-data", "sentence": "Removes the YAML or TOML front matter lines from the start of a Markdown document."}
+{"subject": "06d04bff54d15b62", "area": "packing", "category": "compute", "sentence": "Solves one packing case with the exact strip solver and records its result, bound, time, determinism and breaks."}
+{"subject": "4952f7c07052bb3d", "area": "none", "category": "validate", "sentence": "Checks that the strategy space of a sweep state did not change, and throws when its fingerprint differs."}
+{"subject": "6645ddcb712cd109", "area": "bench", "category": "compute", "sentence": "Calculates the ratio of arm time to base time for each round with a positive base."}
+{"subject": "aced850f9dec7ca0", "area": "repo-structure", "category": "config-build", "sentence": "Inserts import lines after the last import, or after a leading comment, of a generated source file."}
+{"subject": "b5c0c9db52216379", "area": "repo-structure", "category": "parse", "sentence": "Reads the lowest Node major and minor version from a simple engines range."}
+{"subject": "c42c582463ebc1ca", "area": "none", "category": "config-build", "sentence": "Builds the service description of a kind cell from its declaration, with an optional Redis client."}
+{"subject": "7d328617c7f6368d", "area": "none", "category": "transform-data", "sentence": "Converts a module URL into a profile key: node internal, an npm package name, a path in the tree, or other."}
+{"subject": "123c8ed804ddb051", "area": "none", "category": "validate", "sentence": "Tells whether backend output text names a service rule's namespace and service, with Cilium output parsed."}
+{"subject": "e58a2f8702c3e978", "area": "text", "category": "compute", "sentence": "Makes a total-fit line breaker with line penalty and flagged cost options."}

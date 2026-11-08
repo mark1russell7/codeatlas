@@ -283,6 +283,21 @@ The rule for `other`: if a draft puts more than 10% of the items of the task `pu
 - The command `codeatlas verdict` reads the answers of the person and writes the verdict file (`verdictOf`). A task with a missing answer does not pass.
 - The verdict file keeps the labels of the truth of each task that passes. An answer of the person replaces the label of the drafts.
 
+#### The provisional reference
+
+No person labels the sample. Thus the reference of Layer 2 comes from facts and from three blind raters, and each figure against it is provisional.
+
+- A fact of Layer 1 settles a label first. For the home: the item has the renamed hash of an exported function of a home package, at another place. The item then has the area of that package. An item with copies in two areas gets no fact.
+- Else the strict majority of the raters with a label of the item settles it, with two votes or more.
+- An item with no fact and no majority is unknown. It is not a hit or a miss.
+- The command `codeatlas reference` writes the reference (`referenceOf`) and the precision of each labeler against it (`precisionOf`).
+- Each precision has the words "against the 3-rater majority, provisional" and a Wilson 95 % interval.
+- The file also gives the share of the hits and misses that a fact settles, and the share that the raters settle.
+- A move of code that a label proposes is a pull request to its home, and the owner of the home reviews it.
+- The label sets keep a slot for a sample of a person. Then the verdict compares the raters with that sample.
+
+The home rule: the logic of a function decides its home, not the package that holds it. The package of each file is a fact of Layer 1. Thus a label that copies the package cannot find code outside its home in a home package.
+
 ### `run` and `measure`
 
 Each scan and each gate is a `run` (kind, commit, time, CI run link, CPU model). Each number of a run is a `measure` (run, name, value). The trend of the site reads these two relations.

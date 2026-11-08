@@ -9,13 +9,13 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 | ID | Status | Priority | Title |
 | --- | --- | --- | --- |
 | CA11 | in progress | P2 | Layer 1, more sources: coverage, dependency versions, template drift, conventions breaks |
+| CA13 | in progress | P1 | Layer 2 pilot on 3 repositories: cost per 1000 lines and precision |
 | CA12 | waits for the audit of the owner | P1 | A hand-labeled sample, for the precision and recall of each judgment category |
 
 ## Next
 
 | ID | Status | Priority | Title |
 | --- | --- | --- | --- |
-| CA13 | blocked by CA12 | P1 | Layer 2 pilot on 3 repositories: cost per 1000 lines and precision |
 | CA14 | blocked by CA13 | P1 | A review of the measured cost before the fan-out |
 
 ## Later
