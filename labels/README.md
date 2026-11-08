@@ -45,8 +45,11 @@ The pilot labels each function of three repositories with the population rule of
 - The map of homes has two new planned areas: `files` (`mark1russell7/files`) and `plain-text` (`mark1russell7/text`). Thus 6 blocked moves go to them as planned moves, with the field `relabel`. The file has 133 planned moves and 4 blocked moves.
 - The 4 blocked moves are `commitOf`, two `stopTree` functions and `writeZip`. Their home is a package of the monorepo, so the dependency rule still blocks them. Each has the reason in the field `reason`. No home has a plain layer for commands, git and process trees yet.
 - At that precision, about 27 of the 149 are right, from 14 to 48. That is about 2.1 correct pull requests for each 100k tokens.
-- The owner recall: the owners found 5 copies that the atlas did not list. Each is a formula inside a larger function, with no function of its own. Layer 1 hashes functions, so it does not see them.
-- Of the 13 real copies that the owners moved, the atlas listed 8: 0.615 [0.355, 0.823]. This recall is only for the code of the owners that answered. `missed-1.jsonl` has the 5 copies.
+- The owner recall: the owners found 7 copies that the atlas did not list. The field `cause` of `missed-1.jsonl` gives the cause of each miss.
+- `inline` (5): a formula inside a larger function, with no function of its own. Layer 1 hashes functions, so it does not see them.
+- `listing` (1): the subset keeps one item of each clone class. The moves list named only that item, so the other copy of the class reached no owner.
+- `unique` (1): a copy with a unique name and unique hashes. The subset rule needs a clone class or a shared name, so it does not see such a copy.
+- Of the 15 real copies that the owners moved, the atlas listed 8: 0.533 [0.301, 0.752]. This recall is only for the code of the owners that answered.
 - `moves-1.md` lists the 149 moves by repository. The owner of each copy checks each move with a test before a pull request.
 - The labels have a text kind. There are 157 plain string helpers in 25 repositories, 12 Markdown parsers, 7 text measurement functions and 3 functions for English word forms.
 - No two of the 157 plain string helpers have the same shape. Thus 157 is a count by purpose, not a count of clones.
