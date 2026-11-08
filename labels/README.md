@@ -24,3 +24,9 @@ The pilot labels each function of three repositories with the population rule of
 - The cost: 216,583 tokens for 4,303 lines of functions in two batches. This is 50,300 tokens for each 1000 lines. A batch of 100 items costs 41,500 tokens for each 1000 lines.
 - Facts settle the home of 2 of the 172 items. The model labels most of the other items `none` or the area of the repository.
 - The labels propose 26 moves. 20 of them go to homes that are planned and not made: `text`, `cli` and `test-generation`. Thus they are not pull requests yet. The owners of the homes review the other 6.
+
+## Gaps of the map
+
+A gap is code with no allowed home. The pilot found these gaps:
+
+- File helpers for general packages. The home of file helpers is `@procedures/fs`, in the `client` monorepo. A general package must not use it. Thus the four file helpers of `ste-lint` (`resolvePath`, `findConfigFile`, `globBase`, `findFiles`) stay in `ste-lint`, with the home `none`.
