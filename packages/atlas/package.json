@@ -19,6 +19,7 @@
     "@mark1russell7/rigor-generators": "^0.1.6",
     "@mark1russell7/rigor-statistics": "^0.1.17",
     "@procedures/client": "^0.51.0",
+    "@procedures/json": "^0.51.0",
     "@procedures/mcp-server": "^0.51.0",
     "@swc/core": "^1.15.0",
     "kysely": "^0.29.8",

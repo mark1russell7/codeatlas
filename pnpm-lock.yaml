@@ -217,6 +217,9 @@ importers:
       '@procedures/client':
         specifier: ^0.51.0
         version: 0.51.0(express@5.3.0(supports-color@7.2.0))
+      '@procedures/json':
+        specifier: ^0.51.0
+        version: 0.51.0(express@5.3.0(supports-color@7.2.0))
       '@procedures/mcp-server':
         specifier: ^0.51.0
         version: 0.51.0(@procedures/client@0.51.0(express@5.3.0(supports-color@7.2.0)))(supports-color@7.2.0)
@@ -585,6 +588,14 @@ packages:
     peerDependenciesMeta:
       express:
         optional: true
+
+  '@procedures/compiler@0.51.0':
+    resolution: {integrity: sha512-etVwHApQF+qb2FYHr/QwJ7OQdqJOqd7hmwFsbinuH6Bg18hX2RkokCwPzv3TGwtMLNRk6yrlyKbgT/DLXj0zoA==}
+    engines: {node: '>=22'}
+
+  '@procedures/json@0.51.0':
+    resolution: {integrity: sha512-MXUwa2MQyCx4+AAEC/qax4NEoR5TtXJ33bXdessIa8D5cUUtsxYvhbtk19KbZhVLZzdiMj8mJMofLblpVc/HpA==}
+    engines: {node: '>=22'}
 
   '@procedures/mcp-server@0.51.0':
     resolution: {integrity: sha512-PDvNdEK4A298iyxmmussetyVEf6yBd0EHojaLowKWXo0OO8Qs8VjFa67wTgv8ljBGJ3y9dSkhXpdFlamKqAzhg==}
@@ -1973,6 +1984,37 @@ snapshots:
       - '@grpc/grpc-js'
       - amqplib
       - bufferutil
+      - ioredis
+      - mongodb
+      - pg
+      - utf-8-validate
+
+  '@procedures/compiler@0.51.0(express@5.3.0(supports-color@7.2.0))':
+    dependencies:
+      '@mark1russell7/coeval': 0.22.0
+      '@procedures/client': 0.51.0(express@5.3.0(supports-color@7.2.0))
+      zod: 4.6.7
+    transitivePeerDependencies:
+      - '@grpc/grpc-js'
+      - amqplib
+      - bufferutil
+      - express
+      - ioredis
+      - mongodb
+      - pg
+      - utf-8-validate
+
+  '@procedures/json@0.51.0(express@5.3.0(supports-color@7.2.0))':
+    dependencies:
+      '@procedures/client': 0.51.0(express@5.3.0(supports-color@7.2.0))
+      '@procedures/compiler': 0.51.0(express@5.3.0(supports-color@7.2.0))
+      yaml: 2.9.1
+      zod: 4.6.7
+    transitivePeerDependencies:
+      - '@grpc/grpc-js'
+      - amqplib
+      - bufferutil
+      - express
       - ioredis
       - mongodb
       - pg
