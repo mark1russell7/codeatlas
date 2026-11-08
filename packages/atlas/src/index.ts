@@ -23,3 +23,5 @@ export { CLONE_LEVELS, cloneClasses, complexFunctions, copiesOf, duplication, im
 export type { CloneLevel, CloneOptions, HashClass, ComplexFunction, Duplication, FunctionPlace, ImportPlace, LevelDuplication, MarkerCount } from "./queries.ts";
 export { TREND_VERSION, addPoint, trendPoint } from "./trend.ts";
 export type { RepoPoint, Trend, TrendPoint } from "./trend.ts";
+export { QUERY_SET_LIMITS, QUERY_SET_VERSION, querySet } from "./query-set.ts";
+export type { ExactClass, QuerySet, QuerySetLimits, RepoCommit } from "./query-set.ts";

@@ -7,6 +7,7 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 ## In progress
 
 | ID | Status | Priority | Title |
+| CA17 | in progress | P1 | The query set on the site: quality, features and duplication |
 | --- | --- | --- | --- |
 | CA12 | in progress | P1 | A hand-labeled sample, for the precision and recall of each judgment category |
 | CA2 | in progress | P2 | The trend: the catalog of each week as history, by repository |
@@ -17,7 +18,6 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 | --- | --- | --- | --- |
 | CA13 | blocked by CA12 | P1 | Layer 2 pilot on 3 repositories: cost per 1000 lines and precision |
 | CA14 | blocked by CA13 | P1 | A review of the measured cost before the fan-out |
-| CA17 | next | P1 | The query set on the site: quality, features and duplication |
 | CA3 | next | P2 | The rigor candidates: for each topic, the classes that a shared library removes |
 
 ## Later

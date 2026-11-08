@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { Atlas, CloneClass, Member, RepoPoint, Trend } from "@mark1russell7/codeatlas";
+import type { Atlas, CloneClass, Member, QuerySet, RepoPoint, Trend } from "@mark1russell7/codeatlas";
 import { ATLAS_LIMIT, atlasStamps, compilePage, dataLine, pageHtml, parseSiteArgs, readAtlas, scrollCueCss } from "./build.ts";
-import { matches, NO_FILTER, NO_TOPIC, pairShares, repoChanges, sourceUrl, stepOf, titleOf, topicRows, trendRows } from "./page.ts";
+import { levelRows, markerTable, matches, NO_FILTER, NO_TOPIC, pairShares, placeOf, repoChanges, sourceUrl, stepOf, titleOf, topicRows, trendRows } from "./page.ts";
 
 const member = (repo: string, name: string, test = false): Member => ({ repo, file: `src/${name}.ts`, line: 3, name, exported: true, test });
 
@@ -175,5 +175,45 @@ describe("the trend", () => {
       ["a", 0.1, 0.05],
     ]);
     expect(repoChanges({ version: "trend/1", points: [] })).toEqual([]);
+  });
+});
+
+describe("the query set", () => {
+  const level = (classes: number, duplicatedNodes: number) => ({ classes, members: classes * 2, duplicatedNodes });
+  const set: QuerySet = {
+    version: "queries/1",
+    at: "2026-11-09T06:40:00Z",
+    scanner: "facts/1",
+    limits: { exactClasses: 25, complexMin: 15, complexLimit: 100 },
+    repos: [{ repo: "a", commit: "c1" }],
+    duplication: { levels: { exact: level(1, 50), renamed: level(3, 150), shape: level(4, 200) }, topNodes: 1000, ratio: { exact: 0.05, renamed: 0.15, shape: 0.2 } },
+    exact: [],
+    complex: [],
+    markers: [
+      { repo: "a", kind: "todo", count: 1 },
+      { repo: "b", kind: "non-null", count: 4 },
+      { repo: "b", kind: "todo", count: 2 },
+    ],
+  };
+
+  it("gives one row for each level, in the order of the chain", () => {
+    expect(levelRows(set).map((r) => [r.level, r.classes, r.duplicatedNodes, r.ratio])).toEqual([
+      ["exact", 1, 50, 0.05],
+      ["renamed", 3, 150, 0.15],
+      ["shape", 4, 200, 0.2],
+    ]);
+  });
+
+  it("gives the markers as a table, the repository with the most first", () => {
+    const table = markerTable(set);
+    expect(table.kinds).toEqual(["non-null", "todo"]);
+    expect(table.rows).toEqual([
+      { repo: "b", counts: { "non-null": 4, todo: 2 }, total: 6 },
+      { repo: "a", counts: { todo: 1 }, total: 1 },
+    ]);
+  });
+
+  it("links a function of the catalog to its line at the commit", () => {
+    expect(sourceUrl("o", "c1", placeOf({ repo: "a", path: "src/x y.ts", name: "f", line: 7 }))).toBe("https://github.com/o/a/blob/c1/src/x%20y.ts#L7");
   });
 });
