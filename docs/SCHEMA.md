@@ -80,7 +80,7 @@ The key of a judgment of a function is its `hash_renamed`, not its symbol key. E
 
 ### `file`
 
-A file is one place of a blob in a snapshot.
+A file is one place of a blob in a snapshot. The kind of a file tells if it is a test. One blob can be a test in one path and a source in another, so a symbol has no test column.
 
 | Column | Type | Meaning |
 | --- | --- | --- |
@@ -120,8 +120,7 @@ A declaration of a file: a function, a method, a class, a variable, a type, an i
 | `hash_renamed` | text | |
 | `hash_shape` | text | The hash of the atlas of today (`codeatlas/1`). |
 | `cyclomatic` | integer | The decision points plus one. |
-| `depth` | integer | The deepest nesting of blocks. |
-| `test` | boolean | The symbol is in a test file. |
+| `depth` | integer | The deepest nesting of control statements: `if`, the loops, `switch` and `try`. |
 
 ### `export`
 

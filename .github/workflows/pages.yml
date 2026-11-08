@@ -1,7 +1,7 @@
 # Builds the atlas and the site, and publishes them to GitHub Pages at https://mark1russell7.github.io/codeatlas/,
 # with the shared Pages workflow of mark1russell7 (reusable-pages.yml of mark1russell7/template, its CI.md).
 # The build clones each public repository of the owner, scans it, and writes the atlas (data/atlas.json,
-# data/atlas.md) and the page that shows it. The schedule makes a new atlas each Monday. The stamps name the run
+# data/atlas.md) and the page that shows it. It also counts the corpus and writes the Layer 1a facts to the step summary. The schedule makes a new atlas each Monday. The stamps name the run
 # and the limit of the data, and the freshness gate reads them before the deploy.
 # The Pages source of the repository is "GitHub Actions" (Settings > Pages).
 name: Pages
@@ -45,7 +45,9 @@ jobs:
         node packages/atlas/src/cli.ts build --repos-dir "$RUNNER_TEMP/repos" --out "$RUNNER_TEMP/atlas.json" --markdown "$RUNNER_TEMP/atlas.md"
         node packages/site/src/build.ts --atlas "$RUNNER_TEMP/atlas.json" --markdown "$RUNNER_TEMP/atlas.md" --out packages/site/dist
         node packages/atlas/src/cli.ts corpus --repos-dir "$RUNNER_TEMP/repos" --out packages/site/dist/data/corpus.json --markdown "$RUNNER_TEMP/corpus.md"
-        cat "$RUNNER_TEMP/atlas.md" "$RUNNER_TEMP/corpus.md" >> "$GITHUB_STEP_SUMMARY"
+        # Layer 1a: the facts of each blob. The command fails when a hash breaks the law of the chain.
+        node packages/atlas/src/cli.ts facts --repos-dir "$RUNNER_TEMP/repos" --out "$RUNNER_TEMP/facts.jsonl" --markdown "$RUNNER_TEMP/facts.md"
+        cat "$RUNNER_TEMP/atlas.md" "$RUNNER_TEMP/corpus.md" "$RUNNER_TEMP/facts.md" >> "$GITHUB_STEP_SUMMARY"
       out: packages/site/dist
       timeout-minutes: 30
       site-pages: true

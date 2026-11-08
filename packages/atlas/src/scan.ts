@@ -82,13 +82,14 @@ export function headOf(root: string): string | null {
 }
 
 /** The byte offset of each line start, so that a swc position (a byte offset) gives a line. */
-function lineStarts(bytes: Buffer): number[] {
+export function lineStarts(bytes: Buffer): number[] {
   const starts = [0];
   for (let i = 0; i < bytes.length; i++) if (bytes[i] === 10) starts.push(i + 1);
   return starts;
 }
 
-function lineOf(starts: readonly number[], offset: number): number {
+/** The line (from 1) of a byte offset, from the line starts of `lineStarts`. */
+export function lineOf(starts: readonly number[], offset: number): number {
   let lo = 0;
   let hi = starts.length - 1;
   while (lo < hi) {
