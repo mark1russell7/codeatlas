@@ -6,6 +6,7 @@
 import { wilson } from "@mark1russell7/rigor-statistics";
 import { HOMES } from "@mark1russell7/conventions";
 import type { DraftLabel } from "./agreement.ts";
+import type { FunctionPlace } from "./queries.ts";
 import type { CatalogQuery } from "./query.ts";
 import type { SampleFile, SampleItem } from "./sample.ts";
 
@@ -332,14 +333,10 @@ export async function homeFacts(q: CatalogQuery, items: readonly SampleItem[]): 
 }
 
 /** One function at its place: the repository, the path of its file and its qualified name. */
-export interface FunctionPlace {
-  readonly repo: string;
-  readonly path: string;
-  readonly name: string;
-}
+type Place = Pick<FunctionPlace, "repo" | "path" | "name">;
 
 /** This function gives the key of a function place in the result of `packageCallsOf`. */
-export function placeKey(place: FunctionPlace): string {
+export function placeKey(place: Place): string {
   return `${place.repo}/${place.path}#${place.name}`;
 }
 
@@ -347,7 +344,7 @@ export function placeKey(place: FunctionPlace): string {
  * This function gives the packages whose imported functions the body of each function calls, by `placeKey`. A call
  * site is in the body when its caller is the function or a function inside it. A call `a.b()` counts the import `a`.
  */
-export async function packageCallsOf(q: CatalogQuery, places: readonly FunctionPlace[]): Promise<Map<string, string[]>> {
+export async function packageCallsOf(q: CatalogQuery, places: readonly Place[]): Promise<Map<string, string[]>> {
   const result = new Map<string, string[]>();
   if (places.length === 0) return result;
   const paths = [...new Set(places.map((place) => place.path))];
