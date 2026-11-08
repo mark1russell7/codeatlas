@@ -99,6 +99,12 @@ jobs:
           set -euo pipefail
           node packages/atlas/src/cli.ts breaks --db "$RUNNER_TEMP/catalog.sqlite" --markdown "$RUNNER_TEMP/breaks.md"
           tee -a "$GITHUB_STEP_SUMMARY" < "$RUNNER_TEMP/breaks.md"
+      # Two roadmap items in two repositories that plan the same thing (CA5)
+      - name: Planned duplication
+        run: |
+          set -euo pipefail
+          node packages/atlas/src/cli.ts planned --db "$RUNNER_TEMP/catalog.sqlite" --out "$RUNNER_TEMP/planned.json" --markdown "$RUNNER_TEMP/planned.md"
+          tee -a "$GITHUB_STEP_SUMMARY" < "$RUNNER_TEMP/planned.md"
       - name: Save the catalog for the next run
         if: github.event_name != 'pull_request'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -108,7 +114,9 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: catalog
-          path: ${{ runner.temp }}/catalog.sqlite
+          path: |
+            ${{ runner.temp }}/catalog.sqlite
+            ${{ runner.temp }}/planned.json
           retention-days: 14
           if-no-files-found: error
 
