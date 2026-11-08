@@ -57,7 +57,7 @@ jobs:
         run: |
           set -euo pipefail
           node packages/atlas/src/cli.ts catalog --repos-dir "$RUNNER_TEMP/repos" --out "$RUNNER_TEMP/catalog.sqlite" --markdown "$RUNNER_TEMP/catalog.md"
-          ls -l "$RUNNER_TEMP/catalog.sqlite" | awk '{ printf "Database: %.1f MB\n\n", $5 / 1000000 }' >> "$GITHUB_STEP_SUMMARY"
+          ls -l "$RUNNER_TEMP/catalog.sqlite" | awk '{ printf "Database: %.1f MB\n\n", $5 / 1000000 }' | tee -a "$GITHUB_STEP_SUMMARY"
           # The log has the summary too, so that gh run view --log reads it
           tee -a "$GITHUB_STEP_SUMMARY" < "$RUNNER_TEMP/catalog.md"
       # A second scan of the same commits parses nothing: the determinism of the cache
