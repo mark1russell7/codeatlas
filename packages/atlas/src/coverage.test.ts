@@ -104,5 +104,8 @@ describe("the coverage of a repository", () => {
     expect(markdown).toContain("With a function report (`coverage-final.json`): 1.");
     const summaryOnly = { ...report.covered[0]!, reported: 0, exported: 0, exportedUnhit: 0 };
     expect(coverageMarkdown({ repos: 1, covered: [summaryOnly] })).toContain("| 80.0% | 50.0% | no function report |");
+    // A scan of the same commit again replaces the snapshot, so its coverage rows go first
+    catalog.putSnapshot("app", "c0", "2026-11-08T01:00:00Z", "test", result.files, result.counts);
+    expect((await coverageReport(queryOf(catalog.db))).covered).toEqual([]);
   });
 });
