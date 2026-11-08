@@ -41,7 +41,29 @@ export { UNRESOLVED_KINDS, pinnedDependencies, rangeDrift, versionDrift } from "
 export type { DependencyPlace, DependencyRange, PinnedDependency, RangeDrift, ResolvedVersion, VersionDrift } from "./dependencies.ts";
 export { LOCK_FIELDS, MAX_LOCK_BYTES, bareVersion, lockfileOf, lockfilesOfRepo } from "./lockfiles.ts";
 export type { LockfileFacts, LockfileRecord, ResolvedFact } from "./lockfiles.ts";
-export { DRIFT_STATES, STAMP_PATH, TEMPLATE_REPO, keepListOf, keepListOfRepo, localForm, pinsOf, templateDrift, templateRecordsOfRepo } from "./templates.ts";
-export type { DriftState, PinDrift, RepoDrift, TemplateDrift, TemplateFileRecord, TemplatePin, TemplateRecords } from "./templates.ts";
+export {
+  DRIFT_STATES,
+  STAMP_PATH,
+  SCHEDULE_FIX,
+  STAMP_RULES,
+  TEMPLATE_CLONE,
+  TEMPLATE_REPO,
+  driftMarkdown,
+  fileOfTarget,
+  keepListOf,
+  keepListOfRepo,
+  localForm,
+  copyForm,
+  pinFreshness,
+  stampFreshness,
+  stampRulesOf,
+  stampRulesOfRepo,
+  pinsOf,
+  templateDrift,
+  templateRecordsOfRepo,
+  templateVersionsOfRepo,
+  workflowForm,
+} from "./templates.ts";
+export type { DriftState, PinDrift, PinFreshness, StaleRepo, StampFreshness, StampRule, StampRuleKind, StampRules, TemplateVersion, TemplateVersions, RepoDrift, TemplateDrift, TemplateFileRecord, TemplatePin, TemplateRecords } from "./templates.ts";
 export { QUERY_SET_LIMITS, QUERY_SET_VERSION, querySet } from "./query-set.ts";
 export type { ExactClass, QuerySet, QuerySetLimits, RepoCommit } from "./query-set.ts";

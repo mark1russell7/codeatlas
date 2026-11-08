@@ -84,6 +84,12 @@ jobs:
           set -euo pipefail
           node packages/atlas/src/cli.ts catalog --repos-dir "$RUNNER_TEMP/repos" --out "$RUNNER_TEMP/catalog.sqlite" --markdown "$RUNNER_TEMP/again.md" 2>&1 | tee "$RUNNER_TEMP/again.log"
           grep -q " 0 parsed," "$RUNNER_TEMP/again.log" || { echo "::error::The second scan parsed blobs again."; exit 1; }
+      # The share of the repositories that pin one of the newest commits of the template, and the changed copies
+      - name: Drift from the template
+        run: |
+          set -euo pipefail
+          node packages/atlas/src/cli.ts drift --db "$RUNNER_TEMP/catalog.sqlite" --markdown "$RUNNER_TEMP/drift.md"
+          tee -a "$GITHUB_STEP_SUMMARY" < "$RUNNER_TEMP/drift.md"
       - name: Save the catalog for the next run
         if: github.event_name != 'pull_request'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

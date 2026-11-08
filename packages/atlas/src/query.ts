@@ -82,6 +82,9 @@ export interface CatalogColumns {
   readonly resolution: { readonly oid: "text"; readonly manifest: "text"; readonly field: "text"; readonly name: "text"; readonly specifier: "text"; readonly version: "text" };
   readonly template_pin: TemplatePinColumns;
   readonly template_file: TemplateFileColumns;
+  readonly template_version: { readonly snapshot: "text"; readonly ref: "text"; readonly committed_at: "text"; readonly path: "text"; readonly oid: "text" };
+  readonly stamp_rule: { readonly snapshot: "text"; readonly path: "text"; readonly rule: "text"; readonly fields: "text" };
+  readonly template_use: { readonly snapshot: "text"; readonly target: "text"; readonly path: "text" };
   readonly label: { readonly subject: "text"; readonly task: "text"; readonly by: "text"; readonly label: "text"; readonly at: "text" };
   readonly current_snapshot: SnapshotColumns;
   readonly current_file: { readonly repo: "text" } & FileColumns;
@@ -184,6 +187,9 @@ export const CATALOG_COLUMNS: CatalogColumns = {
   resolution: { oid: "text", manifest: "text", field: "text", name: "text", specifier: "text", version: "text" },
   template_pin: TEMPLATE_PIN,
   template_file: TEMPLATE_FILE,
+  template_version: { snapshot: "text", ref: "text", committed_at: "text", path: "text", oid: "text" },
+  stamp_rule: { snapshot: "text", path: "text", rule: "text", fields: "text" },
+  template_use: { snapshot: "text", target: "text", path: "text" },
   label: { subject: "text", task: "text", by: "text", label: "text", at: "text" },
   current_snapshot: SNAPSHOT,
   current_file: { repo: "text", ...FILE },
