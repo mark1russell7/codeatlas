@@ -33,8 +33,13 @@ The pilot labels each function of three repositories with the population rule of
 - On the 40 check items, the home precision was 0.900 [0.769, 0.960] and the purpose precision was 0.875 [0.739, 0.945]. This precision is against the 3-rater majority and it is provisional.
 - `moveOf` gives 154 pull requests, 127 moves to planned homes, 13 moves that the dependency rules block, and 705 cases with no move.
 - Three of the blocked moves (`canonicalJson` two times, `stableStringify`) have a home now: `@mark1russell7/rigor-generators` 0.1.7. Thus the file has 157 pull requests and 10 blocked moves.
-- That is 12.2 pull requests for each 100k tokens. At a precision of 0.9, about 11 of them are correct.
-- `moves-1.md` lists the 157 moves by repository. The owner of each copy checks each move with a test before a pull request.
+- That was 12.2 pull requests for each 100k tokens. The owners of the copies then checked the moves, and the precision of the raters did not hold.
+- The owner precision: the owners checked 50 of the 157 moves with a test or a read of the home. 9 were right: 0.180 [0.098, 0.308]. 2 more were right in part, 3 are right after a change of the home, and 4 are real copies with another home. 32 were wrong. `owners-1.jsonl` has each verdict with its reason.
+- The precision of the 3 raters (0.900) and the owner precision measure different things. A rater sees only the function. An owner sees the home too. Report both, each with its count.
+- The main cause of the wrong moves: 21 of the 157 functions are in a file that imports the home. They call the home for the general part, and the rest is local policy. All 8 of them with a verdict were wrong. `moveOf` now gives them the kind `uses the home`, and no pull request.
+- Thus the file has 136 pull requests, 21 functions that use the home, and 10 blocked moves. The owners checked 42 of the 136, and 9 were right: 0.214 [0.117, 0.359].
+- At that precision, about 29 of the 136 are right, from 16 to 49. That is about 2.3 correct pull requests for each 100k tokens.
+- `moves-1.md` lists the 136 moves by repository. The owner of each copy checks each move with a test before a pull request.
 - The labels have a text kind. There are 157 plain string helpers in 25 repositories, 12 Markdown parsers, 7 text measurement functions and 3 functions for English word forms.
 - No two of the 157 plain string helpers have the same shape. Thus 157 is a count by purpose, not a count of clones.
 

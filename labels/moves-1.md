@@ -1,6 +1,8 @@
 # Moves to check: the first run of Layer 2 on the functions with copies or shared names
 
-This file lists the moves of `subset-1.jsonl` to a published home. A label is not a proof. About one label in ten names a wrong home.
+This file lists the moves of `subset-1.jsonl` to a published home. A label is not a proof. The owners checked 50 of the first 157 moves, and 9 of them were right (`owners-1.jsonl`).
+
+The file has no move of a function whose file imports the home. Such a function calls the home for its general part, and the rest is local policy. `moveOf` gives it the kind `uses the home`.
 
 Before a move gets a pull request, the owner of the copy does these steps:
 
@@ -10,21 +12,15 @@ Before a move gets a pull request, the owner of the copy does these steps:
 
 If the behavior is not the same, or the home has no such function, record the label as wrong.
 
-## `highways`: 24 moves
+## `highways`: 18 moves
 
 | Function | File | Home | Copies | What it does |
 | --- | --- | --- | --- | --- |
 | `crossing` | `packages/core/src/highways/mesh/index.ts` | exact-math: `@mark1russell7/expression`, `@mark1russell7/rational` | 2 | This function finds the crossing of two segments and records the predicate call when a sink is set. |
-| `countOverlaps` | `packages/core/src/bench/links.ts` | geometry: `@mark1russell7/layout-contract` | 1 | This function counts overlapping box pairs using a spatial grid. |
 | `freeSpace` | `packages/core/src/bench/measures/level-crossings.ts` | geometry: `@mark1russell7/layout-contract` | 1 | This function labels the free regions around boxes and tells which regions touch a box. |
-| `regionBounds` | `packages/core/src/bench/screen/forms.ts` | geometry: `@mark1russell7/layout-contract` | 1 | This function gives the bounding box of a rectangle, circle, ellipse or polygon region. |
-| `inflate` | `packages/core/src/geom.ts` | geometry: `@mark1russell7/layout-contract` | 1 | This function grows a box by a margin on every side. |
-| `crossingPoint` | `packages/core/src/geom.ts` | geometry: `@mark1russell7/layout-contract` | 1 | This function gives the point where two segments cross, or undefined when they do not cross. |
-| `polylineLength` | `packages/core/src/geom.ts` | geometry: `@mark1russell7/layout-contract` | 1 | This function gives the total length of a polyline. |
 | `samplesOf` | `packages/core/src/highways/frechet/index.ts` | geometry: `@mark1russell7/layout-contract` | 1 | This function samples points along a polyline at a given step length. |
 | `simplify` | `packages/core/src/routers/physics.ts` | geometry: `@mark1russell7/layout-contract` | 1 | This function removes points of a polyline that lie within a tolerance of the line. |
 | `resample` | `packages/core/src/routers/physics.ts` | geometry: `@mark1russell7/layout-contract` | 1 | This function resamples a polyline into a number of equal-length legs. |
-| `utf8` | `packages/core/src/bench/screen/hash.ts` | random: `@mark1russell7/rigor-generators` | 1 | This function encodes a string as UTF-8 bytes. |
 | `sweepValues` | `packages/core/src/strategies/options.ts` | random: `@mark1russell7/rigor-generators` | 2 | This function lists the values to sweep for a number, integer, boolean or enum option. |
 | `siteDataStamps` | `packages/site/src/stamps.ts` | repo-structure: `@mark1russell7/conventions`, `@mark1russell7/template-cli` | 1 | This function builds the data stamps of the site pages from verdict headers and the bench header. |
 | `spreadOf` | `packages/core/scripts/case-order-verdict.ts` | statistics: `@mark1russell7/rigor-statistics` | 1 | This function gives the standard deviation of times over their median. |
@@ -39,7 +35,7 @@ If the behavior is not the same, or the home has no such function, record the la
 | `signTestPower` | `packages/core/src/bench/screen/set.ts` | statistics: `@mark1russell7/rigor-statistics` | 1 | This function gives the smallest number of wins out of n families that a two-sided sign test finds significant. |
 | `verdictFiles` | `packages/site/src/atlas-files.ts` | system-io: `@procedures/fs`, `@procedures/shell` | 2 | This function reads the sorted verdict snapshot files of a folder and gives their names and text. |
 
-## `packing`: 18 moves
+## `packing`: 15 moves
 
 | Function | File | Home | Copies | What it does |
 | --- | --- | --- | --- | --- |
@@ -50,10 +46,7 @@ If the behavior is not the same, or the home has no such function, record the la
 | `randomTree` | `packages/packing/bench/gp-score.ts` | random: `@mark1russell7/rigor-generators` | 1 | This function draws a random expression tree up to a depth from a random source. |
 | `inputOf` | `packages/packing/bench/gp-score.ts` | random: `@mark1russell7/rigor-generators` | 1 | This function makes a seeded packing input from a strip spec by choosing the generator. |
 | `seedsOf` | `packages/packing/bench/nightly-plan.ts` | random: `@mark1russell7/rigor-generators` | 1 | Reads a JSON list of seeds and checks that they are enough different whole numbers. |
-| `generateInput` | `packages/packing/bench/sample-space.ts` | random: `@mark1russell7/rigor-generators` | 1 | This function generates one input from a family draw and gives a reason string when generation fails or the input is too big. |
-| `strataOf` | `packages/packing/bench/sample-space.ts` | random: `@mark1russell7/rigor-generators` | 1 | This function splits a strategy space into strata of configurations with their counts. |
 | `corpus` | `packages/packing/src/corpus.ts` | random: `@mark1russell7/rigor-generators` | 1 | This function makes a corpus of generated inputs and a manifest from specs with generators and seeds. |
-| `canonicalJson` | `packages/packing/src/layout-input.ts` | random: `@mark1russell7/rigor-generators` | 1 | This function writes canonical JSON with sorted keys and rounded numbers. |
 | `moved` | `packages/packing/src/raster-nofit.ts` | random: `@mark1russell7/rigor-generators` | 1 | This function makes a random change of an order by a swap or a move of one item. |
 | `generateInput` | `packages/site/src/corpus-input.ts` | random: `@mark1russell7/rigor-generators` | 1 | This function generates a seeded packing input from a family key and dimension values. |
 | `wilson` | `packages/packing/bench/coverage.ts` | statistics: `@mark1russell7/rigor-statistics` | 1 | This function computes the Wilson score interval of a proportion. |
@@ -84,7 +77,7 @@ If the behavior is not the same, or the home has no such function, record the la
 | `globBase` | `tools/ste-lint/src/files.ts` | system-io: `@procedures/fs`, `@procedures/shell` | 1 | This function gives the base folder of a glob pattern, which is the part before the first wildcard. |
 | `formatMs` | `site/src/lib/format.ts` | units: `@mark1russell7/quantity` | 1 | This function writes a time in milliseconds as ms, seconds or minutes with fitting precision. |
 
-## `client`: 15 moves
+## `client`: 14 moves
 
 | Function | File | Home | Copies | What it does |
 | --- | --- | --- | --- | --- |
@@ -102,7 +95,6 @@ If the behavior is not the same, or the home has no such function, record the la
 | `backoffOf` | `packages/client-mongo/src/storage/storage-hints.ts` | service: `@mark1russell7/service`, `@procedures/peer` | 1 | This function checks backoff options and gives a function from attempt number to a jittered delay. |
 | `bindingOf` | `packages/systems/src/lint.ts` | state-machines: `@mark1russell7/algebra` | 1 | This function works out the timer values of a binding from retry, heartbeat and timeout settings. |
 | `quantileOf` | `scripts/lib/paired-time.ts` | statistics: `@mark1russell7/rigor-statistics` | 2 | This function gives a quantile of numbers by linear interpolation between sorted values. |
-| `fitOf` | `scripts/server-request.ts` | statistics: `@mark1russell7/rigor-statistics` | 1 | This function fits a least-squares model of request time against bytes in and out, with bootstrap intervals. |
 
 ## `template`: 14 moves
 
@@ -136,7 +128,7 @@ If the behavior is not the same, or the home has no such function, record the la
 | `summarize` | `packages/site/src/lib/stats.ts` | statistics: `@mark1russell7/rigor-statistics` | 1 | This function gives the count, minimum, maximum, mean and percentiles of a list of numbers. |
 | `formatBytes` | `packages/site/src/lib/format.ts` | units: `@mark1russell7/quantity` | 1 | This function writes a byte count with a unit such as KB or MB. |
 
-## `layout-contract`: 8 moves
+## `layout-contract`: 6 moves
 
 | Function | File | Home | Copies | What it does |
 | --- | --- | --- | --- | --- |
@@ -145,8 +137,6 @@ If the behavior is not the same, or the home has no such function, record the la
 | `loadSplit` | `packages/joint/src/split.ts` | random: `@mark1russell7/rigor-generators` | 1 | Loads the split file of a corpus by its hash and gives its folds, with a clear error if missing. |
 | `canonicalJson` | `packages/layout-contract/src/hash.ts` | random: `@mark1russell7/rigor-generators` | 1 | This function writes a value as canonical JSON with sorted keys. |
 | `inputOf` | `packages/site/src/jobs.ts` | random: `@mark1russell7/rigor-generators` | 1 | Rebuilds a layout input and its cell from a reference to a corpus entry or recorded dimensions, and checks its hash. |
-| `bootstrap` | `packages/joint/src/analysis.ts` | statistics: `@mark1russell7/rigor-statistics` | 1 | This function gives a cluster bootstrap interval of a mean or ratio of rows. |
-| `spearman` | `packages/joint/src/joint-measures.ts` | statistics: `@mark1russell7/rigor-statistics` | 1 | This function gives the Spearman rank correlation of two lists, or undefined when it is not defined. |
 | `verdict` | `packages/layout-contract/src/verdict.ts` | statistics: `@mark1russell7/rigor-statistics` | 1 | This function gives a verdict on paired records by bootstrap intervals, a permutation test and a sign test. |
 
 ## `ireko`: 7 moves
@@ -205,22 +195,16 @@ If the behavior is not the same, or the home has no such function, record the la
 | `quantile` | `packages/core/bench/measure.ts` | statistics: `@mark1russell7/rigor-statistics` | 1 | This function gives a quantile of numbers by linear interpolation between sorted values. |
 | `parseCsv` | `packages/sheet-app/src/io.ts` | system-io: `@procedures/fs`, `@procedures/shell` | 1 | This function reads CSV text with quoted fields into rows of fields. |
 
-## `systems`: 5 moves
+## `systems`: 1 move
 
 | Function | File | Home | Copies | What it does |
 | --- | --- | --- | --- | --- |
 | `parseExpr` | `packages/algebra/src/algebra.ts` | exact-math: `@mark1russell7/expression`, `@mark1russell7/rational` | 1 | This function parses an arithmetic expression with functions and knobs into a tree of nodes. |
-| `runOf` | `packages/site/src/lib/stamps.ts` | repo-structure: `@mark1russell7/conventions`, `@mark1russell7/template-cli` | 1 | This function reads a data file and builds a run record with id, URL, date, engines and method. |
-| `siteDataStamps` | `packages/site/src/lib/stamps.ts` | repo-structure: `@mark1russell7/conventions`, `@mark1russell7/template-cli` | 1 | This function reads the data folder and builds the data stamps of the site pages. |
-| `spreadOf` | `packages/harness/src/verdict.ts` | statistics: `@mark1russell7/rigor-statistics` | 1 | This function gives the count, median, 99th and 99.9th percentiles and maximum of a list of times. |
-| `baselineOf` | `packages/kind/src/quiet.ts` | statistics: `@mark1russell7/rigor-statistics` | 1 | This function gives the idle baseline as the median of clean samples, never lower than the previous baseline. |
 
-## `codeatlas`: 3 moves
+## `codeatlas`: 1 move
 
 | Function | File | Home | Copies | What it does |
 | --- | --- | --- | --- | --- |
-| `mcpCommand` | `packages/atlas/src/tools-cli.ts` | procedures: `@procedures/client`, `@procedures/mcp-server` | 1 | This function starts the MCP server of the atlas catalog over stdio. |
-| `agreementOf` | `packages/atlas/src/agreement.ts` | statistics: `@mark1russell7/rigor-statistics` | 1 | This function computes Cohen kappa, intervals and confusion counts between two drafts of labels. |
 | `treeOf` | `packages/atlas/src/blobs.ts` | system-io: `@procedures/fs`, `@procedures/shell` | 1 | This function runs git ls-tree and parses its output into blob entries with path and size. |
 
 ## `coeval`: 2 moves
@@ -244,50 +228,33 @@ If the behavior is not the same, or the home has no such function, record the la
 | `globToRegExp` | `packages/release-train/src/parse.ts` | system-io: `@procedures/fs`, `@procedures/shell` | 1 | This function converts a glob pattern into a regular expression. |
 | `formatJson` | `packages/release-train/src/sync.ts` | system-io: `@procedures/fs`, `@procedures/shell` | 1 | This function writes JSON text that keeps the indent, line endings and final newline of an original file. |
 
-## `collections`: 1 moves
+## `collections`: 1 move
 
 | Function | File | Home | Copies | What it does |
 | --- | --- | --- | --- | --- |
 | `fanIn` | `packages/collections/src/async/channels.ts` | service: `@mark1russell7/service`, `@procedures/peer` | 1 | This function merges many channels into one output channel and closes it when all inputs end. |
 
-## `concat-src`: 1 moves
+## `concat-src`: 1 move
 
 | Function | File | Home | Copies | What it does |
 | --- | --- | --- | --- | --- |
 | `formatBytes` | `site/src/reasons.ts` | units: `@mark1russell7/quantity` | 1 | This function writes a byte count as B, KB or MB. |
 
-## `cue`: 1 moves
-
-| Function | File | Home | Copies | What it does |
-| --- | --- | --- | --- | --- |
-| `commandsOf` | `site/src/model.ts` | repo-structure: `@mark1russell7/conventions`, `@mark1russell7/template-cli` | 1 | This function builds the cue-config commands for a list of requested features, using a preset when one matches. |
-
-## `grafana-infra`: 1 moves
+## `grafana-infra`: 1 move
 
 | Function | File | Home | Copies | What it does |
 | --- | --- | --- | --- | --- |
 | `walk` | `site/src/stack/alloy.ts` | data-structures: `@procedures/collections`, `@procedures/dag` | 1 | This function follows the output of a signal through Alloy components and returns the route without cycles. |
 
-## `splay`: 1 moves
+## `splay`: 1 move
 
 | Function | File | Home | Copies | What it does |
 | --- | --- | --- | --- | --- |
 | `listLayout` | `src/layout.ts` | geometry: `@mark1russell7/layout-contract` | 1 | Gives the positions and sizes of items stacked in one column in a container. |
 
-## `splay-react`: 1 moves
-
-| Function | File | Home | Copies | What it does |
-| --- | --- | --- | --- | --- |
-| `createHydrate` | `src/hydrate.tsx` | reactive-ui: `@mark1russell7/render-dsl`, `@mark1russell7/render-node` | 1 | This function makes a hydrate function that turns component outputs into React nodes. |
-
-## `ts-base`: 1 moves
+## `ts-base`: 1 move
 
 | Function | File | Home | Copies | What it does |
 | --- | --- | --- | --- | --- |
 | `layersOf` | `site/src/model.ts` | repo-structure: `@mark1russell7/conventions`, `@mark1russell7/template-cli` | 1 | This function resolves a tsconfig file into the ordered layers of its base chain. |
 
-## `typeset`: 1 moves
-
-| Function | File | Home | Copies | What it does |
-| --- | --- | --- | --- | --- |
-| `fingerprint` | `packages/corpus/src/generate.ts` | random: `@mark1russell7/rigor-generators` | 1 | This function gives a hash fingerprint of a list of text samples. |
