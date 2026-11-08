@@ -76,6 +76,7 @@ export interface CatalogColumns {
   };
   readonly call_site: { readonly blob: "text"; readonly ordinal: "integer"; readonly caller: "text"; readonly callee: "text"; readonly is_new: "integer"; readonly line: "integer" };
   readonly marker: { readonly blob: "text"; readonly kind: "text"; readonly line: "integer"; readonly text: "text" };
+  readonly label: { readonly subject: "text"; readonly task: "text"; readonly by: "text"; readonly label: "text"; readonly at: "text" };
   readonly current_snapshot: SnapshotColumns;
   readonly current_file: { readonly repo: "text" } & FileColumns;
 }
