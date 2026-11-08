@@ -1,19 +1,25 @@
 #!/usr/bin/env node
 /**
- * codeatlas build [--out atlas.json] [--markdown atlas.md] [--min-nodes 40] [--repos-dir <folder>] [<name>=<path> ...]
- * codeatlas corpus [--out corpus.json] [--markdown corpus.md] [--repos-dir <folder>] [<name>=<path> ...]
- * codeatlas clone --owner <owner> --into <folder>
+ * The commands:
+ *
+ * - `codeatlas build [--out atlas.json] [--markdown atlas.md] [--min-nodes 40] [--repos-dir <folder>] [<name>=<path> ...]`
+ * - `codeatlas corpus [--out corpus.json] [--markdown corpus.md] [--repos-dir <folder>] [<name>=<path> ...]`
+ * - `codeatlas facts [--out facts.jsonl] [--markdown facts.md] [--cache <facts.jsonl>] [--repos-dir <folder>] [<name>=<path> ...]`
+ * - `codeatlas clone --owner <owner> --into <folder>`
  *
  * The command build scans each repository (each folder of --repos-dir, and each name=path), and writes the
  * atlas as JSON and as Markdown. The command corpus counts the files, lines and bytes of each kind in the same repositories.
+ * The command facts writes the Layer 1a facts of each blob as JSON Lines. A cache from an earlier output saves each parse of a known blob.
  */
-import { readdirSync, statSync, writeFileSync } from "node:fs";
+import { closeSync, openSync, readFileSync, readdirSync, statSync, writeFileSync, writeSync } from "node:fs";
 import { join } from "node:path";
 import { buildAtlas } from "./atlas.ts";
+import { cacheOf, factsOfRepo, type BlobFacts, type FactsLine } from "./blobs.ts";
+import { factsMarkdown, factsSummary } from "./summary.ts";
 import { clonePublic } from "./clone.ts";
 import { buildCorpus, corpusMarkdown, corpusOfRepo } from "./corpus.ts";
 import { atlasMarkdown } from "./report.ts";
-import { scanRepo, type RepoScan } from "./scan.ts";
+import { headOf, scanRepo, type RepoScan } from "./scan.ts";
 
 export interface BuildArgs {
   readonly out: string;
@@ -58,6 +64,7 @@ function subfolders(dir: string): string[] {
 const USAGE = `Usage:
   codeatlas build [--out atlas.json] [--markdown atlas.md] [--min-nodes 40] [--repos-dir <folder>] [<name>=<path> ...]
   codeatlas corpus [--out corpus.json] [--markdown corpus.md] [--repos-dir <folder>] [<name>=<path> ...]
+  codeatlas facts [--out facts.jsonl] [--markdown facts.md] [--cache <facts.jsonl>] [--repos-dir <folder>] [<name>=<path> ...]
   codeatlas clone --owner <owner> --into <folder>`;
 
 function main(argv: readonly string[]): number {
@@ -74,6 +81,7 @@ function main(argv: readonly string[]): number {
     return 0;
   }
   if (command === "corpus") return corpus(rest);
+  if (command === "facts") return facts(rest);
   if (command !== "build") {
     console.error(USAGE);
     return 2;
@@ -111,6 +119,44 @@ function corpus(argv: readonly string[]): number {
   const { totals } = result;
   console.error(`corpus: ${totals.repos} repositories, ${totals.files} files, ${totals.kinds.source?.lines ?? 0} source lines, ${totals.kinds.test?.lines ?? 0} test lines`);
   return 0;
+}
+
+function facts(argv: readonly string[]): number {
+  const at = argv.indexOf("--cache");
+  const cachePath = at === -1 ? undefined : argv[at + 1];
+  if (at !== -1 && cachePath === undefined) {
+    console.error("--cache takes a file.");
+    return 2;
+  }
+  const args = parseBuildArgs(at === -1 ? argv : [...argv.slice(0, at), ...argv.slice(at + 2)], subfolders, "facts.jsonl");
+  if ("error" in args) {
+    console.error(args.error);
+    return 2;
+  }
+  const cache: Map<string, BlobFacts> = cachePath === undefined ? new Map() : cacheOf(readFileSync(cachePath, "utf8").split("\n"));
+  const known = new Set(cache.keys());
+  const started = performance.now();
+  const fd = openSync(args.out, "w");
+  const write = (line: FactsLine): void => {
+    writeSync(fd, `${JSON.stringify(line)}\n`);
+  };
+  const scans = args.repos.map((repo) => {
+    const scan = factsOfRepo(repo.name, repo.path, cache);
+    write({ kind: "repo", repo: repo.name, commit: headOf(repo.path), counts: scan.counts });
+    for (const file of scan.files) write({ kind: "file", ...file });
+    return scan;
+  });
+  const ms = performance.now() - started;
+  // Only the blobs of this run: a blob of the cache that no repository has now stays out
+  const used = new Set(scans.flatMap((scan) => scan.files.map((file) => `${file.blob}:`)));
+  for (const [key, value] of [...cache].sort(([a], [b]) => (a < b ? -1 : 1))) {
+    if (used.has(key.slice(0, key.indexOf(":") + 1))) write({ kind: "blob", key, facts: value });
+  }
+  closeSync(fd);
+  const summary = factsSummary(scans, cache, ms);
+  if (args.markdown !== undefined) writeFileSync(args.markdown, factsMarkdown(summary));
+  console.error(`facts: ${summary.repos} repositories, ${summary.files} files, ${summary.parsed} parsed, ${summary.reused} from the cache (${known.size} known), ${summary.errors} errors, ${Math.round(ms)} ms`);
+  return summary.lawBreaks === 0 ? 0 : 1;
 }
 
 if (import.meta.main) process.exitCode = main(process.argv.slice(2));
