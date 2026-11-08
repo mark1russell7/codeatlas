@@ -197,6 +197,7 @@ The scan starts each rule of `@mark1russell7/conventions` on the checkout of eac
 - The table `conventions_rule` has the status of each rule: `pass`, `break`, `off`, `skipped` or `error`. It also has the count of the ignored breaks, and the note of the rule.
 - The table `conventions_break` has each break: the rule, the file, the line, the message, and a mark when `conventions fix` can write the fix.
 - The environment of the rules is empty, so the variables of the CI job of the scan do not change them. The rules that examine a change have no base, so they skip.
+- The clones of the scan have no install of their packages. Thus the rules of `INSTALL_RULES` skip with a note, because they only find the missing packages. Today this is `typed-files`.
 - The version of the conventions is the version in the lockfile of codeatlas. A new rule comes into the catalog with an update of that version.
 - The query `conventionsBreaks` gives the clean repositories, the breaks of each rule and the breaks of each repository. A repository is clean when it has no break and no rule throws.
 - The command `codeatlas breaks` writes it, and the catalog job adds it to the summary. The tool `atlas.rescan` checks the repository again too.
