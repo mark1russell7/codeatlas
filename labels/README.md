@@ -42,6 +42,8 @@ The pilot labels each function of three repositories with the population rule of
 - A cause of the wrong moves: some functions call a function of the home for the general part, and the rest is local policy. 8 of the 157 do so. All 6 of them with a verdict were wrong. `moveOf` now gives them the kind `uses the home`, and no pull request.
 - A first rule took off each function in a file that imports the home: 21 functions. The owner of 6 of them found full local copies. An import alone is not a use, so the rule now reads the calls of the body.
 - Thus the file has 149 pull requests, 8 functions that use the home, and 10 blocked moves. The owners checked 44 of the 149, and 8 were right: 0.182 [0.095, 0.320].
+- The map of homes has two new planned areas: `files` (`mark1russell7/files`) and `plain-text` (`mark1russell7/text`). Thus 6 blocked moves go to them as planned moves, with the field `relabel`. The file has 133 planned moves and 4 blocked moves.
+- The 4 blocked moves are `commitOf`, two `stopTree` functions and `writeZip`. Their home is a package of the monorepo, so the dependency rule still blocks them.
 - At that precision, about 27 of the 149 are right, from 14 to 48. That is about 2.1 correct pull requests for each 100k tokens.
 - The owner recall: the owners found 5 copies that the atlas did not list. Each is a formula inside a larger function, with no function of its own. Layer 1 hashes functions, so it does not see them.
 - Of the 13 real copies that the owners moved, the atlas listed 8: 0.615 [0.355, 0.823]. This recall is only for the code of the owners that answered. `missed-1.jsonl` has the 5 copies.
