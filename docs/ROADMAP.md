@@ -9,14 +9,13 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 | ID | Status | Priority | Title |
 | --- | --- | --- | --- |
 | CA11 | in progress | P2 | Layer 1, more sources: coverage, dependency versions, template drift, conventions breaks |
-| CA13 | in progress | P1 | Layer 2 pilot on 3 repositories: cost per 1000 lines and precision |
+| CA14 | in progress | P1 | Layer 2 on the functions with copies or shared names: the moves for each 100k tokens, before a full run |
 | CA4 | in progress | P2 | The private repositories: a local scan into a separate private database |
 
 ## Next
 
 | ID | Status | Priority | Title |
 | --- | --- | --- | --- |
-| CA14 | blocked by CA13 | P1 | A review of the measured cost before the fan-out |
 
 ## Later
 
@@ -32,6 +31,7 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 
 | ID | Status | Priority | Title |
 | --- | --- | --- | --- |
+| CA13 | done 2026-11-08 | P1 | Layer 2 pilot on 3 repositories: 50,300 tokens for each 1000 lines, and the precision against the 3-rater majority, provisional |
 | CA16 | done 2026-11-08 | P2 | Tools for agents: query the catalog and scan again, fast and cheap |
 | CA3 | done 2026-11-08 | P2 | The rigor candidates: for each topic, the classes that a shared library removes |
 | CA17 | done 2026-11-08 | P1 | The query set on the site: quality, features and duplication |
