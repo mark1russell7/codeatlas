@@ -1,7 +1,7 @@
 # Builds the atlas and the site, and publishes them to GitHub Pages at https://mark1russell7.github.io/codeatlas/,
 # with the shared Pages workflow of mark1russell7 (reusable-pages.yml of mark1russell7/template, its CI.md).
 # The build clones each public repository of the owner, scans it, and writes the atlas (data/atlas.json,
-# data/atlas.md) and the page that shows it. It also counts the corpus and writes the Layer 1a facts to the step summary. The schedule makes a new atlas each Monday. The stamps name the run
+# data/atlas.md) and the page that shows it. It also counts the corpus, builds the Layer 1a catalog and adds its point to the trend (data/trend.json). The schedule makes a new atlas each Monday. The stamps name the run
 # and the limit of the data, and the freshness gate reads them before the deploy.
 # The Pages source of the repository is "GitHub Actions" (Settings > Pages).
 name: Pages
@@ -45,8 +45,17 @@ jobs:
         node packages/atlas/src/cli.ts build --repos-dir "$RUNNER_TEMP/repos" --out "$RUNNER_TEMP/atlas.json" --markdown "$RUNNER_TEMP/atlas.md"
         node packages/site/src/build.ts --atlas "$RUNNER_TEMP/atlas.json" --markdown "$RUNNER_TEMP/atlas.md" --out packages/site/dist
         node packages/atlas/src/cli.ts corpus --repos-dir "$RUNNER_TEMP/repos" --out packages/site/dist/data/corpus.json --markdown "$RUNNER_TEMP/corpus.md"
-        # Layer 1a: the facts of each blob. The command fails when a hash breaks the law of the chain.
-        node packages/atlas/src/cli.ts facts --repos-dir "$RUNNER_TEMP/repos" --out "$RUNNER_TEMP/facts.jsonl" --markdown "$RUNNER_TEMP/facts.md"
+        # Layer 1a: the catalog of the facts of each blob. The command fails when a hash breaks the law of the chain.
+        node packages/atlas/src/cli.ts catalog --repos-dir "$RUNNER_TEMP/repos" --out "$RUNNER_TEMP/catalog.sqlite" --markdown "$RUNNER_TEMP/facts.md"
+        # The trend: the file of the last deploy, with the point of this build. Only a first deploy has no file (404).
+        # Each other failure stops the build, so a build does not lose the history.
+        code=$(curl -sS -o "$RUNNER_TEMP/trend.json" -w '%{http_code}' https://mark1russell7.github.io/codeatlas/data/trend.json) || code=000
+        case "$code" in
+          200) node packages/atlas/src/cli.ts trend --db "$RUNNER_TEMP/catalog.sqlite" --previous "$RUNNER_TEMP/trend.json" --out packages/site/dist/data/trend.json ;;
+          404) echo "::warning::The site has no trend: the trend starts with this build."
+               node packages/atlas/src/cli.ts trend --db "$RUNNER_TEMP/catalog.sqlite" --out packages/site/dist/data/trend.json ;;
+          *) echo "::error::The trend of the site gave HTTP $code."; exit 1 ;;
+        esac
         cat "$RUNNER_TEMP/atlas.md" "$RUNNER_TEMP/corpus.md" "$RUNNER_TEMP/facts.md" >> "$GITHUB_STEP_SUMMARY"
       out: packages/site/dist
       timeout-minutes: 30
@@ -78,7 +87,7 @@ jobs:
           SITE: ${{ needs.pages.outputs.page-url }}
         run: |
           set -euo pipefail
-          for f in "" data-stamps.json data/atlas.json data/atlas.md data/releases.json data/status.json releases/ status/; do
+          for f in "" data-stamps.json data/atlas.json data/atlas.md data/trend.json data/releases.json data/status.json releases/ status/; do
             # A new deployment can take some seconds to be served, so each file gets 5 tries.
             ok=0
             for i in 1 2 3 4 5; do

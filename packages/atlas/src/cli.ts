@@ -6,18 +6,22 @@
  * - `codeatlas corpus [--out corpus.json] [--markdown corpus.md] [--repos-dir <folder>] [<name>=<path> ...]`
  * - `codeatlas catalog [--out catalog.sqlite] [--markdown catalog.md] [--repos-dir <folder>] [<name>=<path> ...]`
  * - `codeatlas facts [--out facts.jsonl] [--markdown facts.md] [--cache <facts.jsonl>] [--repos-dir <folder>] [<name>=<path> ...]`
+ * - `codeatlas trend --db <catalog.sqlite> [--previous <trend.json>] --out <trend.json>`
  * - `codeatlas clone --owner <owner> --into <folder>`
  *
  * The command build scans each repository (each folder of --repos-dir, and each name=path), and writes the
  * atlas as JSON and as Markdown. The command corpus counts the files, lines and bytes of each kind in the same repositories.
  * The command catalog writes the same facts into a SQLite database. Its blobs are the cache of the next run.
  * The command facts writes the Layer 1a facts of each blob as JSON Lines. A cache from an earlier output saves each parse of a known blob.
+ * The command trend adds the point of a catalog to the trend file of the last build.
  */
 import { closeSync, openSync, readFileSync, readdirSync, statSync, writeFileSync, writeSync } from "node:fs";
 import { join } from "node:path";
 import { buildAtlas } from "./atlas.ts";
 import { cacheOf, factsKey, factsOfRepo, type BlobFacts, type FactsLine } from "./blobs.ts";
+import { queryOf } from "./query.ts";
 import { Catalog } from "./store.ts";
+import { addPoint, trendPoint } from "./trend.ts";
 import { factsMarkdown, factsSummary, gateVerdict, type GateVerdict } from "./summary.ts";
 import { clonePublic } from "./clone.ts";
 import { buildCorpus, corpusMarkdown, corpusOfRepo } from "./corpus.ts";
@@ -69,10 +73,11 @@ const USAGE = `Usage:
   codeatlas build [--out atlas.json] [--markdown atlas.md] [--min-nodes 40] [--repos-dir <folder>] [<name>=<path> ...]
   codeatlas corpus [--out corpus.json] [--markdown corpus.md] [--repos-dir <folder>] [<name>=<path> ...]
   codeatlas catalog [--out catalog.sqlite] [--markdown catalog.md] [--repos-dir <folder>] [<name>=<path> ...]
+  codeatlas trend --db <catalog.sqlite> [--previous <trend.json>] --out <trend.json>
   codeatlas facts [--out facts.jsonl] [--markdown facts.md] [--cache <facts.jsonl>] [--repos-dir <folder>] [<name>=<path> ...]
   codeatlas clone --owner <owner> --into <folder>`;
 
-function main(argv: readonly string[]): number {
+function main(argv: readonly string[]): number | Promise<number> {
   const [command, ...rest] = argv;
   if (command === "clone") {
     const owner = rest[rest.indexOf("--owner") + 1];
@@ -88,6 +93,7 @@ function main(argv: readonly string[]): number {
   if (command === "corpus") return corpus(rest);
   if (command === "facts") return facts(rest);
   if (command === "catalog") return catalog(rest);
+  if (command === "trend") return trend(rest);
   if (command !== "build") {
     console.error(USAGE);
     return 2;
@@ -200,10 +206,37 @@ function catalog(argv: readonly string[]): number {
   return report(gateVerdict(summary, unread));
 }
 
+/** This function adds the point of the catalog `--db` to the trend `--previous`, and writes the trend `--out`. */
+async function trend(argv: readonly string[]): Promise<number> {
+  const option = (name: string): string | undefined => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined);
+  const db = option("--db");
+  const out = option("--out");
+  const previous = option("--previous");
+  if (db === undefined || out === undefined) {
+    console.error(USAGE);
+    return 2;
+  }
+  const catalog = new Catalog(db);
+  try {
+    const point = await trendPoint(queryOf(catalog.db), new Date().toISOString(), FACTS_VERSION);
+    const file = addPoint(previous === undefined ? undefined : JSON.parse(readFileSync(previous, "utf8")), point);
+    writeFileSync(out, `${JSON.stringify(file)}
+`);
+    console.error(`trend: ${file.points.length} points, ${point.repos.length} repositories in the new point`);
+    return 0;
+  } finally {
+    catalog.close();
+  }
+}
+
 /** This function prints the annotations of the gates, and gives the exit code. */
 function report(verdict: GateVerdict): number {
   for (const line of verdict.lines) console.log(line);
   return verdict.exit;
 }
 
-if (import.meta.main) process.exitCode = main(process.argv.slice(2));
+if (import.meta.main) {
+  void Promise.resolve(main(process.argv.slice(2))).then((code) => {
+    process.exitCode = code;
+  });
+}
