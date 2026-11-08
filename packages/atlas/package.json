@@ -18,8 +18,11 @@
     "@mark1russell7/conventions": "^0.35.0",
     "@mark1russell7/rigor-generators": "^0.1.6",
     "@mark1russell7/rigor-statistics": "^0.1.17",
+    "@procedures/client": "^0.51.0",
+    "@procedures/mcp-server": "^0.51.0",
     "@swc/core": "^1.15.0",
-    "kysely": "^0.29.8"
+    "kysely": "^0.29.8",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@mark1russell7/cue": "^2.1.1",

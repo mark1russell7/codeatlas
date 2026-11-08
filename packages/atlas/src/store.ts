@@ -87,7 +87,7 @@ export class Catalog {
   constructor(path: string) {
     this.db = new DatabaseSync(path);
     this.db.exec("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA foreign_keys = ON;");
-    const version = this.#version();
+    const version = schemaOf(this.db);
     if (version !== undefined && version !== CATALOG_SCHEMA) {
       this.db.close();
       throw new Error(`The database has the schema ${version}, not ${CATALOG_SCHEMA}.`);
@@ -103,13 +103,6 @@ export class Catalog {
     this.#import = this.db.prepare('INSERT INTO "import" (blob, ordinal, specifier, package, kind, names, line) VALUES (?, ?, ?, ?, ?, ?, ?)');
     this.#call = this.db.prepare("INSERT INTO call_site (blob, ordinal, caller, callee, is_new, line) VALUES (?, ?, ?, ?, ?, ?)");
     this.#marker = this.db.prepare("INSERT INTO marker (blob, kind, line, text) VALUES (?, ?, ?, ?)");
-  }
-
-  #version(): string | undefined {
-    const table = this.db.prepare("SELECT 1 AS found FROM sqlite_master WHERE type = 'table' AND name = 'meta'").get();
-    if (table === undefined) return undefined;
-    const row = this.db.prepare("SELECT value FROM meta WHERE key = 'schema'").get() as { value?: string } | undefined;
-    return row?.value;
   }
 
   /** The cache of the scan (`factsOfRepo`): a key is known when the database has its blob. */
@@ -236,4 +229,26 @@ export class Catalog {
   close(): void {
     this.db.close();
   }
+}
+
+/** This function gives the schema of the catalog in `db`, or undefined for a database without the table `meta`. */
+function schemaOf(db: DatabaseSync): string | undefined {
+  const table = db.prepare("SELECT 1 AS found FROM sqlite_master WHERE type = 'table' AND name = 'meta'").get();
+  if (table === undefined) return undefined;
+  const row = db.prepare("SELECT value FROM meta WHERE key = 'schema'").get() as { value?: string } | undefined;
+  return row?.value;
+}
+
+/**
+ * This function opens the catalog file at `path` to read only, for the tools of agents. It throws when the file has
+ * no catalog or a catalog of another schema. A read-only connection cannot change the file.
+ */
+export function readOnlyCatalog(path: string): DatabaseSync {
+  const db = new DatabaseSync(path, { readOnly: true });
+  const version = schemaOf(db);
+  if (version !== CATALOG_SCHEMA) {
+    db.close();
+    throw new Error(version === undefined ? `The file ${path} has no catalog.` : `The database has the schema ${version}, not ${CATALOG_SCHEMA}.`);
+  }
+  return db;
 }

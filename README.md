@@ -31,6 +31,28 @@ node packages/site/src/build.ts --atlas atlas.json --out site
 
 The scan reads the files that git keeps, so build output and `node_modules` stay out.
 
+## Tools for agents
+
+An agent can ask the catalog in place of reading the code again. The tools read the catalog and change nothing.
+
+| Tool | Answer |
+| --- | --- |
+| `atlas.repos` | Each repository of the catalog, with the commit and the time of its scan. |
+| `atlas.find` | The functions with a name, their copies at each clone level, and the home of the name. |
+| `atlas.copies` | The copies of one function at one clone level. |
+| `atlas.homes` | The functions outside their homes of the map of homes. |
+| `atlas.importers` | Each import of a specifier. |
+
+Each catalog run of CI keeps its catalog for 14 days as the artifact `catalog`. Download it, then serve the tools or call one:
+
+```sh
+gh run download --repo mark1russell7/codeatlas --name catalog --dir .
+node packages/atlas/src/cli.ts mcp --db catalog.sqlite
+node packages/atlas/src/cli.ts tool find '{"name":"median"}' --db catalog.sqlite
+```
+
+To add the tools to Claude Code, start `claude mcp add codeatlas -- node <repo>/packages/atlas/src/cli.ts mcp --db <catalog.sqlite>`.
+
 ## The site
 
 The site at https://mark1russell7.github.io/codeatlas/ shows the newest atlas. It shows the topics, the repositories that share code, and each clone class with a link to each copy. The atlas data is at `data/atlas.json`, and the corpus is at `data/corpus.json`.
