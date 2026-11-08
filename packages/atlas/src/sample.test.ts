@@ -64,11 +64,12 @@ describe("drawSample and sampleFile", () => {
       { task: "purpose", target: 0.85, expected: 0.92 },
     ];
     const file = sampleFile(items(500), "seed-1", tasks, 130);
-    expect(file.tasks.map((task) => [task.task, task.n])).toEqual([
-      ["home", 127],
-      ["purpose", 92],
+    expect(file.tasks.map((task) => [task.task, task.n, task.audit])).toEqual([
+      ["home", 127, 69],
+      ["purpose", 92, 34],
     ]);
-    expect([file.size, file.population]).toEqual([130, 500]);
+    // One audit serves both tasks, so its size is the largest audit size.
+    expect([file.size, file.population, file.audit]).toEqual([130, 500, 69]);
     expect(() => sizedTasks([{ task: "home", target: 0.9, expected: 0.9 }])).toThrow(RangeError);
     expect(() => sampleFile(items(50), "seed-1", tasks)).toThrow(/needs 127 items/);
   });

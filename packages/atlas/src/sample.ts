@@ -86,9 +86,16 @@ export interface TaskTarget {
   readonly expected: number;
 }
 
-/** A task with its sample size: the smallest `n` at which the Wilson 95 % lower end reaches the target. */
+/** The agreement of the two drafts that the audit expects. A lower agreement makes the audit fail, and a person labels each item. */
+export const AUDIT_EXPECTED: number = 0.97;
+
+/**
+ * A task with its sample size: the smallest `n` at which the Wilson 95 % lower end reaches the target. The audit
+ * size is the same rule with the expected agreement `AUDIT_EXPECTED` of the drafts.
+ */
 export interface SizedTask extends TaskTarget {
   readonly n: number;
+  readonly audit: number;
 }
 
 /** The sample file of the repository: the draw, its rules and the size of each task. */
@@ -98,6 +105,8 @@ export interface SampleFile {
   /** The rule that gives each `n`. */
   readonly rule: string;
   readonly tasks: readonly SizedTask[];
+  /** The size of the audit of the agreed items: the largest audit size of the tasks. */
+  readonly audit: number;
   readonly population: number;
   readonly size: number;
   readonly items: readonly SampleItem[];
@@ -111,7 +120,9 @@ export function sizedTasks(tasks: readonly TaskTarget[]): SizedTask[] {
   return tasks.map((task) => {
     const n = wilsonSampleSize(task.target, task.expected);
     if (n === undefined) throw new RangeError(`The task ${task.task} has an expected precision ${task.expected} that is not above its target ${task.target}.`);
-    return { ...task, n };
+    const audit = wilsonSampleSize(task.target, AUDIT_EXPECTED);
+    if (audit === undefined) throw new RangeError(`The task ${task.task} has a target ${task.target} that is not below the audit agreement ${AUDIT_EXPECTED}.`);
+    return { ...task, n, audit };
   });
 }
 
@@ -124,7 +135,8 @@ export function sampleFile(population: readonly SampleItem[], seed: string, task
   const want = Math.max(size, ...sized.map((task) => task.n));
   if (want > population.length) throw new RangeError(`The sample needs ${want} items, and the population has ${population.length}.`);
   const items = drawSample(population, seed, want);
-  return { version: SAMPLE_VERSION, seed, rule: RULE, tasks: sized, population: population.length, size: items.length, items };
+  const audit = Math.max(...sized.map((task) => task.audit));
+  return { version: SAMPLE_VERSION, seed, rule: RULE, tasks: sized, audit, population: population.length, size: items.length, items };
 }
 
 /**
