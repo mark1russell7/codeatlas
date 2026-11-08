@@ -12,7 +12,7 @@ import { atlasTools } from "./tools.ts";
 const VERSION = (JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }).version;
 
 /** The instructions of the MCP server. The MCP client gives them to the model. */
-export const MCP_INSTRUCTIONS =
+export const MCP_INSTRUCTIONS: string =
   "The tools answer questions of the codeatlas catalog of the public repositories. Ask them before you read code again. " +
   "Before you write a helper, call atlas.find with its name: it gives the copies of each function and the home of its name. " +
   "atlas.copies gives the copies of one function, atlas.homes gives the functions outside their homes, and atlas.importers gives the users of a package.";
