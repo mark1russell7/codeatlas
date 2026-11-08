@@ -22,6 +22,8 @@ node packages/atlas/src/cli.ts build --repos-dir <folder> --out atlas.json --mar
 node packages/atlas/src/cli.ts build template=../template packing=../packing --min-nodes 60
 node packages/atlas/src/cli.ts corpus --repos-dir <folder> --out corpus.json --markdown corpus.md
 node packages/atlas/src/cli.ts catalog --repos-dir <folder> --out catalog.sqlite --markdown catalog.md
+node packages/atlas/src/cli.ts trend --db catalog.sqlite [--previous trend.json] --out trend.json
+node packages/atlas/src/cli.ts queries --db catalog.sqlite --out queries.json
 node packages/atlas/src/cli.ts facts --repos-dir <folder> --out facts.jsonl --markdown facts.md [--cache <facts.jsonl>]
 node packages/atlas/src/cli.ts clone --owner <owner> --into <folder>
 node packages/site/src/build.ts --atlas atlas.json --out site
@@ -32,6 +34,8 @@ The scan reads the files that git keeps, so build output and `node_modules` stay
 ## The site
 
 The site at https://mark1russell7.github.io/codeatlas/ shows the newest atlas. It shows the topics, the repositories that share code, and each clone class with a link to each copy. The atlas data is at `data/atlas.json`, and the corpus is at `data/corpus.json`.
+
+The site also shows the answers of the query set of the catalog. These are the copies at each level, the exact copies, the complex functions and the markers. Each function links to its line at the commit of the scan. These answers are at `data/queries.json`. The trend of each build is at `data/trend.json`.
 
 ## CI
 

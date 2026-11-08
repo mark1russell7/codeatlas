@@ -1,7 +1,7 @@
 # Builds the atlas and the site, and publishes them to GitHub Pages at https://mark1russell7.github.io/codeatlas/,
 # with the shared Pages workflow of mark1russell7 (reusable-pages.yml of mark1russell7/template, its CI.md).
 # The build clones each public repository of the owner, scans it, and writes the atlas (data/atlas.json,
-# data/atlas.md) and the page that shows it. It also counts the corpus, builds the Layer 1a catalog and adds its point to the trend (data/trend.json). The schedule makes a new atlas each Monday. The stamps name the run
+# data/atlas.md) and the page that shows it. It also counts the corpus, builds the Layer 1a catalog, adds its point to the trend (data/trend.json), and writes the answers of the query set (data/queries.json). The schedule makes a new atlas each Monday. The stamps name the run
 # and the limit of the data, and the freshness gate reads them before the deploy.
 # The Pages source of the repository is "GitHub Actions" (Settings > Pages).
 name: Pages
@@ -56,6 +56,8 @@ jobs:
                node packages/atlas/src/cli.ts trend --db "$RUNNER_TEMP/catalog.sqlite" --out packages/site/dist/data/trend.json ;;
           *) echo "::error::The trend of the site gave HTTP $code."; exit 1 ;;
         esac
+        # The query set: the duplication of each level, the exact copies, the complex functions and the markers.
+        node packages/atlas/src/cli.ts queries --db "$RUNNER_TEMP/catalog.sqlite" --out packages/site/dist/data/queries.json
         cat "$RUNNER_TEMP/atlas.md" "$RUNNER_TEMP/corpus.md" "$RUNNER_TEMP/facts.md" >> "$GITHUB_STEP_SUMMARY"
       out: packages/site/dist
       timeout-minutes: 30
