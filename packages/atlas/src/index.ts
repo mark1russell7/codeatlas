@@ -26,7 +26,7 @@ export { agreementOf, OTHER_LIMIT } from "./agreement.ts";
 export type { AgreementFile, ConfusionCell, DraftLabel, OtherCheck, TaskAgreement } from "./agreement.ts";
 export { verdictOf } from "./verdict.ts";
 export type { PersonAnswer, TaskVerdict, TruthLabel, VerdictFile } from "./verdict.ts";
-export { homeFacts, labelsOfLine, precisionOf, raterOfText, REFERENCE_NOTE, REFERENCE_VERSION, referenceMarkdown, referenceOf } from "./reference.ts";
+export { homeFacts, labelsOfLine, precisionOf, raterOfText, REFERENCE_NOTE, REFERENCE_VERSION, referenceMarkdown, referenceOf, TEST_SUPPORT } from "./reference.ts";
 export type { FactLabel, LabelPrecision, PrecisionFile, Rater, RaterLabel, ReferenceFile, ReferenceLabel, ReferenceTask } from "./reference.ts";
 export { AUDIT_EXPECTED, SAMPLE_PLAN, SAMPLE_VERSION, auditOf, drawSample, populationOf, sampleFile, sizedTasks } from "./sample.ts";
 export type { SampleFile, SampleItem, SizedTask, TaskTarget } from "./sample.ts";
