@@ -167,7 +167,10 @@ From each `package.json` and its lockfile: the package, the dependency name, the
 - The view `current_manifest` gives the manifests of the current snapshots.
 - The query `rangeDrift` gives each dependency with two registry ranges or more. The query `pinnedDependencies` gives each range that the registry does not resolve.
 - The new tables do not change `CATALOG_SCHEMA`: a database of `codeatlas/2` gets them, and its blobs stay the cache.
-- The resolved versions from the lockfiles come in a next step.
+- The table `lockfile` has one row for each `pnpm-lock.yaml` of a snapshot: the path, the blob, the lockfile version and a parse error.
+- The table `resolution` has the resolved version of each dependency of each importer of a lockfile blob. The path of the manifest is from the folder of the lockfile.
+- The query `versionDrift` gives each dependency that the current lockfiles resolve to two versions or more.
+- A lockfile of npm (`package-lock.json`) is not read yet.
 
 ### `home`
 

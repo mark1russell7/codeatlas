@@ -1,5 +1,5 @@
 /**
- * The catalog database: the Layer 1a tables and the manifests of Layer 1c of `docs/SCHEMA.md` in one SQLite file, through `node:sqlite`.
+ * The catalog database: the Layer 1a tables, and the manifests and lockfiles of Layer 1c of `docs/SCHEMA.md`, in one SQLite file through `node:sqlite`.
  * The blob tables are also the cache of the scan. A rescan with the database of the last run parses only new blobs.
  */
 import { DatabaseSync, type StatementSync } from "node:sqlite";
@@ -7,6 +7,7 @@ import { factsKey, type BlobFacts, type FileRecord, type ScanCounts } from "./bl
 import { CLASS_MIN_NODES, type FactsSummary, type Unread } from "./summary.ts";
 import type { FileFacts, MarkerKind } from "./facts.ts";
 import type { ManifestRecord } from "./manifests.ts";
+import type { LockfileRecord } from "./lockfiles.ts";
 
 /** The version of the tables. A database of another version gets new tables. */
 export const CATALOG_SCHEMA: string = "codeatlas/2";
@@ -61,6 +62,15 @@ CREATE TABLE IF NOT EXISTS dependency (
   oid TEXT NOT NULL, field TEXT NOT NULL, name TEXT NOT NULL, "range" TEXT NOT NULL, kind TEXT NOT NULL, PRIMARY KEY (oid, field, name)
 );
 CREATE INDEX IF NOT EXISTS dependency_name ON dependency(name);
+CREATE TABLE IF NOT EXISTS lockfile (
+  snapshot TEXT NOT NULL REFERENCES snapshot(id), path TEXT NOT NULL, oid TEXT NOT NULL, version TEXT, parse_error TEXT,
+  PRIMARY KEY (snapshot, path)
+);
+CREATE TABLE IF NOT EXISTS resolution (
+  oid TEXT NOT NULL, manifest TEXT NOT NULL, field TEXT NOT NULL, name TEXT NOT NULL, specifier TEXT NOT NULL, version TEXT NOT NULL,
+  PRIMARY KEY (oid, manifest, field, name)
+);
+CREATE INDEX IF NOT EXISTS resolution_name ON resolution(name);
 CREATE TABLE IF NOT EXISTS label (
   subject TEXT NOT NULL, task TEXT NOT NULL, "by" TEXT NOT NULL, label TEXT NOT NULL, at TEXT NOT NULL, PRIMARY KEY (subject, task, "by")
 );
@@ -71,6 +81,8 @@ CREATE VIEW IF NOT EXISTS current_file AS
   SELECT s.repo, f.* FROM file f JOIN current_snapshot s ON s.id = f.snapshot;
 CREATE VIEW IF NOT EXISTS current_manifest AS
   SELECT s.repo, m.* FROM manifest m JOIN current_snapshot s ON s.id = m.snapshot;
+CREATE VIEW IF NOT EXISTS current_lockfile AS
+  SELECT s.repo, l.* FROM lockfile l JOIN current_snapshot s ON s.id = l.snapshot;
 `;
 
 /** The catalog database, with the statements of the scan. */
@@ -178,6 +190,7 @@ export class Catalog {
       this.db.prepare("DELETE FROM file WHERE snapshot = ?").run(id);
       // The rows of the other sources of the snapshot refer to it. Their put methods write them again
       this.db.prepare("DELETE FROM manifest WHERE snapshot = ?").run(id);
+      this.db.prepare("DELETE FROM lockfile WHERE snapshot = ?").run(id);
       this.db.prepare("DELETE FROM snapshot WHERE id = ?").run(id);
       this.db
         .prepare('INSERT INTO snapshot (id, repo, "commit", scanned_at, scanner, files, parsed, reused, errors) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
@@ -252,6 +265,19 @@ export class Catalog {
       for (const m of manifests) {
         manifest.run(snapshot, m.path, m.oid, m.facts?.name ?? null, m.facts?.version ?? null, m.facts?.private === true ? 1 : 0, m.error);
         for (const d of m.facts?.dependencies ?? []) dependency.run(m.oid, d.field, d.name, d.range, d.kind);
+      }
+    });
+  }
+
+/** This method puts the lockfiles of the snapshot `snapshot` in place of its old ones, as `putManifests` does. */
+  putLockfiles(snapshot: string, lockfiles: readonly LockfileRecord[]): void {
+    this.#transaction(() => {
+      this.db.prepare("DELETE FROM lockfile WHERE snapshot = ?").run(snapshot);
+      const lockfile = this.db.prepare("INSERT INTO lockfile (snapshot, path, oid, version, parse_error) VALUES (?, ?, ?, ?, ?)");
+      const resolution = this.db.prepare("INSERT OR IGNORE INTO resolution (oid, manifest, field, name, specifier, version) VALUES (?, ?, ?, ?, ?, ?)");
+      for (const l of lockfiles) {
+        lockfile.run(snapshot, l.path, l.oid, l.facts?.version ?? null, l.error);
+        for (const r of l.facts?.resolved ?? []) resolution.run(l.oid, r.manifest, r.field, r.name, r.specifier, r.version);
       }
     });
   }
