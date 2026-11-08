@@ -21,7 +21,7 @@ permissions: {}
 # Each pull request has its own group, so it does not cancel a deployment.
 concurrency:
   group: pages-${{ github.event_name == 'pull_request' && github.ref || 'deploy' }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   pages:
