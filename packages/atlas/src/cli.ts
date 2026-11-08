@@ -8,6 +8,7 @@
  * - `codeatlas facts [--out facts.jsonl] [--markdown facts.md] [--cache <facts.jsonl>] [--repos-dir <folder>] [<name>=<path> ...]`
  * - `codeatlas sample --db <catalog.sqlite> --out <sample.json>`
  * - `codeatlas agreement --sample <sample.json> --a <a.jsonl> --b <b.jsonl> --out <agreement.json>`
+ * - `codeatlas trend --db <catalog.sqlite> [--previous <trend.json>] --out <trend.json>`
  * - `codeatlas clone --owner <owner> --into <folder>`
  *
  * The command build scans each repository (each folder of --repos-dir, and each name=path), and writes the
@@ -17,6 +18,7 @@
  * The command facts writes the Layer 1a facts of each blob as JSON Lines. A cache from an earlier output saves each parse of a known blob.
  * The command sample draws the seeded sample of functions of `SAMPLE_PLAN` from a catalog, for the labels of Layer 2.
  * The command agreement compares two drafts of labels of the sample, and writes the kappa, the confusion and the audit.
+ * The command trend adds the point of a catalog to the trend file of the last build.
  */
 import { closeSync, openSync, readFileSync, readdirSync, statSync, writeFileSync, writeSync } from "node:fs";
 import { join } from "node:path";
@@ -26,6 +28,7 @@ import { queryOf } from "./query.ts";
 import { agreementOf, type DraftLabel } from "./agreement.ts";
 import { populationOf, sampleFile, SAMPLE_PLAN, type SampleFile } from "./sample.ts";
 import { Catalog } from "./store.ts";
+import { addPoint, trendPoint } from "./trend.ts";
 import { factsMarkdown, factsSummary, gateVerdict, type GateVerdict } from "./summary.ts";
 import { clonePublic } from "./clone.ts";
 import { buildCorpus, corpusMarkdown, corpusOfRepo } from "./corpus.ts";
@@ -79,6 +82,7 @@ const USAGE = `Usage:
   codeatlas catalog [--out catalog.sqlite] [--markdown catalog.md] [--repos-dir <folder>] [<name>=<path> ...]
   codeatlas sample --db <catalog.sqlite> --out <sample.json>
   codeatlas agreement --sample <sample.json> --a <a.jsonl> --b <b.jsonl> --out <agreement.json>
+  codeatlas trend --db <catalog.sqlite> [--previous <trend.json>] --out <trend.json>
   codeatlas facts [--out facts.jsonl] [--markdown facts.md] [--cache <facts.jsonl>] [--repos-dir <folder>] [<name>=<path> ...]
   codeatlas clone --owner <owner> --into <folder>`;
 
@@ -100,6 +104,7 @@ function main(argv: readonly string[]): number | Promise<number> {
   if (command === "catalog") return catalog(rest);
   if (command === "sample") return sample(rest);
   if (command === "agreement") return agreement(rest);
+  if (command === "trend") return trend(rest);
   if (command !== "build") {
     console.error(USAGE);
     return 2;
@@ -256,6 +261,29 @@ function agreement(argv: readonly string[]): number {
   }
   console.error(`agreement: the person labels ${file.person.length} items`);
   return file.other.pass ? 0 : 1;
+}
+
+/** This function adds the point of the catalog `--db` to the trend `--previous`, and writes the trend `--out`. */
+async function trend(argv: readonly string[]): Promise<number> {
+  const option = (name: string): string | undefined => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined);
+  const db = option("--db");
+  const out = option("--out");
+  const previous = option("--previous");
+  if (db === undefined || out === undefined) {
+    console.error(USAGE);
+    return 2;
+  }
+  const catalog = new Catalog(db);
+  try {
+    const point = await trendPoint(queryOf(catalog.db), new Date().toISOString(), FACTS_VERSION);
+    const file = addPoint(previous === undefined ? undefined : JSON.parse(readFileSync(previous, "utf8")), point);
+    writeFileSync(out, `${JSON.stringify(file)}
+`);
+    console.error(`trend: ${file.points.length} points, ${point.repos.length} repositories in the new point`);
+    return 0;
+  } finally {
+    catalog.close();
+  }
 }
 
 /** This function prints the annotations of the gates, and gives the exit code. */

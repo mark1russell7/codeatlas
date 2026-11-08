@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { Atlas, CloneClass, Member } from "@mark1russell7/codeatlas";
+import type { Atlas, CloneClass, Member, RepoPoint, Trend } from "@mark1russell7/codeatlas";
 import { ATLAS_LIMIT, atlasStamps, compilePage, dataLine, pageHtml, parseSiteArgs, readAtlas, scrollCueCss } from "./build.ts";
-import { matches, NO_FILTER, NO_TOPIC, pairShares, sourceUrl, stepOf, titleOf, topicRows } from "./page.ts";
+import { matches, NO_FILTER, NO_TOPIC, pairShares, repoChanges, sourceUrl, stepOf, titleOf, topicRows, trendRows } from "./page.ts";
 
 const member = (repo: string, name: string, test = false): Member => ({ repo, file: `src/${name}.ts`, line: 3, name, exported: true, test });
 
@@ -140,5 +140,40 @@ describe("the build", () => {
   it("gives no stamps for a build with no run, and the page says so", () => {
     expect(atlasStamps({}, "0.1.0", "2026-11-05T00:00:00.000Z")).toBeUndefined();
     expect(dataLine(undefined, "2026-11-05")).toContain("This build has no run.");
+  });
+});
+
+describe("the trend", () => {
+  const repo = (name: string, nodes: number, renamed: number): RepoPoint => ({
+    repo: name,
+    commit: "c",
+    files: 1,
+    functions: 1,
+    nodes,
+    duplicated: { exact: 0, renamed, shape: renamed },
+  });
+  const trend: Trend = {
+    version: "trend/1",
+    points: [
+      { at: "2026-11-09T06:40:00Z", scanner: "facts/1", repos: [repo("a", 100, 10), repo("b", 100, 30)] },
+      { at: "2026-11-16T06:40:00Z", scanner: "facts/1", repos: [repo("a", 200, 10), repo("b", 100, 40), repo("c", 50, 0)] },
+    ],
+  };
+
+  it("gives the ratio of all repositories at each point", () => {
+    expect(trendRows(trend).map((row) => [row.nodes, row.duplicated, row.ratio])).toEqual([
+      [200, 40, 0.2],
+      [350, 50, 50 / 350],
+    ]);
+    expect(trendRows(trend, "exact").map((row) => row.ratio)).toEqual([0, 0]);
+  });
+
+  it("gives the change of each repository since its first point, the largest growth first", () => {
+    expect(repoChanges(trend).map((row) => [row.repo, row.first, row.last])).toEqual([
+      ["b", 0.3, 0.4],
+      ["c", 0, 0],
+      ["a", 0.1, 0.05],
+    ]);
+    expect(repoChanges({ version: "trend/1", points: [] })).toEqual([]);
   });
 });
