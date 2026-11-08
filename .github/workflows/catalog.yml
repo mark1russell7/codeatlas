@@ -47,6 +47,8 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
+      # The coverage step reads the CI artifacts of the public repositories
+      actions: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -99,6 +101,14 @@ jobs:
           set -euo pipefail
           node packages/atlas/src/cli.ts breaks --db "$RUNNER_TEMP/catalog.sqlite" --markdown "$RUNNER_TEMP/breaks.md"
           tee -a "$GITHUB_STEP_SUMMARY" < "$RUNNER_TEMP/breaks.md"
+      # The coverage of the tests: the coverage artifacts of the CI of each repository, read into the catalog
+      - name: Coverage
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          node packages/atlas/src/cli.ts coverage --db "$RUNNER_TEMP/catalog.sqlite" --owner "$GITHUB_REPOSITORY_OWNER" --dir "$RUNNER_TEMP/coverage" --markdown "$RUNNER_TEMP/coverage.md"
+          tee -a "$GITHUB_STEP_SUMMARY" < "$RUNNER_TEMP/coverage.md"
       # Two roadmap items in two repositories that plan the same thing (CA5)
       - name: Planned duplication
         run: |

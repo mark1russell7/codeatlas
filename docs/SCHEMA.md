@@ -218,6 +218,20 @@ The scan starts each rule of `@mark1russell7/conventions` on the checkout of eac
 - The query `conventionsBreaks` gives the clean repositories, the breaks of each rule and the breaks of each repository. A repository is clean when it has no break and no rule throws.
 - The command `codeatlas breaks` writes it, and the catalog job adds it to the summary. The tool `atlas.rescan` checks the repository again too.
 
+### `coverage_run`, `coverage_file` and `coverage_function`
+
+The command `codeatlas coverage` reads the coverage of the tests from the CI artifacts of each repository.
+
+- An artifact counts when its name starts with `coverage`. The template standard is the artifact `coverage` of the action `coverage`.
+- The command takes the run of the commit of the snapshot on `main`. If that run has no artifact, it takes the newest run of `main`.
+- The table `coverage_run` has the run, its commit, its artifacts, and the count of the report keys that match no file.
+- The table `coverage_file` has the statements, branches, functions and lines of each file, from `coverage-summary.json`.
+- The table `coverage_function` has the hits of each function, from `coverage-final.json`. Only the template standard writes this file.
+- A report key is an absolute path of the CI runner. The longest tail of the key that is a file of the snapshot is its path.
+- A function of `coverage_function` joins a `symbol` by its file and the line of its name.
+- An artifact of another format, for example a list of floors, gets a run with no files.
+- The catalog job adds the report to the summary: the repositories with coverage, the lines, the functions, and the exported functions with no hit.
+
 ### `home`
 
 The areas of the map of homes, from `conventions map`: the area, its home packages, its home repository and its signatures.

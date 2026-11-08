@@ -12,6 +12,7 @@
  * - `codeatlas verdict --sample <sample.json> --a <a.jsonl> --agreement <agreement.json> --answers <answers.jsonl> --out <verdict.json>`
  * - `codeatlas trend --db <catalog.sqlite> [--previous <trend.json>] --out <trend.json>`
  * - `codeatlas drift --db <catalog.sqlite> [--out drift.json] [--markdown drift.md]`
+ * - `codeatlas coverage --db <catalog.sqlite> --owner <owner> --dir <folder> [--out coverage.json] [--markdown coverage.md]`
  * - `codeatlas clone --owner <owner> --into <folder>`
  * - `codeatlas mcp --db <catalog.sqlite>`
  * - `codeatlas tool <name> [<json input>] --db <catalog.sqlite>`
@@ -27,6 +28,7 @@
  * The command verdict compares the answers of the person with the audit, and writes the verdict and the labels of the truth.
  * The command trend adds the point of a catalog to the trend file of the last build.
  * The command queries writes the answers of the query set of a catalog as JSON, for the site.
+ * The command coverage reads the coverage artifacts of the CI of each repository into the catalog, and writes the report.
  * The command drift writes the drift of each repository from the template, and the share of the current repositories.
  * The command mcp serves the tools of agents over a catalog as MCP tools. The command tool calls one of them.
  */
@@ -57,6 +59,7 @@ import { addPoint, trendPoint } from "./trend.ts";
 import { querySet } from "./query-set.ts";
 import { factsMarkdown, factsSummary, gateVerdict, type GateVerdict } from "./summary.ts";
 import { clonePublic } from "./clone.ts";
+import { coverageMarkdown, coverageOfRepo, coverageReport, ghArtifacts } from "./coverage.ts";
 import { buildCorpus, corpusMarkdown, corpusOfRepo } from "./corpus.ts";
 import { atlasMarkdown } from "./report.ts";
 import { mcpCommand, toolCommand } from "./tools-cli.ts";
@@ -120,6 +123,7 @@ const USAGE = `Usage:
   codeatlas drift --db <catalog.sqlite> [--out drift.json] [--markdown drift.md]
   codeatlas breaks --db <catalog.sqlite> [--out breaks.json] [--markdown breaks.md]
   codeatlas planned --db <catalog.sqlite> [--out planned.json] [--markdown planned.md] [--min 0.25]
+  codeatlas coverage --db <catalog.sqlite> --owner <owner> --dir <folder> [--out coverage.json] [--markdown coverage.md]
   codeatlas clone --owner <owner> --into <folder>
   codeatlas mcp --db <catalog.sqlite> [--write]
   codeatlas tool <name> [<json input>] --db <catalog.sqlite>`;
@@ -148,6 +152,7 @@ function main(argv: readonly string[]): number | Promise<number> {
   if (command === "trend") return trend(rest);
   if (command === "drift") return drift(rest);
   if (command === "breaks") return breaks(rest);
+  if (command === "coverage") return coverage(rest);
   if (command === "planned") return planned(rest);
   if (command === "queries") return queries(rest);
   if (command === "mcp") return mcpCommand(rest);
@@ -529,6 +534,45 @@ async function breaks(argv: readonly string[]): Promise<number> {
     if (markdown !== undefined) writeFileSync(markdown, conventionsMarkdown(result));
     const total = result.broken.reduce((sum, r) => sum + r.breaks, 0);
     console.error(`breaks: ${result.clean.length} of ${result.checked} repositories clean, ${total} breaks of ${result.rules.length} rules`);
+    return 0;
+  } finally {
+    catalog.close();
+  }
+}
+
+/**
+ * This function reads the coverage artifacts of each current snapshot of the catalog `--db` into the catalog. A
+ * repository whose artifacts do not download gets a warning, not a failure.
+ */
+async function coverage(argv: readonly string[]): Promise<number> {
+  const option = (name: string): string | undefined => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined);
+  const db = option("--db");
+  const owner = option("--owner");
+  const dir = option("--dir");
+  if (db === undefined || owner === undefined || dir === undefined) {
+    console.error(USAGE);
+    return 2;
+  }
+  const catalog = new Catalog(db);
+  try {
+    const source = ghArtifacts(owner);
+    const snapshots = catalog.db.prepare('SELECT id, repo, "commit" AS "commit" FROM current_snapshot ORDER BY repo').all() as { id: string; repo: string; commit: string | null }[];
+    const pathsOf = catalog.db.prepare("SELECT path FROM file WHERE snapshot = ?");
+    for (const s of snapshots) {
+      try {
+        const paths = new Set((pathsOf.all(s.id) as { path: string }[]).map((row) => row.path));
+        const run = coverageOfRepo(source, s.repo, s.commit, paths, join(dir, s.repo));
+        if (run !== undefined) catalog.putCoverage(s.id, run);
+      } catch (error) {
+        console.log(`::warning::The coverage of ${s.repo} did not read: ${String(error).split("\n")[0]}`);
+      }
+    }
+    const result = await coverageReport(queryOf(catalog.db));
+    const out = option("--out");
+    const markdown = option("--markdown");
+    if (out !== undefined) writeFileSync(out, `${JSON.stringify(result)}\n`);
+    if (markdown !== undefined) writeFileSync(markdown, coverageMarkdown(result));
+    console.error(`coverage: ${result.covered.length} of ${result.repos} repositories have a coverage artifact`);
     return 0;
   } finally {
     catalog.close();

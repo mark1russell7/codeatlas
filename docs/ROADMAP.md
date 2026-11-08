@@ -8,7 +8,7 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 
 | ID | Status | Priority | Title |
 | --- | --- | --- | --- |
-| CA11 | in progress | P2 | Layer 1, more sources: coverage, dependency versions, template drift, conventions breaks |
+| CA11 | in progress: coverage from the CI artifacts is the last source | P2 | Layer 1, more sources: coverage, dependency versions, template drift, conventions breaks |
 | CA4 | in progress | P2 | The private repositories: a local scan into a separate private database |
 | CA5 | in progress: 17 of 41 pairs are right (0.41), and `homeHas` names the module of a home | P2 | Planned duplication: two roadmap items in two repositories that make the same thing |
 
