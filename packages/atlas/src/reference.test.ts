@@ -134,6 +134,33 @@ describe("moveOf and the rows of the map", () => {
   });
 });
 
+describe("moveOf and the verdicts of the owners", () => {
+  // The fixtures: 8 moves of the first run that their owners judged wrong. Each file imports a package of the home
+  // and calls it for the general part. The rest of each function is local policy.
+  const judgedWrong = [
+    { repo: "client", path: "scripts/server-request.ts", name: "fitOf", area: "statistics", imports: ["@mark1russell7/rigor-statistics"] },
+    { repo: "systems", path: "packages/site/src/lib/stamps.ts", name: "runOf", area: "repo-structure", imports: ["@mark1russell7/site-pages"] },
+    { repo: "systems", path: "packages/site/src/lib/stamps.ts", name: "siteDataStamps", area: "repo-structure", imports: ["@mark1russell7/site-pages"] },
+    { repo: "systems", path: "packages/harness/src/verdict.ts", name: "spreadOf", area: "statistics", imports: ["@mark1russell7/rigor-statistics"] },
+    { repo: "systems", path: "packages/kind/src/quiet.ts", name: "baselineOf", area: "statistics", imports: ["@mark1russell7/rigor-statistics"] },
+    { repo: "layout-contract", path: "packages/joint/src/joint-measures.ts", name: "spearman", area: "statistics", imports: ["@mark1russell7/rigor-statistics"] },
+    { repo: "layout-contract", path: "packages/joint/src/analysis.ts", name: "bootstrap", area: "statistics", imports: ["@mark1russell7/rigor-statistics"] },
+    { repo: "typeset", path: "packages/corpus/src/generate.ts", name: "fingerprint", area: "random", imports: ["@mark1russell7/rigor-generators"] },
+  ] as const;
+
+  it("gives no pull request for code whose file imports the home", () => {
+    for (const m of judgedWrong) {
+      expect(moveOf({ repo: m.repo, app: false }, m.area), m.name).toBe("pr");
+      expect(moveOf({ repo: m.repo, app: false, imports: [...m.imports, "node:fs"] }, m.area), m.name).toBe("uses the home");
+    }
+  });
+
+  it("gives a pull request when the file imports only other packages", () => {
+    expect(moveOf({ repo: "lag", app: false, imports: ["node:fs", "@mark1russell7/conventions"] }, "statistics")).toBe("pr");
+    expect(moveOf({ repo: "lag", app: false, imports: [] }, "statistics")).toBe("pr");
+  });
+});
+
 describe("homeFacts", () => {
   it("finds the files of test support, and no other file", () => {
     const support = ["packages/lag/src/vitals/test-fakes.ts", "src/testing/git-repo.ts", "src/fakes/clock.ts", "src/mock.ts", "src/http.stub.mts"];
@@ -162,6 +189,23 @@ describe("homeFacts", () => {
     expect(facts).toEqual([{ subject, task: "home", label: "statistics", fact: "an exported copy in @mark1russell7/rigor-statistics (rigor/packages/statistics/src/spread.ts:1)", move: "pr" }]);
     // The copy in the home package itself is its own place, so the home function gets no fact from itself
     expect(await homeFacts(q, [item(subject, "rigor", "packages/statistics/src/spread.ts")])).toEqual([]);
+    catalog.close();
+  });
+
+  it("gives the move uses the home when the file of the item imports the home", async () => {
+    const catalog = new Catalog(":memory:");
+    const body = "export function spread(values: number[]): number {\n  let low = values[0] ?? 0;\n  let high = low;\n  for (const v of values) {\n    if (v < low) low = v;\n    if (v > high) high = v;\n  }\n  return high - low;\n}\n";
+    const put = (name: string, files: Readonly<Record<string, string>>): void => {
+      const root = repos.with(files);
+      const scan = factsOfRepo(name, root, catalog);
+      const snapshot = catalog.putSnapshot(name, "c0", "2026-11-08T00:00:00Z", "test", scan.files, scan.counts);
+      catalog.putManifests(snapshot, manifestsOfRepo(root));
+    };
+    put("rigor", { "packages/statistics/package.json": '{"name":"@mark1russell7/rigor-statistics"}', "packages/statistics/src/spread.ts": body });
+    put("app", { "package.json": '{"name":"app"}', "src/a.ts": `import { median } from "@mark1russell7/rigor-statistics";\nexport const m = median;\n${body.replace("spread", "range")}` });
+    const q = queryOf(catalog.db);
+    const subject = (await q.selectFrom("current_file as f").innerJoin("symbol as s", "s.blob", "f.blob").select("s.hash_renamed as h").where("f.repo", "=", "app").where("s.name", "=", "range").executeTakeFirstOrThrow()).h!;
+    expect((await homeFacts(q, [item(subject, "app", "src/a.ts")])).map((f) => f.move)).toEqual(["uses the home"]);
     catalog.close();
   });
 });

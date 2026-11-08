@@ -36,9 +36,10 @@ export interface FactLabel extends RaterLabel {
 
 /**
  * The kind of a move of code to its home. `pr` is a pull request to the home. `planned` goes to the gap list of a
- * planned home. `blocked by the rule` is a move that the dependency rules forbid. `none` is no move.
+ * planned home. `blocked by the rule` is a move that the dependency rules forbid. `uses the home` is code whose file
+ * already imports the home, so its own part is local policy. `none` is no move.
  */
-export type MoveKind = "pr" | "planned" | "blocked by the rule" | "none";
+export type MoveKind = "pr" | "planned" | "blocked by the rule" | "uses the home" | "none";
 
 /** The package that holds the code of a move: its repository, its name, and true when it is an app (`private` in its manifest). */
 export interface MoveCaller {
@@ -46,6 +47,8 @@ export interface MoveCaller {
   readonly app: boolean;
   /** The name of the package. A package of the home is in its home, also in another repository of the home. */
   readonly name?: string;
+  /** The packages that the file of the code imports. */
+  readonly imports?: readonly string[];
 }
 
 /**
@@ -58,13 +61,16 @@ const HOME_OF_AREA = new Map(HOMES.map((home) => [home.area, home] as const));
 
 /**
  * This function gives the kind of the move of code in `caller` to the home of the area `area`. A label that names a
- * home must also obey the dependency rules. Thus a general package gets no move to a home in a monorepo.
+ * home must also obey the dependency rules. Thus a general package gets no move to a home in a monorepo. Code whose
+ * file imports a package of the home gets no pull request. The owners of the first moves found that such code uses
+ * the home for its general part. Its own part is local policy.
  */
 export function moveOf(caller: MoveCaller, area: string): MoveKind {
   const home = HOME_OF_AREA.get(area);
   if (home === undefined) return "none";
   const repo = home.repo.slice(home.repo.indexOf("/") + 1);
   if (repo === caller.repo || (caller.name !== undefined && home.packages.includes(caller.name))) return "none";
+  if (caller.imports?.some((name) => home.packages.includes(name)) === true) return "uses the home";
   if (home.state === "planned" || home.state === "none") return "planned";
   if (MONOREPOS.has(repo) && !MONOREPOS.has(caller.repo) && !caller.app) return "blocked by the rule";
   return "pr";
@@ -289,6 +295,16 @@ export async function homeFacts(q: CatalogQuery, items: readonly SampleItem[]): 
     return best;
   };
   const packageOf = (repo: string, path: string): string | undefined => manifestOf(repo, path)?.name;
+  const imported = await q
+    .selectFrom("current_file as f")
+    .innerJoin("import as i", "i.blob", "f.blob")
+    .where("f.path", "in", [...new Set(items.map((item) => item.path))])
+    .where("i.package", "is not", null)
+    .select(["f.repo as repo", "f.path as path", "i.package as package"])
+    .distinct()
+    .execute();
+  const importsOf = new Map<string, string[]>();
+  for (const row of imported) if (row.package !== null) importsOf.set(`${row.repo}/${row.path}`, [...(importsOf.get(`${row.repo}/${row.path}`) ?? []), row.package]);
   const copies = await q
     .selectFrom("current_file as f")
     .innerJoin("symbol as s", "s.blob", "f.blob")
@@ -317,7 +333,8 @@ export async function homeFacts(q: CatalogQuery, items: readonly SampleItem[]): 
       const [area, fact] = [...found][0]!;
       const item = placeOf.get(subject)!;
       const manifest = manifestOf(item.repo, item.path);
-      const move = moveOf({ repo: item.repo, app: manifest?.app ?? false, ...(manifest === undefined ? {} : { name: manifest.name }) }, area);
+      const imports = importsOf.get(`${item.repo}/${item.path}`) ?? [];
+      const move = moveOf({ repo: item.repo, app: manifest?.app ?? false, imports, ...(manifest === undefined ? {} : { name: manifest.name }) }, area);
       return { subject, task: "home", label: area, fact, move };
     })
     .sort((a, b) => (a.subject < b.subject ? -1 : 1));
