@@ -33,6 +33,12 @@ export function factsKey(blob: string, path: string): string {
   return `${blob}:${syntaxOf(path)}:${FACTS_VERSION}`;
 }
 
+/** The cache of the facts: a `Map`, or the catalog database (`Catalog` of `store.ts`). */
+export interface FactsCache {
+  has(key: string): boolean;
+  set(key: string, value: BlobFacts): unknown;
+}
+
 /** The counts of one scan, for the cost gate: each blob that a parse read, and each blob that the cache gave. */
 export interface ScanCounts {
   readonly files: number;
@@ -64,7 +70,7 @@ export function treeOf(root: string): TreeEntry[] {
  * This function gives the file records of the sources of one repository, and puts the facts of each new blob in
  * `cache`. The text of a blob comes from the worktree, which must be a clean checkout of HEAD.
  */
-export function factsOfRepo(repo: string, root: string, cache: Map<string, BlobFacts>, tree: readonly TreeEntry[] = treeOf(root)): { readonly files: FileRecord[]; readonly counts: ScanCounts } {
+export function factsOfRepo(repo: string, root: string, cache: FactsCache, tree: readonly TreeEntry[] = treeOf(root)): { readonly files: FileRecord[]; readonly counts: ScanCounts } {
   const files: FileRecord[] = [];
   let parsed = 0;
   let reused = 0;
