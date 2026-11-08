@@ -1,6 +1,6 @@
 # The schema of the catalog
 
-Status: draft for review, 2026-11-07. Schema version: `codeatlas/2`.
+Status: reviewed, 2026-11-07. The review changes are in the section [Review](#review). Schema version: `codeatlas/2`.
 
 The catalog keeps all code of all repositories in one database. Each fact is a row of a typed relation. Questions about quality, features and duplication are then queries of these relations.
 
@@ -35,10 +35,16 @@ Layer 1a is the bulk of the facts and its cache is perfect: a blob does not chan
 | Snapshot | `<repo>@<commit>` | `packing@0933cc0d…` |
 | Symbol | `<blob>#<path in the file>`. The path is the chain of the names of the declarations that hold the symbol, with an ordinal for each anonymous one. | `3b18e5…#Shelf.place`, `3b18e5…#default/arrow[2]` |
 | Package | `<snapshot>/<folder of package.json>` | `packing@0933cc0d…/packages/core` |
+| Lineage | `(repo, path, qualified name)` | `(packing, src/shelf.ts, Shelf.place)` |
 | Finding | The hash of `(subject, category, rule, source)` | |
-| Judgment | `(subject, task, prompt version, model)` | `(3b18e5…#mean, purpose, purpose/1, <model id>)` |
+| Judgment of a function | `(hash_renamed, task, prompt version, model)` | `(9f2c41…, purpose+home, purpose-home/1, <model id>)` |
+| Judgment of another subject | `(subject, task, prompt version, model)` | `(packing@0933cc0d…/packages/core, features, features/1, <model id>)` |
 
 A symbol key does not change when the file moves or when another file changes. It changes only when its own file changes.
+
+The lineage key follows one function over commits: its repository, its path and its qualified name. A symbol key changes at each edit of its file, but its lineage key stays. The trend reads the lineage key. A move or a rename of the function starts a new lineage.
+
+The key of a judgment of a function is its `hash_renamed`, not its symbol key. Each copy of a `renamed` class then reuses one judgment, and an edit that keeps the hash pays nothing.
 
 ## Entities
 
@@ -103,6 +109,7 @@ A declaration of a file: a function, a method, a class, a variable, a type, an i
 | `name` | text | The name, or the name of the variable or the property that holds an anonymous function. |
 | `kind` | text | `function`, `method`, `class`, `variable`, `type`, `interface`, `enum`, `namespace` |
 | `parent` | text or null | The symbol that holds this one. |
+| `qualified_name` | text | The chain of the names, as in the key. With the repository and the path of a file, it is the lineage key. |
 | `line`, `end_line` | integer | |
 | `exported` | boolean | An export of its file. |
 | `async`, `generator` | boolean | |
@@ -183,7 +190,7 @@ A fact about a subject that tells of a problem or a risk.
 
 | Column | Type | Meaning |
 | --- | --- | --- |
-| `subject`, `task`, `prompt`, `model` | key | `prompt` is the version of the prompt. |
+| `subject`, `task`, `prompt`, `model` | key | For a function, `subject` is its `hash_renamed`. For a package or a file, it is the key of the package or the file. `prompt` is the version of the prompt. |
 | `result` | JSON | The answer, in the schema of the task. |
 | `input_tokens`, `output_tokens` | integer | The cost. |
 | `at` | time | |
@@ -205,7 +212,7 @@ Each scan and each gate is a `run` (kind, commit, time, CI run link, CPU model).
 | Relation | From | To | Layer | Meaning |
 | --- | --- | --- | --- | --- |
 | `contains` | snapshot, package, file | file, symbol | 1a | The tree of the code. |
-| `imports` | file | file or package | 1a, 1b | A resolved import. 1a resolves relative paths. 1b resolves paths with `tsconfig` and the `exports` of packages. |
+| `imports` | file | file or package | 1a, 1b | A resolved import. 1a resolves relative paths, and it maps a package name to a package of the catalog through the `exports` of its `package.json`, with no install. 1b resolves the paths of `tsconfig` and the chains of re-exports. |
 | `calls` | symbol | symbol | 1a, 1b | A resolved call. 1a resolves a call of an imported or a local name. 1b resolves a method call with the types. |
 | `clones` | symbol | symbol | 3 | Two symbols with one hash at one level, of 40 nodes or more. |
 | `tests` | test symbol or test file | symbol or file | 1a, 1c | The test imports the subject or has a call site of it, or the coverage of the test reaches it. |
@@ -240,7 +247,7 @@ Each category is a set of rules. The column "Layer" tells which layer finds it.
 | Tests | test kinds (unit, property, metamorphic, end-to-end, bench), exports with no test, coverage gaps | 1a, 1c |
 | Gates | each gate of CI and the source of its limit (a number from runs, or a number with no source) | 1c, 2 |
 | Security | a shell command as one string, a regular expression that can take exponential time, a path that can leave its folder, a secret in the code | 1a |
-| Leaks | a private name in a public repository | 1a |
+| Leaks | a private name in a public repository (refer to [Private names](#private-names)) | 1a |
 | Async and performance | a promise with no `await` and no handler, `await` in a loop, a sync file call in a server path | 1a, 1b |
 | Debt | the markers, a function above a limit of size or of decision points, a dead export | 1a, 1b |
 | Prose | a doc comment or a README that breaks a rule of STE | 1c |
@@ -260,7 +267,7 @@ A measure is a function of the relations. Each one has a definition and one or m
 | Duplicated nodes of a level | The sum over the classes of the level that no larger class of the same level holds. | Monotone in the chain: `exact ≤ renamed ≤ shape`. |
 | Duplication ratio | Duplicated nodes divided by the nodes of the top functions. | Between 0 and 1. |
 | Reach of a symbol | The symbols at the end of its `calls` chains, at any depth. | The transitive closure of `calls`. A symbol reaches each symbol that its callees reach. |
-| Users of an export | The files of other packages that import it. | 0 users and no test gives a dead export. |
+| Users of an export | The files of other packages that import it. | 0 users and no test gives a dead export. Until 1b exists, the measure is a 1a bound: a re-export chain can hide a user. |
 | Test gap | The exports with no `tests` relation. | A subset of the exports. |
 | Freshness of a repository | The time from its newest commit to its newest scan. | 0 or more. A gate limits it. |
 | Cost per 1000 lines | The tokens of the judgments of a task, divided by the lines of their subjects, times 1000. | Measured on the pilot. A gate limits it. |
@@ -283,9 +290,15 @@ The algebra is the relational algebra over these relations: selection, projectio
 | Scan errors | Files with a parse error, of each repository | Taken from 5 runs or more. |
 | Freshness | Freshness of each repository | One week plus the time of one scan. |
 | Cost | Cost per 1000 lines of each task | Taken from the pilot. |
-| Precision | Precision of each category of Layer 2 | Taken from the labeled sample. |
+| Precision | Precision of each category of Layer 2 | The lower end of the Wilson 95 % interval is at or above the target of the category. |
 
 A limit comes from measured runs, with the run ids and the formula next to the number.
+
+The precision gate decides the size of the sample. For a target `p` and an expected precision above it, the sample must be large enough that the Wilson lower end can reach `p`. The Wilson interval comes from `@mark1russell7/rigor-statistics`, its home. The catalog has no local copy of it.
+
+## Private names
+
+The list of private names is not in this repository. The scan reads it at scan time from a private source, a secret of CI. The public data keeps only a salted hash of each name. The public site removes the evidence line of a leak finding and of a secret finding.
 
 ## Scale
 
@@ -295,9 +308,33 @@ The cost of Layer 2 is the main cost. Two choices make it smaller:
 
 - An agent reads each `renamed` class one time, not each copy.
 - An agent reads only the symbols of a task: for the purpose, the exported functions outside tests with 40 nodes or more.
+- One judgment of a class gives two answers: the purpose and the home. One read then costs approximately half of two reads.
 
-## Questions for the review
+The pilot also measures the models. The same labeled sample goes to two or three models. Each task then gets the cheapest model that passes its precision gate. The model is a part of the key of a judgment, so the results of two models do not mix.
 
-1. Is the git blob id a good key for the facts of a file? The alternative is a SHA-256 of the content, which costs a read of each file.
-2. Is it correct to keep Layer 1b (the type checker) out of the first scanner? Layer 1a resolves the call sites of imported names without an install.
-3. Which categories come first in the pilot of Layer 2? The draft order is purpose, home, features, then the findings that need judgment.
+## Order of the judgments
+
+1. Purpose and home, in one judgment of a class.
+2. The features of each package.
+3. The findings that need judgment.
+
+## Queries as tools for agents
+
+Layer 3 is also a tool for agents. The queries are procedures, served as MCP tools through `@procedures`. A session then asks the catalog "does this function have a home?" before it writes a helper. It asks the catalog and does not read the code again, so a repeat of a question is fast and cheap.
+
+## Review
+
+The review of 2026-11-07 answered the three questions of the draft.
+
+1. The git blob id is the key of the facts of a file. It is a content hash with no read of the file, and the corpus is not hostile.
+2. Layer 1a comes first. Layer 1b comes second, for method calls and chains of re-exports. A measure that needs 1b says "1a bound" until then.
+3. Purpose and home come first, in one judgment of a class. Then features, then the findings that need judgment.
+
+It also added six changes:
+
+1. The key of a judgment of a function is its `hash_renamed`.
+2. The lineage key.
+3. The private names stay out of public data.
+4. The Wilson precision gate.
+5. The pilot measures the models.
+6. The queries are tools for agents.
