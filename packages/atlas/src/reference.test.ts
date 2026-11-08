@@ -1,3 +1,4 @@
+import { HOMES } from "@mark1russell7/conventions";
 import { afterAll, describe, expect, it } from "vitest";
 import { factsOfRepo } from "./blobs.ts";
 import { manifestsOfRepo } from "./manifests.ts";
@@ -109,6 +110,27 @@ describe("moveOf", () => {
     expect(moveOf({ repo: "client", app: false }, "system-io")).toBe("none");
     expect(moveOf(general, "prose")).toBe("none");
     expect(moveOf(general, "none")).toBe("none");
+    // A home package in another repository of the area is in its home
+    expect(moveOf({ repo: "otel-ts", app: false, name: "@mark1russell7/otel-ts" }, "browser-monitoring")).toBe("none");
+    expect(moveOf({ repo: "otel-ts", app: false }, "browser-monitoring")).toBe("pr");
+  });
+});
+
+describe("moveOf and the rows of the map", () => {
+  it("gives no move for a package of a home in a repository that is not the home repository", () => {
+    // The fixtures: two home packages of browser-monitoring, each in its own repository, not in the home repository
+    const row = HOMES.find((home) => home.area === "browser-monitoring")!;
+    for (const [repo, name] of [["otel-ts", "@mark1russell7/otel-ts"], ["page-lifecycle-tracker", "page-lifecycle-tracker"]] as const) {
+      expect(row.packages).toContain(name);
+      expect(row.repo.endsWith(`/${repo}`)).toBe(false);
+      expect(moveOf({ repo, app: false, name }, row.area)).toBe("none");
+    }
+  });
+
+  it("gives no move for each package of each row of the map, from any repository", () => {
+    for (const home of HOMES) {
+      for (const name of home.packages) expect(moveOf({ repo: "another-repo", app: false, name }, home.area), `${home.area} ${name}`).toBe("none");
+    }
   });
 });
 

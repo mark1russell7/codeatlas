@@ -40,10 +40,12 @@ export interface FactLabel extends RaterLabel {
  */
 export type MoveKind = "pr" | "planned" | "blocked by the rule" | "none";
 
-/** The package that holds the code of a move: its repository, and true when it is an app (`private` in its manifest). */
+/** The package that holds the code of a move: its repository, its name, and true when it is an app (`private` in its manifest). */
 export interface MoveCaller {
   readonly repo: string;
   readonly app: boolean;
+  /** The name of the package. A package of the home is in its home, also in another repository of the home. */
+  readonly name?: string;
 }
 
 /**
@@ -62,7 +64,7 @@ export function moveOf(caller: MoveCaller, area: string): MoveKind {
   const home = HOME_OF_AREA.get(area);
   if (home === undefined) return "none";
   const repo = home.repo.slice(home.repo.indexOf("/") + 1);
-  if (repo === caller.repo) return "none";
+  if (repo === caller.repo || (caller.name !== undefined && home.packages.includes(caller.name))) return "none";
   if (home.state === "planned" || home.state === "none") return "planned";
   if (MONOREPOS.has(repo) && !MONOREPOS.has(caller.repo) && !caller.app) return "blocked by the rule";
   return "pr";
@@ -314,7 +316,8 @@ export async function homeFacts(q: CatalogQuery, items: readonly SampleItem[]): 
     .map(([subject, found]) => {
       const [area, fact] = [...found][0]!;
       const item = placeOf.get(subject)!;
-      const move = moveOf({ repo: item.repo, app: manifestOf(item.repo, item.path)?.app ?? false }, area);
+      const manifest = manifestOf(item.repo, item.path);
+      const move = moveOf({ repo: item.repo, app: manifest?.app ?? false, ...(manifest === undefined ? {} : { name: manifest.name }) }, area);
       return { subject, task: "home", label: area, fact, move };
     })
     .sort((a, b) => (a.subject < b.subject ? -1 : 1));
