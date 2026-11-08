@@ -11,6 +11,7 @@
  *
  * The command build scans each repository (each folder of --repos-dir, and each name=path), and writes the
  * atlas as JSON and as Markdown. The command corpus counts the files, lines and bytes of each kind in the same repositories.
+ *
  * The command catalog writes the same facts into a SQLite database. Its blobs are the cache of the next run.
  * The command facts writes the Layer 1a facts of each blob as JSON Lines. A cache from an earlier output saves each parse of a known blob.
  * The command sample draws the seeded sample of functions of `SAMPLE_PLAN` from a catalog, for the labels of Layer 2.
