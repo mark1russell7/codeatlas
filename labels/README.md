@@ -8,6 +8,10 @@ This folder holds the hand-labeled sample of Layer 2. `docs/SCHEMA.md` gives the
 | `homes.json` | The map of homes of `@mark1russell7/conventions` 0.15.0 (`conventions map --json`). The task `home` labels an area of this map. |
 | `draft-a.jsonl`, `draft-b.jsonl` | The two blind drafts of the 130 items: the area, the category and the sentence of each. |
 | `rater-c.jsonl` | A third blind model rater of the 97 items of the audit: the home, the category and a verdict on the sentence. It is not a person. |
+| `owners-1.jsonl` | The verdicts of the owners of the copies on 50 moves of `moves-1.md`, each with its reason. |
+| `missed-1.jsonl` | The copies that the owners found and the atlas did not list. |
+| `members-1.jsonl` | The other copies of each clone class of the subset, with their moves. The lists named only one copy of each class. |
+| `owner-homes-1.jsonl` | The home of each of the 50 functions with an owner verdict, from that verdict. It is a labeled sample for CA12. |
 | `pilot-1.jsonl` | The labels of the first pilot of Layer 2 (CA13): 172 functions of `otel-ts`, `page-lifecycle-tracker` and `ste-lint`, from one blind model. |
 
 The command `codeatlas sample` wrote `sample.json` from the catalog of the CI run 42455568174, at the commit `1b710df` of this repository. The function of an item is at its `repo`, `commit`, `path` and lines `line` to `endLine`.
@@ -34,14 +38,33 @@ The pilot labels each function of three repositories with the population rule of
 - `moveOf` gives 154 pull requests, 127 moves to planned homes, 13 moves that the dependency rules block, and 705 cases with no move.
 - Three of the blocked moves (`canonicalJson` two times, `stableStringify`) have a home now: `@mark1russell7/rigor-generators` 0.1.7. Thus the file has 157 pull requests and 10 blocked moves.
 - That was 12.2 pull requests for each 100k tokens. The owners of the copies then checked the moves, and the precision of the raters did not hold.
-- The owner precision: the owners checked 50 of the 157 moves with a test or a read of the home. 9 were right: 0.180 [0.098, 0.308]. 2 more were right in part, 3 are right after a change of the home, and 4 are real copies with another home. 32 were wrong. `owners-1.jsonl` has each verdict with its reason.
+- The owner precision: the owners checked 50 of the 157 moves with a test or a read of the home. 8 were right: 0.160 [0.083, 0.285]. 2 more were right in part, 4 are right after a change of the home, and 4 are real copies with another home. 32 were wrong. `owners-1.jsonl` has each verdict with its reason.
 - The precision of the 3 raters (0.900) and the owner precision measure different things. A rater sees only the function. An owner sees the home too. Report both, each with its count.
-- The main cause of the wrong moves: 21 of the 157 functions are in a file that imports the home. They call the home for the general part, and the rest is local policy. All 8 of them with a verdict were wrong. `moveOf` now gives them the kind `uses the home`, and no pull request.
-- Thus the file has 136 pull requests, 21 functions that use the home, and 10 blocked moves. The owners checked 42 of the 136, and 9 were right: 0.214 [0.117, 0.359].
-- At that precision, about 29 of the 136 are right, from 16 to 49. That is about 2.3 correct pull requests for each 100k tokens.
-- `moves-1.md` lists the 136 moves by repository. The owner of each copy checks each move with a test before a pull request.
+- A cause of the wrong moves: some functions call a function of the home for the general part, and the rest is local policy. 8 of the 157 do so. All 6 of them with a verdict were wrong. `moveOf` now gives them the kind `uses the home`, and no pull request.
+- A first rule took off each function in a file that imports the home: 21 functions. The owner of 6 of them found full local copies. An import alone is not a use, so the rule now reads the calls of the body.
+- Thus the file has 149 pull requests, 8 functions that use the home, and 10 blocked moves. The owners checked 44 of the 149, and 8 were right: 0.182 [0.095, 0.320].
+- The map of homes has two new planned areas: `files` (`mark1russell7/files`) and `plain-text` (`mark1russell7/text`). Thus 6 blocked moves go to them as planned moves, with the field `relabel`. The file has 133 planned moves and 4 blocked moves.
+- The 4 blocked moves are `commitOf`, two `stopTree` functions and `writeZip`. Their home is a package of the monorepo, so the dependency rule still blocks them. Each has the reason in the field `reason`. No home has a plain layer for commands, git and process trees yet.
+- At that precision, about 27 of the 149 are right, from 14 to 48. That is about 2.1 correct pull requests for each 100k tokens.
+- The owner recall: the owners found 7 copies that the atlas did not list. The field `cause` of `missed-1.jsonl` gives the cause of each miss.
+- `inline` (5): a formula inside a larger function, with no function of its own. Layer 1 hashes functions, so it does not see them.
+- `listing` (1): the subset keeps one item of each clone class. The moves list named only that item, so the other copy of the class reached no owner.
+- `unique` (1): a copy with a unique name and unique hashes. The subset rule needs a clone class or a shared name, so it does not see such a copy.
+- Of the 15 real copies that the owners moved, the atlas listed 8: 0.533 [0.301, 0.752]. This recall is only for the code of the owners that answered.
+- `moves-1.md` lists the 149 moves by repository. The owner of each copy checks each move with a test before a pull request.
 - The labels have a text kind. There are 157 plain string helpers in 25 repositories, 12 Markdown parsers, 7 text measurement functions and 3 functions for English word forms.
 - No two of the 157 plain string helpers have the same shape. Thus 157 is a count by purpose, not a count of clones.
+
+## The owner sample for CA12
+
+The owners of the copies are the agents that keep each repository. They read the home and test the behavior. Thus their verdicts give a labeled sample of the task `home`. `owner-homes-1.jsonl` has this sample.
+
+- The rule: a verdict `right`, `partial` or `later` keeps the area of the model. `wrong-home` gives the other area of the reason. `wrong` gives the home `none`.
+- The model labeled the home of 14 of the 50 correctly: 0.280 [0.175, 0.417]. The move precision is lower (0.160), because a correct area can wait for its home.
+- 32 of the 50 have the home `none`. The model sees a general helper. The owner sees local policy that the home does not cover.
+- The sample is not random. It has only functions with a proposed move. Thus it measures the precision of the moves, not the recall.
+- No person labeled it. The owners are agents with tests, so it is better evidence than a blind rater, but it is not a human truth set.
+- `raterOfText` reads the file as a rater, with the field `home` of each line.
 
 ## Gaps of the map
 
