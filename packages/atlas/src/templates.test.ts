@@ -11,6 +11,7 @@ import {
   keepListOf,
   localForm,
   pinFreshness,
+  pinAge,
   pinLag,
   pinsOf,
   stampCheckOfRepo,
@@ -273,6 +274,50 @@ describe("pinFreshness", () => {
     expect(markdown).toContain(`- Pin lag: with its oldest pin, the median repository is **2 commits** and **4 days** behind \`${C.slice(0, 7)}\` of the template. The worst is other, with 2 commits and 4 days.`);
     expect(markdown).toContain("- Lag not known: `unknown`.");
     expect(markdown).toContain(`| bumped | \`${B.slice(0, 7)}\` | 1 | 2 |`);
+  });
+
+  it("finds the oldest change after each ref of each file that differs at the commit of the template", () => {
+    const setup = ".github/actions/setup/action.yml";
+    const expected = [
+      { ref: A, path: setup, changedAt: "2026-11-03T00:00:00.000Z" },
+      { ref: A, path: other, changedAt: "2026-11-05T00:00:00.000Z" },
+      { ref: B, path: other, changedAt: "2026-11-05T00:00:00.000Z" },
+    ];
+    const key = (c: { ref: string; path: string }): string => `${c.ref} ${c.path}`;
+    expect([...versions.changes].sort((a, b) => key(a).localeCompare(key(b)))).toEqual(expected.sort((a, b) => key(a).localeCompare(key(b))));
+  });
+
+  it("gives the age of the oldest change that each repository does not have, its quantiles and the gate", async () => {
+    const age = await pinAge(q);
+    const setup = { ref: A, path: ".github/actions/setup/action.yml", changedAt: "2026-11-03T00:00:00.000Z" };
+    expect(age).toEqual({
+      commit: C,
+      at: "2026-11-08T00:00:00Z",
+      limit: 3,
+      repos: [
+        { repo: "other", days: 5, oldest: setup },
+        { repo: "stale", days: 5, oldest: setup },
+        { repo: "bumped", days: 0, oldest: null },
+      ],
+      unknown: ["unknown"],
+      p50: 5,
+      p90: 5,
+      over: [
+        { repo: "other", days: 5, oldest: setup },
+        { repo: "stale", days: 5, oldest: setup },
+      ],
+      pass: false,
+    });
+    // The age grows with the time of the measure, and not with the count of the commits of the template
+    const early = await pinAge(q, { at: "2026-11-06T00:00:00Z" });
+    expect([early.p90, early.pass, early.over]).toEqual([3, true, []]);
+    expect((await pinAge(q, { limit: 5 })).pass).toBe(true);
+    expect(await pinAge(q, { template: "none" })).toMatchObject({ repos: [], p50: null, p90: null, pass: false });
+    const markdown = driftMarkdown(await pinFreshness(q), await stampFreshness(q), await pinLag(q), age);
+    expect(markdown).toContain("- Pin age, the measure of the gate: p50 **5 days**, p90 **5 days** over 3 repositories. The gate is p90 at most 3 days: **fail**.");
+    expect(markdown).toContain("- Age not known: `unknown`.");
+    expect(markdown).toContain(`| other | 5 | \`.github/actions/setup/action.yml\`, 2026-11-03 | \`${A.slice(0, 7)}\` |`);
+    expect(markdown.indexOf("Pin age")).toBeLessThan(markdown.indexOf("Pin freshness"));
   });
 });
 
