@@ -6,7 +6,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { factsOf, syntaxOf, FACTS_VERSION, type FileFacts } from "./facts.ts";
-import { isSource, MAX_BYTES, TEST } from "./scan.ts";
+import { headOf, isSource, MAX_BYTES, TEST } from "./scan.ts";
 
 /** One file of the tree of a commit. */
 export interface TreeEntry {
@@ -50,9 +50,11 @@ export interface ScanCounts {
 
 /**
  * The files of the tree of HEAD, from `git ls-tree`. The blob id comes from git, so the scan hashes nothing.
- * A link (mode 120000) and a submodule (a commit) are not blobs of source: the function skips them.
+ * A link (mode 120000) and a submodule (a commit) are not blobs of source: the function skips them. An empty
+ * repository has no HEAD, so its tree is empty.
  */
 export function treeOf(root: string): TreeEntry[] {
+  if (headOf(root) === null) return [];
   const out = execFileSync("git", ["-C", root, "ls-tree", "-r", "-z", "--long", "HEAD"], { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 });
   const entries: TreeEntry[] = [];
   for (const line of out.split("\0")) {
