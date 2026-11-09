@@ -15,7 +15,10 @@ import type { StampCheck, TemplateRecords, TemplateVersions } from "./templates.
 import type { ConventionsCheck } from "./conventions.ts";
 import type { CoverageRun } from "./coverage.ts";
 
-/** The version of the tables. A database of another version gets new tables. */
+/**
+ * The version of the tables. A scan with the option `rebuild` drops a database of another version and makes new
+ * tables. Each other open of such a database throws.
+ */
 export const CATALOG_SCHEMA: string = "codeatlas/2";
 
 const DDL = `
@@ -191,14 +194,22 @@ export class Catalog {
   readonly #marker: StatementSync;
   readonly #formula: StatementSync;
 
-  /** This constructor opens the file at `path`, or a database in memory for `:memory:`, and makes the tables. */
-  constructor(path: string) {
+  /**
+   * This constructor opens the file at `path`, or a database in memory for `:memory:`, and makes the tables. A database
+   * of another `CATALOG_SCHEMA` throws. With `rebuild`, the constructor drops its tables and starts from empty.
+   *
+   * The scan uses `rebuild`, because CI restores the database of the last run, and a new schema must not stop it.
+   */
+  constructor(path: string, options: { readonly rebuild?: boolean } = {}) {
     this.db = new DatabaseSync(path);
     this.db.exec("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA foreign_keys = ON;");
     const version = schemaOf(this.db);
     if (version !== undefined && version !== CATALOG_SCHEMA) {
-      this.db.close();
-      throw new Error(`The database has the schema ${version}, not ${CATALOG_SCHEMA}.`);
+      if (options.rebuild !== true) {
+        this.db.close();
+        throw new Error(`The database has the schema ${version}, not ${CATALOG_SCHEMA}.`);
+      }
+      dropAll(this.db);
     }
     this.db.exec(DDL);
     addColumns(this.db);
@@ -500,6 +511,16 @@ function addColumns(db: DatabaseSync): void {
 }
 
 /** This function gives the schema of the catalog in `db`, or undefined for a database without the table `meta`. */
+/** This function drops each view, table and index of the database, then vacuums the file. */
+function dropAll(db: DatabaseSync): void {
+  db.exec("PRAGMA foreign_keys = OFF");
+  const objects = db.prepare("SELECT type, name FROM sqlite_master WHERE type IN ('view', 'table') AND name NOT LIKE 'sqlite_%'").all() as { type: string; name: string }[];
+  // The views go first, because a view can refer to a table. An index goes with its table
+  for (const type of ["view", "table"]) for (const o of objects.filter((x) => x.type === type)) db.exec(`DROP ${type.toUpperCase()} IF EXISTS "${o.name.replaceAll('"', '""')}"`);
+  db.exec("VACUUM");
+  db.exec("PRAGMA foreign_keys = ON");
+}
+
 function schemaOf(db: DatabaseSync): string | undefined {
   const table = db.prepare("SELECT 1 AS found FROM sqlite_master WHERE type = 'table' AND name = 'meta'").get();
   if (table === undefined) return undefined;
