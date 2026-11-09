@@ -55,8 +55,10 @@ export {
   FORMULA_MIN_RECORD,
   FORMULA_COPY_GATE,
   FORMULA_HOME_GATE,
+  FORMULA_MEMBER_GATE,
   FORMULAS_VERSION,
   GENERIC_FORMULAS,
+  LABEL_CLAIMS,
   claimPrecision,
   fileKey,
   formulaClasses,
@@ -72,10 +74,12 @@ export {
 } from "./formulas.ts";
 export type {
   ClaimPrecision,
+  FormulaClaim,
   FormulaClass,
   FormulaClassOptions,
   FormulaFact,
   FormulaHome,
+  FormulaLabel,
   FormulaMember,
   FormulaPrecision,
   FormulaRecall,

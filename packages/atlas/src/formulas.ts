@@ -26,6 +26,9 @@ export const FORMULA_COPY_GATE: number = 0.5;
 /** The leads name a home when the Wilson lower bound of the home precision is this value or more. */
 export const FORMULA_HOME_GATE: number = 0.25;
 
+/** The leads name all the members of a class when the Wilson lower bound of the member precision is this value or more. */
+export const FORMULA_MEMBER_GATE: number = 0.5;
+
 /** The longest skeleton text that the catalog keeps. The hash is of the full text. */
 const MAX_SKELETON = 300;
 
@@ -342,10 +345,32 @@ export const fileKey = (repo: string, path: string): string => `${repo}\0${path}
 
 const holds = (range: readonly [number, number] | null, line: number): boolean => range !== null && range[0] <= line && line <= range[1];
 
+/**
+ * The label of an owner verdict. `right`: each member is a copy, and the home is right. `partial-home`: each member
+ * is a copy, and the home is wrong. `partial-members`: some members are not copies. `wrong`: no member is a copy.
+ * `partial` is the label of the first round, before the split into `partial-home` and `partial-members`.
+ */
+export type FormulaLabel = "right" | "partial-home" | "partial-members" | "partial" | "wrong";
+
+/** The claims of a lead: the class is a copy, the home is right, and each named member is a copy. */
+export type FormulaClaim = "copy" | "home" | "members";
+
+/**
+ * This table gives the answer of each label to each claim. `null` means that the label does not test the claim, so
+ * the verdict does not count for the claim or against it. The first-round label `partial` counts against the home.
+ */
+export const LABEL_CLAIMS: Readonly<Record<FormulaLabel, Readonly<Record<FormulaClaim, boolean | null>>>> = {
+  right: { copy: true, home: true, members: true },
+  "partial-home": { copy: true, home: false, members: true },
+  "partial-members": { copy: true, home: null, members: false },
+  partial: { copy: true, home: false, members: null },
+  wrong: { copy: false, home: null, members: null },
+};
+
 /** The verdict of an owner on one class: a row of `labels/formulas-1.jsonl`. */
 export interface FormulaVerdict {
   readonly hash: string;
-  readonly verdict: "right" | "partial" | "wrong";
+  readonly verdict: FormulaLabel;
   readonly reason: string;
   readonly at: string;
   /** The pull request that moved the copy, when the verdict is right. */
@@ -366,16 +391,18 @@ export interface ClaimPrecision {
 }
 
 /**
- * The precision of the leads from the owner verdicts. A lead makes two claims, so it has two precisions. The copy
- * precision is the part of the leads with a real copy. The home precision is the part of the real copies with the
- * right home. Thus a better choice of the home changes only the home precision.
+ * The precision of the leads from the owner verdicts. A lead makes three claims, so it has three precisions. Each
+ * precision counts only the verdicts that test its claim, from `LABEL_CLAIMS`. Thus a better choice of the home
+ * changes only the home precision.
  */
 export interface FormulaPrecision {
   readonly judged: number;
-  /** Is the class a real copy? A right or a partial verdict says yes. */
+  /** Is the class a real copy? */
   readonly copy: ClaimPrecision;
-  /** Is the home right, among the real copies? Only a right verdict says yes. */
+  /** Is the home right, among the real copies? */
   readonly home: ClaimPrecision;
+  /** Is each named member a copy, among the real copies? */
+  readonly members: ClaimPrecision;
   /** The model tokens of the scan: Layer 1 costs none. */
   readonly tokens: number;
   /** The model tokens for each right move, or null with no right move. */
@@ -396,17 +423,18 @@ export function claimPrecision(right: number, judged: number, gate: number): Cla
   };
 }
 
-/**
- * This function gives the copy precision and the home precision of the leads. A partial verdict names a real copy
- * with another home, or a real copy in only some members. Thus it counts for the copy, and against the home.
- */
+/** This function gives the precision of each claim of the leads, from the answers of `LABEL_CLAIMS`. */
 export function formulaPrecision(verdicts: readonly FormulaVerdict[], tokens: number = 0): FormulaPrecision {
+  const claim = (name: FormulaClaim, gate: number): ClaimPrecision => {
+    const answers = verdicts.map((v) => LABEL_CLAIMS[v.verdict][name]).filter((a) => a !== null);
+    return claimPrecision(answers.filter((a) => a).length, answers.length, gate);
+  };
   const right = verdicts.filter((v) => v.verdict === "right").length;
-  const copies = right + verdicts.filter((v) => v.verdict === "partial").length;
   return {
     judged: verdicts.length,
-    copy: claimPrecision(copies, verdicts.length, FORMULA_COPY_GATE),
-    home: claimPrecision(right, copies, FORMULA_HOME_GATE),
+    copy: claim("copy", FORMULA_COPY_GATE),
+    home: claim("home", FORMULA_HOME_GATE),
+    members: claim("members", FORMULA_MEMBER_GATE),
     tokens,
     tokensPerRightMove: right === 0 ? null : Math.round(tokens / right),
   };
@@ -457,12 +485,13 @@ export function formulasMarkdown(report: FormulaReport, top: number = 30): strin
     ...(precision.judged === 0
       ? ["The owners have not judged a lead yet."]
       : [
-          "A lead makes two claims: the class is a real copy, and the home is right. Each claim has its precision and its gate.",
+          "A lead makes three claims: the class is a real copy, the home is right, and each named member is a copy. Each claim counts only the verdicts that test it.",
           "",
           "| Claim | Right | Precision | 95% interval | Gate | Decision |",
           "| --- | --- | --- | --- | --- | --- |",
           claimRow("A real copy", precision.copy),
           claimRow("The right home, among the real copies", precision.home),
+          claimRow("Each member a copy, among the real copies", precision.members),
           "",
         ]),
     `The scan used ${precision.tokens} model tokens. Tokens for each right move: ${precision.tokensPerRightMove ?? "none yet"}.`,

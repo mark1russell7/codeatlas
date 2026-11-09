@@ -161,9 +161,17 @@ The command `codeatlas formulas` gives the classes of formula skeletons. The fir
 
 - Each lead names its home from `conventions map`.
 - Each owner verdict goes into `formulas-1.jsonl`.
-- A lead makes two claims, so it has two precisions. The copy precision is the part of the leads with a real copy. A right or a partial verdict counts. The home precision is the part of the real copies with the right home. Only a right verdict counts.
+- A lead makes three claims: the class is a real copy, the home is right, and each named member is a copy. Each claim has its precision.
+- From the second round, an owner gives one of 4 labels:
+  - `right`: each member is a copy, and the home is right.
+  - `partial-home`: each member is a copy, and the home is wrong.
+  - `partial-members`: some members are not copies.
+  - `wrong`: no member is a copy.
+- `LABEL_CLAIMS` in `formulas.ts` gives the answer of each label to each claim. A label counts only for the claims that it tests.
+- The first-round label `partial` counts for the copy and against the home. It does not test the members.
 - The scan stays in Layer 1 when the Wilson lower bound of the copy precision is 0.5 or more. Below that, we keep only the classes with the most repositories, or we stop the scan.
 - The leads name a home when the Wilson lower bound of the home precision is 0.25 or more. Below that, a lead names the copy with no home.
+- The leads name all the members of a class when the Wilson lower bound of the member precision is 0.5 or more.
 - The first round has 7 right, 17 partial and 6 wrong verdicts. The copy precision is 24 of 30: 0.800 [0.627, 0.905]. The home precision is 7 of 24: 0.292 [0.149, 0.492]. Thus the copies are real, and the choice of the home is the weak part.
 - Each run gives the recall of `finds-1.jsonl` at the floors 2 and 3. Thus a change of the scan shows as a gain or a loss.
 - The scan costs no model tokens. The report gives the tokens for each right move.
