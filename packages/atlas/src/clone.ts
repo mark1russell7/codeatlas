@@ -28,6 +28,12 @@ export function repoNames(output: string): string[] {
   return output.split(/\r?\n/).map((line) => line.trim()).filter(isSafeName).sort();
 }
 
+/** This function gives the names of the public source repositories of `owner` that are not archived, through the GitHub CLI. */
+export function publicNames(owner: string): string[] {
+  if (!isSafeName(owner)) throw new Error(`The owner "${owner}" is not a GitHub name.`);
+  return repoNames(execFileSync("gh", listArgs(owner), { encoding: "utf8" }));
+}
+
 /**
  * This function clones each repository into `into/<name>`, and gives the names that did not clone. A repository
  * of `options` gets those arguments of `git clone`. Each other repository gets `CLONE_ARGS`.
@@ -38,8 +44,7 @@ export function clonePublic(
   log: (line: string) => void = console.error,
   options: Readonly<Record<string, readonly string[]>> = {},
 ): { cloned: string[]; failed: string[] } {
-  if (!isSafeName(owner)) throw new Error(`The owner "${owner}" is not a GitHub name.`);
-  const names = repoNames(execFileSync("gh", listArgs(owner), { encoding: "utf8" }));
+  const names = publicNames(owner);
   log(`${names.length} public repositories of ${owner}`);
   mkdirSync(into, { recursive: true });
   const cloned: string[] = [];
