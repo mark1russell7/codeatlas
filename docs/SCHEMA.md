@@ -244,6 +244,17 @@ The command `codeatlas coverage` reads the coverage of the tests from the CI art
 - An artifact of another format, for example a list of floors, gets a run with no files.
 - The catalog job adds the report to the summary: the repositories with coverage, the lines, the functions, and the exported functions with no hit.
 
+The report also gives the cause of each repository with no function report. The catalog facts decide the cause, in this order:
+
+| Cause | The fact |
+| --- | --- |
+| `no-tests` | The repository has no test file. |
+| `no-coverage-v8` | No manifest has the dependency `@vitest/coverage-v8`. |
+| `summary-only` | A coverage run exists, but it has no `coverage-final.json`. The Vitest reporter `json` is not set. |
+| `no-shared-ci` | No workflow pins the shared CI `reusable-ci.yml` of the template. |
+| `old-ci` | The pinned `reusable-ci.yml` is not the file on `main` of the template. The template sync moves the pin. |
+| `no-artifact` | The CI of `main` gave no artifact. The run failed, did not end, or its artifact expired. |
+
 ### `churn_run` and `churn`
 
 The scan reads the churn of each file from the git history of the clone (`churn.ts`).
