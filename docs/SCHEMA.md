@@ -412,6 +412,16 @@ A measure is a function of the relations. Each one has a definition and one or m
 | Cost per 1000 lines | The tokens of the judgments of a task, divided by the lines of their subjects, times 1000. | Measured on the pilot. A gate limits it. |
 | Precision and recall of a category | Against the hand-labeled sample. | Between 0 and 1. A gate limits each. |
 
+### Dimensions
+
+A dimension is an attribute of each function or each file, as data in `DIMENSIONS` (`dimensions.ts`). Each dimension has an id, a definition, an extractor, a unit and a measured precision.
+
+- The extractor is `parser`, `git`, `ci`, `derived` or `model`. Only `model` costs tokens.
+- A dimension counts only when the Wilson lower bound of its precision check is 0.9 or more. The check compares the values with an independent source, as the TypeScript compiler.
+- The query `codeIndex` gives the value of each dimension for each function and each file outside the tests of the current snapshots.
+- `dimensions/1` has length, parameters, size, cyclomatic complexity, nesting depth, fan-out, fan-in, type escapes and module coupling.
+- The fan-in is by name. Two functions with one name share their calls, so its check is necessary before it counts.
+
 The algebra is the relational algebra over these relations: selection, projection, join, union, difference, grouping, and the transitive closure for `calls`, `imports` and `depends_on`. The typed query layer builds each query from the declared columns, so a query of a column that does not exist does not compile.
 
 ## Storage

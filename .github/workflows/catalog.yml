@@ -119,6 +119,12 @@ jobs:
           set -euo pipefail
           node packages/atlas/src/cli.ts planned --db "$RUNNER_TEMP/catalog.sqlite" --out "$RUNNER_TEMP/planned.json" --markdown "$RUNNER_TEMP/planned.md"
           tee -a "$GITHUB_STEP_SUMMARY" < "$RUNNER_TEMP/planned.md"
+      # The value of each dimension for each function and each file (CA20)
+      - name: Dimensions
+        run: |
+          set -euo pipefail
+          node packages/atlas/src/cli.ts dimensions --db "$RUNNER_TEMP/catalog.sqlite" --out "$RUNNER_TEMP/dimensions.json" --markdown "$RUNNER_TEMP/dimensions.md"
+          tee -a "$GITHUB_STEP_SUMMARY" < "$RUNNER_TEMP/dimensions.md"
       # One formula skeleton in two repositories or more: leads for the owners (CA15)
       - name: Formula skeletons
         run: |
@@ -138,6 +144,7 @@ jobs:
             ${{ runner.temp }}/catalog.sqlite
             ${{ runner.temp }}/planned.json
             ${{ runner.temp }}/formulas.json
+            ${{ runner.temp }}/dimensions.json
           retention-days: 14
           if-no-files-found: error
 
