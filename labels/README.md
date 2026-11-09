@@ -129,6 +129,18 @@ A gap is code with no allowed home. The pilot found these gaps:
 - With `conventions` 0.38.4, the homes list has `strategy-space`. A rerun on the stored titles finds `operators.ts` as the second hit of `CA5-P37`.
 - `CA5-P14` shares only the word `operators` with that module, so the rule of 2 shared words does not match it.
 
+### Two changes of the order that the labels do not support
+
+We tried two changes of `homeHas` on the 47 labels. Neither change is in the code, because the gain is in the noise.
+
+- A hit in a repository of the pair goes first: the first hit is right for 7 of 19 pairs, not 6 of 19.
+- A hit must have a specific word: a stem in 20 or fewer of the 2,289 home modules. Then 10 of 21 hits are right, 0.476 [0.283, 0.676]. But 5 pairs lose all their right hits.
+- At 30 or fewer modules, 12 of 34 hits are right, 0.353 [0.215, 0.521]. That is the same as no rule.
+- The labels give the rule its limit. Thus the rates are in-sample, and a new sample is necessary to test the rule.
+- `homeHas` stays as it is: it gives 3 leads for the owners to read.
+- There is no new round of labels. Each owner answer from the normal work goes into `homehas-1.jsonl` with the same fields.
+- At about 100 labels, we test the two changes again on the new labels only.
+
 ## The owner verdicts of the class members (CA14)
 
 The field `owner` of `members-1.jsonl` has the verdict of the owner of each of the 26 `pr` moves.

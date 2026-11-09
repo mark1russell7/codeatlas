@@ -260,11 +260,11 @@ export function plannedMarkdown(pairs: readonly PlannedPair[], limit = 40): stri
     "",
     `- Pairs: **${pairs.length}**. Two open plans: ${open.length}. One plan done: ${pairs.filter((p) => p.kind === "one done").length}. A title that names the other repository: ${pairs.filter((p) => p.names).length}. A step of a shared rollout: ${pairs.filter((p) => p.rollout).length}. Shared words of a rule or a home only: ${pairs.filter((p) => p.explained !== null).length}.`,
     "- The score is the cosine of the words of the two titles. A high score is a question for the two owners, not a proof.",
-    `- A module of a home with shared words of the pair: ${open.filter((p) => p.homeHas.length > 0).length} of the ${open.length} pairs of two open plans. Show it to the owners with the pair.`,
+    `- A module of a home with shared words of the pair: ${open.filter((p) => p.homeHas.length > 0).length} of the ${open.length} pairs of two open plans. A module is a lead to read, not a move: the owners found 17 of 47 right.`,
   ];
   const table = (title: string, rows: readonly PlannedPair[]): void => {
     if (rows.length === 0) return;
-    lines.push("", `### ${title}`, "", "| Score | Item | Other item | Shared words | The home has |", "| ---: | --- | --- | --- | --- |");
+    lines.push("", `### ${title}`, "", "| Score | Item | Other item | Shared words | Leads in a home |", "| ---: | --- | --- | --- | --- |");
     for (const p of rows.slice(0, limit)) {
       const item = (i: PlanItem): string => `\`${i.repo}\` ${i.id} (${i.statusClass}): ${cell(i.title)}`;
       const has = p.homeHas.map((m) => `\`${m.repo}\` ${cell(m.path)}`).join("<br>");
