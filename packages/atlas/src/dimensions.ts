@@ -57,7 +57,7 @@ export const DIMENSIONS: readonly Dimension[] = [
     extractor: "parser",
     source: "symbol.line, symbol.end_line",
     higherIsWorse: true,
-    precision: null,
+    precision: { method: "the lines of the function in the syntax tree of typescript-eslint", agree: 200, checked: 200, at: "2026-11-09" },
   },
   {
     id: "params",
@@ -68,7 +68,7 @@ export const DIMENSIONS: readonly Dimension[] = [
     extractor: "parser",
     source: "symbol.params",
     higherIsWorse: true,
-    precision: null,
+    precision: { method: "the rule max-params of ESLint", agree: 199, checked: 200, at: "2026-11-09" },
   },
   {
     id: "nodes",
@@ -90,7 +90,7 @@ export const DIMENSIONS: readonly Dimension[] = [
     extractor: "parser",
     source: "symbol.cyclomatic",
     higherIsWorse: true,
-    precision: null,
+    precision: { method: "the rule complexity of ESLint", agree: 200, checked: 200, at: "2026-11-09" },
   },
   {
     id: "depth",
@@ -101,12 +101,12 @@ export const DIMENSIONS: readonly Dimension[] = [
     extractor: "parser",
     source: "symbol.depth",
     higherIsWorse: true,
-    precision: null,
+    precision: { method: "the rule max-depth of ESLint", agree: 197, checked: 200, at: "2026-11-09" },
   },
   {
     id: "cognitive",
     title: "Cognitive complexity",
-    definition: "The effort to read the body, after the specification of SonarSource. Each structure adds 1 plus its nesting. A nested function counts for itself.",
+    definition: "The effort to read the body, as the rule of SonarJS counts it. Each structure adds 1 plus its nesting. Each run of `&&` adds 1.",
     unit: "points",
     scope: "function",
     extractor: "parser",
@@ -145,7 +145,7 @@ export const DIMENSIONS: readonly Dimension[] = [
     extractor: "parser",
     source: "marker.kind, marker.line",
     higherIsWorse: true,
-    precision: null,
+    precision: { method: "the rules no-explicit-any, no-non-null-assertion and ban-ts-comment of typescript-eslint", agree: 199, checked: 200, at: "2026-11-09" },
   },
   {
     id: "churn",
@@ -156,7 +156,7 @@ export const DIMENSIONS: readonly Dimension[] = [
     extractor: "git",
     source: "churn_run, churn.commits",
     higherIsWorse: true,
-    precision: null,
+    precision: { method: "git log of each file alone", agree: 194, checked: 200, at: "2026-11-09" },
   },
   {
     id: "coverage",
@@ -189,7 +189,7 @@ export const DIMENSIONS: readonly Dimension[] = [
     extractor: "parser",
     source: "import.specifier",
     higherIsWorse: true,
-    precision: null,
+    precision: { method: "ts.preProcessFile of the TypeScript compiler", agree: 200, checked: 200, at: "2026-11-09" },
   },
 ];
 

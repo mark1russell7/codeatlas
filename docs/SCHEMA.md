@@ -122,7 +122,7 @@ A declaration of a file: a function, a method, a class, a variable, a type, an i
 | `cyclomatic` | integer | The decision points plus one, as the rule `complexity` of ESLint counts them. Default values and optional chains count. |
 | `depth` | integer | The deepest nesting of control statements: `if`, the loops, `switch` and `try`. |
 | `type_hash` | text | Only for a type or an interface: the hash of its members, sorted by name. |
-| `cognitive` | integer | The cognitive complexity of the body, after the specification of SonarSource. A nested function counts for itself. Since `facts/3`. |
+| `cognitive` | integer | The cognitive complexity of the body, as the rule of SonarJS 4 counts it. Only a run of `&&` adds 1, not `||` or `??`. A nested function counts for itself. Since `facts/3`. |
 
 ### `export`
 

@@ -38,7 +38,7 @@ describe("DIMENSIONS", () => {
 
   it("counts a dimension only after a check with a lower bound at the gate", () => {
     const base = DIMENSIONS[0] as Dimension;
-    expect(dimensionCounts(base)).toBe(false);
+    expect(dimensionCounts({ ...base, precision: null })).toBe(false);
     expect(dimensionCounts({ ...base, precision: { method: "tsc", agree: 50, checked: 50, at: "2026-11-09" } })).toBe(true);
     expect(dimensionCounts({ ...base, precision: { method: "tsc", agree: 45, checked: 50, at: "2026-11-09" } })).toBe(false);
   });
@@ -64,10 +64,10 @@ describe("codeIndex", () => {
       expect(index.modules).toEqual([{ repo: "app", path: "src/load.ts", values: { imports: 2 } }]);
 
       const summaries = dimensionSummaries(index);
-      expect(summaries.find((s) => s.id === "length")).toMatchObject({ count: 3, max: 7, top: "app:src/load.ts:4", counts: false });
+      expect(summaries.find((s) => s.id === "length")).toMatchObject({ count: 3, max: 7, top: "app:src/load.ts:4", counts: true });
       const markdown = dimensionsMarkdown(summaries);
-      expect(markdown).toContain(`The catalog has ${DIMENSIONS.length} dimensions. 0 passed a check of their precision, so only they count.`);
-      expect(markdown).toContain("| Length | lines | parser | not checked | 3 |");
+      expect(markdown).toContain(`The catalog has ${DIMENSIONS.length} dimensions. 7 passed a check of their precision, so only they count.`);
+      expect(markdown).toContain("| Length | lines | parser | 200 of 200 | 3 |");
     } finally {
       catalog.close();
     }

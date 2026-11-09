@@ -515,15 +515,17 @@ export function complexityOf(body: unknown): { readonly cyclomatic: number; read
 const LOOPS: ReadonlySet<string> = new Set(["ForStatement", "ForInStatement", "ForOfStatement", "WhileStatement", "DoWhileStatement"]);
 /** The fields of a structure that are one level deeper than the structure. */
 const NESTED_FIELDS: ReadonlySet<string> = new Set(["body", "consequent", "alternate", "cases"]);
-/** The boolean operators of the specification. SonarJS does not count `??`, so the atlas does not count it. */
-const BOOLEAN: ReadonlySet<string> = new Set(["&&", "||"]);
+/** The logical operators of one chain. The rule of SonarJS 4 counts only a run of `&&`, so `||` and `??` add nothing. */
+const BOOLEAN: ReadonlySet<string> = new Set(["&&", "||", "??"]);
 const SAME_LEVEL: ReadonlySet<string> = new Set();
 
 /**
  * This function gives the cognitive complexity of a body, after the specification of G. Ann Campbell (SonarSource, 2017).
  * Each `if`, `else if`, `else`, conditional, `switch`, loop and `catch` adds 1. A structure that nests also adds its
- * nesting level. Each run of one boolean operator adds 1, and each `break` or `continue` to a label adds 1. A nested
- * function counts for itself, not for this one, as in `complexityOf`. The recursion increment is not counted.
+ * nesting level. Each `break` or `continue` to a label adds 1. A nested function counts for itself, as in `complexityOf`.
+ *
+ * The logical operators follow the rule of SonarJS 4. Each run of `&&` adds 1. A chain of one operator in a JSX
+ * expression adds nothing. The recursion increment is not counted.
  */
 export function cognitiveOf(body: unknown): number {
   let total = 0;
@@ -557,11 +559,19 @@ export function cognitiveOf(body: unknown): number {
       return walkFields(node, nesting, NESTED_FIELDS);
     }
     if ((node.type === "BreakStatement" || node.type === "ContinueStatement") && isNode(node["label"])) total += 1;
+    if (node.type === "JSXExpressionContainer") {
+      const operators: string[] = [];
+      const leaves: unknown[] = [];
+      flattenBoolean(node["expression"], operators, leaves);
+      // SonarJS does not count a short circuit in JSX: a chain of one operator with no conditional in it
+      const shortCircuit = operators.length > 0 && operators.every((operator) => operator === operators[0]) && !leaves.some((leaf) => isNode(leaf) && leaf.type === "ConditionalExpression");
+      if (shortCircuit) return walk(leaves, nesting);
+    }
     if (node.type === "BinaryExpression" && BOOLEAN.has(String(node["operator"]))) {
       const operators: string[] = [];
       const leaves: unknown[] = [];
       flattenBoolean(node, operators, leaves);
-      total += operators.filter((operator, i) => i === 0 || operator !== operators[i - 1]).length;
+      total += operators.filter((operator, i) => operator === "&&" && operators[i - 1] !== "&&").length;
       return walk(leaves, nesting);
     }
     walkFields(node, nesting, SAME_LEVEL);

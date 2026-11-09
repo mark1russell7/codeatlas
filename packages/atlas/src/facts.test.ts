@@ -247,11 +247,17 @@ describe("helpers", () => {
     expect(cognitiveOf(body("function f(a, b) { if (a) {} else if (b) {} else {} }"))).toBe(3);
     // A nested if adds its nesting
     expect(cognitiveOf(body("function f(a, b) { if (a) { if (b) {} } }"))).toBe(3);
-    // Each run of one boolean operator adds 1, and parentheses do not start a run
-    expect(cognitiveOf(body("function f(a, b, c, d) { return a && b && c || d; }"))).toBe(2);
+    // Each run of && adds 1, and parentheses do not start a run. SonarJS 4 does not count || and ??
+    expect(cognitiveOf(body("function f(a, b, c, d) { return a && b && c || d; }"))).toBe(1);
+    expect(cognitiveOf(body("function f(a, b, c, d) { return a && b || c && d; }"))).toBe(2);
     expect(cognitiveOf(body("function f(a, b, c) { return a && (b && c); }"))).toBe(1);
-    // SonarJS does not count ??
+    expect(cognitiveOf(body("function f(a, b, c) { return a && (b ?? c) && d; }"))).toBe(2);
+    expect(cognitiveOf(body("function f(a, b) { return a || b; }"))).toBe(0);
     expect(cognitiveOf(body("function f(a) { return a ?? 1; }"))).toBe(0);
+    // A short circuit of one operator in JSX adds nothing, and a mixed chain counts
+    const jsx = (code: string) => (parseSync(code, { syntax: "typescript", tsx: true }).body[0] as unknown as AstNode)["body"];
+    expect(cognitiveOf(jsx("function F(a, b) { return <p>{a && b && <i />}</p>; }"))).toBe(0);
+    expect(cognitiveOf(jsx("function F(a, b) { return <p>{a && b || <i />}</p>; }"))).toBe(1);
     // A conditional in an if, and a catch with an if in it
     expect(cognitiveOf(body("function f(a, b) { let x; if (a) { x = b ? 1 : 2; } return x; }"))).toBe(3);
     expect(cognitiveOf(body("function f(a, b) { try { if (a) {} } catch (e) { if (b) {} } }"))).toBe(4);
