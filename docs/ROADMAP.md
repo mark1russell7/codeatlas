@@ -16,6 +16,7 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 
 | ID | Status | Priority | Title |
 | --- | --- | --- | --- |
+| CA28 | next: target 11-19, after the update of Vitest in the template | P1 | The template passes its own rule `coverage-provider`: each package with Vitest tests has `@vitest/coverage-v8` at the range of Vitest |
 | CA21 | next: target 11-20 | P1 | The index on each push: a push to `main` scans the changed files again, so new code is in the catalog on the same day |
 | CA22 | next: target 11-20 | P1 | Findings as issues: one issue for each finding, with a stable key, an update, a close and an owner verdict |
 | CA18 | next: target 11-23 | P1 | The ratchet: a new function over the limit fails CI, and the total of a repository cannot rise |
