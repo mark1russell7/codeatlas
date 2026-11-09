@@ -17,7 +17,6 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 
 | ID | Status | Priority | Title |
 | --- | --- | --- | --- |
-| CA28 | next: target 11-19, after the update of Vitest in the template | P1 | The template passes its own rule `coverage-provider`: each package with Vitest tests has `@vitest/coverage-v8` at the range of Vitest |
 | CA22 | next: target 11-20 | P1 | Findings as issues: one issue for each finding, with a stable key, an update, a close and an owner verdict |
 | CA18 | next: target 11-23 | P1 | The ratchet: a new function over the limit fails CI, and the total of a repository cannot rise |
 | CA25 | next | P1 | The fan-in passes its precision check: the TypeScript compiler finds the declaration of each call, so a count is not by name |
@@ -36,6 +35,7 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 
 | ID | Status | Priority | Title |
 | --- | --- | --- | --- |
+| CA28 | done 2026-11-09 | P1 | The template passes its own rule `coverage-provider`: each package with Vitest tests has `@vitest/coverage-v8` at the range of Vitest |
 | CA24 | done 2026-11-09 | P1 | The fan-out passes its precision check: 194 of 200 agree with `typescript-eslint` |
 | CA11 | done 2026-11-09 | P2 | Layer 1, more sources: coverage from the CI artifacts, dependency versions, template drift with the gate of the pin age (p90 at most 3 days), conventions breaks |
 | CA4 | done 2026-11-08 | P2 | The private repositories: a local scan into a separate private database, on this machine only |
