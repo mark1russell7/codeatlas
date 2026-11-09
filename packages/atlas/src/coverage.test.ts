@@ -95,15 +95,16 @@ describe("the coverage of a repository", () => {
     const report = await coverageReport(queryOf(catalog.db));
     expect(report).toEqual({
       repos: 1,
+      code: 1,
       covered: [{ repo: "app", commit: "c0", current: true, files: 1, lines: { total: 10, covered: 8 }, functions: { total: 2, covered: 1 }, reported: 2, exported: 2, exportedUnhit: 1 }],
     });
     const markdown = coverageMarkdown(report);
-    expect(markdown).toContain("Repositories with a coverage artifact on `main`: **1** of 1.");
+    expect(markdown).toContain("Repositories with a coverage artifact on `main`: **1** of 1, 1 of them with code.");
     expect(markdown).toContain("| `app` | `c0` | 1 | 80.0% | 50.0% | 1 of 2 |");
     expect(markdown).toContain("With an Istanbul report (`coverage-summary.json`): 1.");
     expect(markdown).toContain("With a function report (`coverage-final.json`): 1.");
     const summaryOnly = { ...report.covered[0]!, reported: 0, exported: 0, exportedUnhit: 0 };
-    expect(coverageMarkdown({ repos: 1, covered: [summaryOnly] })).toContain("| 80.0% | 50.0% | no function report |");
+    expect(coverageMarkdown({ repos: 1, code: 1, covered: [summaryOnly] })).toContain("| 80.0% | 50.0% | no function report |");
     // A scan of the same commit again replaces the snapshot, so its coverage rows go first
     catalog.putSnapshot("app", "c0", "2026-11-08T01:00:00Z", "test", result.files, result.counts);
     expect((await coverageReport(queryOf(catalog.db))).covered).toEqual([]);
@@ -134,6 +135,7 @@ describe("coverageGaps", () => {
     sql("INSERT INTO template_version (snapshot, ref, committed_at, path, oid) VALUES (?, ?, ?, ?, ?)", template, "oldest", "2026-11-07", ci, "old");
     catalog.putCoverage(template, run(1));
     put("bare", untested);
+    put("docs", repos.with({ "README.md": "# Docs\n" }));
     for (const repo of ["plain", "summary", "own", "old", "fresh"]) {
       const snapshot = put(repo, tested);
       sql("INSERT INTO manifest (snapshot, path, oid, name, version, private, parse_error) VALUES (?, ?, ?, ?, ?, ?, ?)", snapshot, "package.json", `m-${repo}`, repo, "0.0.0", 0, null);
@@ -144,6 +146,7 @@ describe("coverageGaps", () => {
     const gaps = await coverageGaps(queryOf(catalog.db));
     expect(gaps).toEqual([
       { repo: "bare", cause: "no-tests" },
+      { repo: "docs", cause: "no-code" },
       { repo: "fresh", cause: "no-artifact" },
       { repo: "old", cause: "old-ci", ref: "oldest" },
       { repo: "own", cause: "no-shared-ci" },
@@ -152,6 +155,8 @@ describe("coverageGaps", () => {
     ]);
     const markdown = coverageGapsMarkdown(gaps);
     expect(markdown).toContain("| `old-ci` | `old` (`oldest`) | Merge the sync of the template. It moves the pin of the shared CI. |");
+    expect(markdown).toContain("| `no-code` | `docs` | None. The repository has no code, so it does not need a report. |");
+    expect(markdown.indexOf("`no-code`")).toBeLessThan(markdown.indexOf("`no-tests`"));
     expect(markdown.indexOf("`no-tests`")).toBeLessThan(markdown.indexOf("`no-artifact`"));
     expect(coverageGapsMarkdown([])).toBe("");
   });

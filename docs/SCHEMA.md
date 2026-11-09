@@ -250,6 +250,7 @@ The report also gives the cause of each repository with no function report. The 
 
 | Cause | The fact |
 | --- | --- |
+| `no-code` | The repository has no code file, only docs or data. It needs no report. |
 | `no-tests` | The repository has no test file. |
 | `no-coverage-v8` | No manifest has the dependency `@vitest/coverage-v8`. |
 | `summary-only` | A coverage run exists, but it has no `coverage-final.json`. The Vitest reporter `json` is not set. |

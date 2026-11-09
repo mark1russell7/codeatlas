@@ -206,7 +206,14 @@ export interface RepoCoverage {
 /** The coverage report of the catalog. */
 export interface CoverageReport {
   readonly repos: number;
+  /** The repositories with a code file that is not a test. A repository with no code needs no report. */
+  readonly code: number;
   readonly covered: readonly RepoCoverage[];
+}
+
+/** This function gives the repositories of the current snapshots with a code file that is not a test. */
+async function codeRepos(q: CatalogQuery): Promise<Set<string>> {
+  return new Set((await q.selectFrom("current_file").select("repo").where("test", "=", 0).distinct().execute()).map((r) => r.repo));
 }
 
 const sum = (rows: readonly { total: number; covered: number }[]): Measure => ({
@@ -217,6 +224,7 @@ const sum = (rows: readonly { total: number; covered: number }[]): Measure => ({
 /** This function gives the coverage of each current snapshot of the catalog. */
 export async function coverageReport(q: CatalogQuery): Promise<CoverageReport> {
   const repos = await q.selectFrom("current_snapshot").select(["repo"]).execute();
+  const code = await codeRepos(q);
   const runs = await q
     .selectFrom("current_snapshot as s")
     .innerJoin("coverage_run as r", "r.snapshot", "s.id")
@@ -258,7 +266,7 @@ export async function coverageReport(q: CatalogQuery): Promise<CoverageReport> {
       exportedUnhit: fns.filter((e) => e.hits === 0).length,
     };
   });
-  return { repos: repos.length, covered };
+  return { repos: repos.length, code: repos.filter((r) => code.has(r.repo)).length, covered };
 }
 
 const percent = (m: Measure): string => (m.total === 0 ? "-" : `${((100 * m.covered) / m.total).toFixed(1)}%`);
@@ -268,7 +276,7 @@ export function coverageMarkdown(report: CoverageReport): string {
   const lines = ["## Coverage", ""];
   const current = report.covered.filter((r) => r.current).length;
   const read = report.covered.filter((r) => r.files > 0).length;
-  lines.push(`- Repositories with a coverage artifact on \`main\`: **${report.covered.length}** of ${report.repos}. Of the current commit: ${current}.`);
+  lines.push(`- Repositories with a coverage artifact on \`main\`: **${report.covered.length}** of ${report.repos}, ${report.code} of them with code. Of the current commit: ${current}.`);
   lines.push(`- With an Istanbul report (\`coverage-summary.json\`): ${read}. The others have their own format.`);
   lines.push(`- With a function report (\`coverage-final.json\`): ${report.covered.filter((r) => r.reported > 0).length}.`);
   lines.push(`- Lines: ${percent(sum(report.covered.map((r) => r.lines)))}. Functions: ${percent(sum(report.covered.map((r) => r.functions)))}.`);
@@ -289,6 +297,7 @@ const SHARED_CI = ".github/workflows/reusable-ci.yml";
 
 /**
  * The cause of a repository with no function report on `main`, in the order that the function `coverageGaps` examines:
+ * - `no-code`: the repository has no code file, only docs or data. It needs no report.
  * - `no-tests`: the repository has no test file.
  * - `no-coverage-v8`: no manifest has the dependency `@vitest/coverage-v8`.
  * - `summary-only`: the artifact has no `coverage-final.json`. The reporter `json` of Vitest is not set.
@@ -296,7 +305,7 @@ const SHARED_CI = ".github/workflows/reusable-ci.yml";
  * - `old-ci`: the pinned shared CI is not the one on `main` of the template. The sync of the template moves the pin.
  * - `no-artifact`: the CI of `main` gave no artifact. The run failed, did not end, or its artifact expired.
  */
-export type CoverageCause = "no-tests" | "no-coverage-v8" | "summary-only" | "no-shared-ci" | "old-ci" | "no-artifact";
+export type CoverageCause = "no-code" | "no-tests" | "no-coverage-v8" | "summary-only" | "no-shared-ci" | "old-ci" | "no-artifact";
 
 /** One repository with no function report, and its cause. `ref` is the pin of the shared CI, when the cause is `old-ci`. */
 export interface CoverageGap {
@@ -310,6 +319,7 @@ export async function coverageGaps(q: CatalogQuery, template: string = TEMPLATE_
   const snapshots = await q.selectFrom("current_snapshot").select(["repo", "id", "commit"]).orderBy("repo").execute();
   const reported = new Set((await q.selectFrom("current_snapshot as s").innerJoin("coverage_function as c", "c.snapshot", "s.id").select("s.repo as repo").distinct().execute()).map((r) => r.repo));
   const runs = new Set((await q.selectFrom("current_snapshot as s").innerJoin("coverage_run as r", "r.snapshot", "s.id").select("s.repo as repo").distinct().execute()).map((r) => r.repo));
+  const code = await codeRepos(q);
   const tested = new Set((await q.selectFrom("current_file").select("repo").where("test", "=", 1).distinct().execute()).map((r) => r.repo));
   const withV8 = new Set(
     (await q.selectFrom("current_manifest as m").innerJoin("dependency as d", "d.oid", "m.oid").select("m.repo as repo").where("d.name", "=", "@vitest/coverage-v8").distinct().execute()).map((r) => r.repo),
@@ -324,7 +334,8 @@ export async function coverageGaps(q: CatalogQuery, template: string = TEMPLATE_
     if (reported.has(repo)) continue;
     const own = pins.filter((p) => p.repo === repo);
     const old = own.find((p) => current !== undefined && oidAt.get(p.ref) !== current);
-    if (!tested.has(repo)) gaps.push({ repo, cause: "no-tests" });
+    if (!code.has(repo)) gaps.push({ repo, cause: "no-code" });
+    else if (!tested.has(repo)) gaps.push({ repo, cause: "no-tests" });
     else if (!withV8.has(repo)) gaps.push({ repo, cause: "no-coverage-v8" });
     else if (runs.has(repo)) gaps.push({ repo, cause: "summary-only" });
     else if (own.length === 0) gaps.push({ repo, cause: "no-shared-ci" });
@@ -336,6 +347,7 @@ export async function coverageGaps(q: CatalogQuery, template: string = TEMPLATE_
 
 /** The step that closes each cause, for the report. */
 const NEXT_STEP: Readonly<Record<CoverageCause, string>> = {
+  "no-code": "None. The repository has no code, so it does not need a report.",
   "no-tests": "Write tests.",
   "no-coverage-v8": "Add `@vitest/coverage-v8` at the range of Vitest to each package with tests. Only `pnpm package add` adds it.",
   "summary-only": "Add the reporter `json` to the coverage of Vitest.",
