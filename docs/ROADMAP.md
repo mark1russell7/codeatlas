@@ -30,7 +30,7 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 | --- | --- | --- | --- |
 | CA4 | done 2026-11-08 | P2 | The private repositories: a local scan into a separate private database, on this machine only |
 | CA5 | done 2026-11-08 | P2 | Planned duplication: 18 of 41 pairs are right (0.44) and 17 of 47 `homeHas` hits are right (0.36), so both give leads to read |
-| CA14 | done 2026-11-08 | P1 | Layer 2 on 999 functions with copies or shared names: 149 moves to check, owner precision 0.16 and owner recall 0.53 |
+| CA14 | done 2026-11-08 | P1 | Layer 2 on 999 functions with copies or shared names: 149 moves to check, owner precision 0.16 and owner recall 0.50 |
 | CA13 | done 2026-11-08 | P1 | Layer 2 pilot on 3 repositories: 50,300 tokens for each 1000 lines, and the precision against the 3-rater majority, provisional |
 | CA16 | done 2026-11-08 | P2 | Tools for agents: query the catalog and scan again, fast and cheap |
 | CA3 | done 2026-11-08 | P2 | The rigor candidates: for each topic, the classes that a shared library removes |
