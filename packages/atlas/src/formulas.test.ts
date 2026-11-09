@@ -177,7 +177,8 @@ describe("formulaPrecision", () => {
     expect(first.copy).toMatchObject({ right: 24, judged: 30, low: 0.627, gate: FORMULA_COPY_GATE, decision: "keep" });
     expect(first.home).toMatchObject({ right: 7, judged: 24, low: 0.149, gate: FORMULA_HOME_GATE, decision: "cut" });
     // The first-round label partial does not test the members, so only the 7 right verdicts count
-    expect(first.members).toMatchObject({ right: 7, judged: 7, gate: FORMULA_MEMBER_GATE });
+    // 7 of 7 has a lower bound over the gate, but 7 verdicts are too few for a decision
+    expect(first.members).toMatchObject({ right: 7, judged: 7, gate: FORMULA_MEMBER_GATE, decision: "open" });
     expect(first.tokensPerRightMove).toBe(0);
     // A better home turns partial verdicts into right ones: only the home precision changes
     const better = formulaPrecision(verdicts(14, 10, 6), 1400);
@@ -187,7 +188,7 @@ describe("formulaPrecision", () => {
     const markdown = formulasMarkdown({ version: "formulas/1", classes: [], recall: [], precision: first, generic: 0 });
     expect(markdown).toContain("| A real copy | 24 of 30 | 0.800 | [0.627, 0.905] | 0.5 | keep |");
     expect(markdown).toContain("| The right home, among the real copies | 7 of 24 | 0.292 |");
-    expect(markdown).toContain("| Each member a copy, among the real copies | 7 of 7 |");
+    expect(markdown).toContain("| 0.5 | open: too few verdicts to read (7 of 20) |");
   });
 
   it("counts each split label only for the claims that it tests", () => {

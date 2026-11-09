@@ -29,6 +29,9 @@ export const FORMULA_HOME_GATE: number = 0.25;
 /** The leads name all the members of a class when the Wilson lower bound of the member precision is this value or more. */
 export const FORMULA_MEMBER_GATE: number = 0.5;
 
+/** A claim with fewer verdicts than this value stays open: its interval is too wide for a decision. */
+export const CLAIM_MIN_JUDGED: number = 20;
+
 /** The longest skeleton text that the catalog keeps. The hash is of the full text. */
 const MAX_SKELETON = 300;
 
@@ -386,7 +389,7 @@ export interface ClaimPrecision {
   readonly low: number;
   readonly high: number;
   readonly gate: number;
-  /** `keep`: the lower bound is at the gate or more. `cut`: it is below. `open`: no verdict yet. */
+  /** `keep`: the lower bound is at the gate or more. `cut`: it is below. `open`: fewer than `CLAIM_MIN_JUDGED` verdicts. */
   readonly decision: "keep" | "cut" | "open";
 }
 
@@ -413,14 +416,8 @@ export interface FormulaPrecision {
 export function claimPrecision(right: number, judged: number, gate: number): ClaimPrecision {
   if (judged === 0) return { judged, right, low: 0, high: 1, gate, decision: "open" };
   const interval = wilson(right, judged);
-  return {
-    judged,
-    right,
-    low: Number(interval.low.toFixed(3)),
-    high: Number(interval.high.toFixed(3)),
-    gate,
-    decision: interval.low >= gate ? "keep" : "cut",
-  };
+  const decision = judged < CLAIM_MIN_JUDGED ? "open" : interval.low >= gate ? "keep" : "cut";
+  return { judged, right, low: Number(interval.low.toFixed(3)), high: Number(interval.high.toFixed(3)), gate, decision };
 }
 
 /** This function gives the precision of each claim of the leads, from the answers of `LABEL_CLAIMS`. */
@@ -467,7 +464,7 @@ const cell = (text: string): string => text.replaceAll("|", "\\|");
 
 /** This function writes one row of the table of the claims. */
 const claimRow = (claim: string, c: ClaimPrecision): string =>
-  `| ${claim} | ${c.right} of ${c.judged} | ${c.judged === 0 ? "none" : (c.right / c.judged).toFixed(3)} | [${c.low.toFixed(3)}, ${c.high.toFixed(3)}] | ${c.gate} | ${c.decision} |`;
+  `| ${claim} | ${c.right} of ${c.judged} | ${c.judged === 0 ? "none" : (c.right / c.judged).toFixed(3)} | [${c.low.toFixed(3)}, ${c.high.toFixed(3)}] | ${c.gate} | ${c.decision === "open" && c.judged > 0 ? `open: too few verdicts to read (${c.judged} of ${CLAIM_MIN_JUDGED})` : c.decision} |`;
 
 /** This function writes the report as Markdown, with the first `top` classes. */
 export function formulasMarkdown(report: FormulaReport, top: number = 30): string {

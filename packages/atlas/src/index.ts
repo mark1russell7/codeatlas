@@ -51,6 +51,7 @@ export type { PlanItem, PlannedOptions, PlannedPair } from "./planned.ts";
 export { DIMENSION_PRECISION_GATE, DIMENSIONS, DIMENSIONS_VERSION, codeIndex, dimensionCounts, dimensionSummaries, dimensionsMarkdown } from "./dimensions.ts";
 export type { CodeIndex, Dimension, DimensionPrecision, DimensionScope, DimensionSummary, Extractor, FunctionIndexRow, ModuleIndexRow } from "./dimensions.ts";
 export {
+  CLAIM_MIN_JUDGED,
   FORMULA_MIN_LEAD,
   FORMULA_MIN_RECORD,
   FORMULA_COPY_GATE,
