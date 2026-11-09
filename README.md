@@ -31,6 +31,7 @@ node packages/precision/src/cli.ts --index dimensions.json --repos-dir <folder> 
 node packages/atlas/src/cli.ts formulas --db catalog.sqlite --finds labels/finds-1.jsonl --verdicts labels/formulas-1.jsonl --markdown formulas.md
 node packages/atlas/src/cli.ts facts --repos-dir <folder> --out facts.jsonl --markdown facts.md [--cache <facts.jsonl>]
 node packages/atlas/src/cli.ts clone --owner <owner> --into <folder>
+node packages/atlas/src/cli.ts prune --db catalog.sqlite --owner <owner>
 node packages/site/src/build.ts --atlas atlas.json --out site
 ```
 

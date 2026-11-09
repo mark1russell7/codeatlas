@@ -77,6 +77,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: node packages/atlas/src/cli.ts clone --owner "$GITHUB_REPOSITORY_OWNER" --into "$RUNNER_TEMP/repos"
+      # The restored catalog can have a repository that is now private, archived or deleted. Its facts go before the scan.
+      - name: Remove the repositories that are not public now
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node packages/atlas/src/cli.ts prune --db "$RUNNER_TEMP/catalog.sqlite" --owner "$GITHUB_REPOSITORY_OWNER"
       # The scan starts "stamp --check" of the template on each repository, and the stamp imports packages of the template
       - name: Install the packages of the template
         run: pnpm install --frozen-lockfile --ignore-scripts --dir "$RUNNER_TEMP/repos/template"

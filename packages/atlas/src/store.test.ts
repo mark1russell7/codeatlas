@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
@@ -138,6 +138,33 @@ describe("Catalog", () => {
     scan(catalog);
     expect(one("SELECT count(*) FROM current_snapshot")).toBe(2);
     catalog.close();
+  });
+
+  it("removes each repository that is not kept, with its facts, and leaves no trace of them in the file", () => {
+    const folder = mkdtempSync(join(tmpdir(), "atlas-db-"));
+    folders.push(folder);
+    const path = join(folder, "catalog.sqlite");
+    const catalog = new Catalog(path);
+    scan(catalog);
+    const snapshotOfA = "a@c0";
+    catalog.db.prepare("INSERT INTO manifest (snapshot, path, oid, name, version, private, parse_error) VALUES (?, 'package.json', 'm-a', 'a', '0.0.0', 0, NULL)").run(snapshotOfA);
+    catalog.db.prepare("INSERT INTO dependency (oid, field, name, \"range\", kind) VALUES ('m-a', 'dependencies', 'only-in-a', '^1.0.0', 'semver')").run();
+    const all = (sql: string): unknown[] => catalog.db.prepare(sql).all().map((row) => Object.values(row)[0]);
+    expect(all("SELECT text FROM marker WHERE kind = 'todo'")).toEqual(["TODO: one"]);
+    expect(catalog.pruneRepos([])).toEqual([]);
+    expect(catalog.pruneRepos(["a", "b"])).toEqual([]);
+    expect(catalog.pruneRepos(["b"])).toEqual(["a"]);
+    expect(all("SELECT repo FROM snapshot")).toEqual(["b"]);
+    expect(all("SELECT name FROM repo")).toEqual(["b"]);
+    expect(all("SELECT count(*) FROM manifest")).toEqual([0]);
+    expect(all("SELECT count(*) FROM dependency")).toEqual([0]);
+    expect(all("SELECT count(*) FROM marker WHERE kind = 'todo'")).toEqual([0]);
+    expect(all("SELECT count(*) FROM \"import\" WHERE specifier = 'node:path'")).toEqual([0]);
+    expect(all("SELECT count(*) FROM blob WHERE key NOT IN (SELECT blob FROM file)")).toEqual([0]);
+    expect(all("SELECT name FROM symbol ORDER BY name")).toEqual(["rate", "score"]);
+    catalog.close();
+    // The vacuum leaves no text of the removed repository in the free pages of the file
+    expect(readFileSync(path).includes("TODO: one")).toBe(false);
   });
 });
 
