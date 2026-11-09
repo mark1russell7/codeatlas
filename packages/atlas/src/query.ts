@@ -76,6 +76,7 @@ export interface CatalogColumns {
   };
   readonly call_site: { readonly blob: "text"; readonly ordinal: "integer"; readonly caller: "text"; readonly callee: "text"; readonly is_new: "integer"; readonly line: "integer" };
   readonly marker: { readonly blob: "text"; readonly kind: "text"; readonly line: "integer"; readonly text: "text" };
+  readonly formula: { readonly blob: "text"; readonly line: "integer"; readonly hash: "text"; readonly skeleton: "text"; readonly arith: "integer" };
   readonly manifest: ManifestColumns;
   readonly dependency: { readonly oid: "text"; readonly field: "text"; readonly name: "text"; readonly range: "text"; readonly kind: "text" };
   readonly lockfile: LockfileColumns;
@@ -243,6 +244,7 @@ export const CATALOG_COLUMNS: CatalogColumns = {
   import: { blob: "text", ordinal: "integer", specifier: "text", package: "text?", kind: "text", names: "text", line: "integer" },
   call_site: { blob: "text", ordinal: "integer", caller: "text", callee: "text", is_new: "integer", line: "integer" },
   marker: { blob: "text", kind: "text", line: "integer", text: "text" },
+  formula: { blob: "text", line: "integer", hash: "text", skeleton: "text", arith: "integer" },
   manifest: MANIFEST,
   dependency: { oid: "text", field: "text", name: "text", range: "text", kind: "text" },
   lockfile: LOCKFILE,

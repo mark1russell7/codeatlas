@@ -8,6 +8,7 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 
 | ID | Status | Priority | Title |
 | --- | --- | --- | --- |
+| CA15 | in progress: the formula skeletons are in Layer 1. The first 30 classes go to the owners as leads, and their precision decides on 11-16 | P2 | Layer 2 fan-out over all public repositories, after the formula skeletons |
 | CA19 | in progress: 3 of 43 repositories have a function report on `main`, target 11-16 | P2 | Coverage everywhere: a function report (`coverage-final.json`) on `main` for each repository with `@vitest/coverage-v8` |
 
 ## Next
@@ -19,7 +20,6 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 
 | ID | Status | Priority | Title |
 | --- | --- | --- | --- |
-| CA15 | later | P2 | Layer 2 fan-out over all public repositories |
 | CA18 | later | P2 | Gates: freshness of each repository, cost per 1000 lines, precision of each category |
 | CA12 | later: an owner sample of 50 gives a home precision of 0.28, a human sample is next | P1 | A hand-labeled sample, for the precision and recall of each judgment category |
 | CA6 | later | P3 | Near copies: functions with one shape after small edits (type-3 clones) |

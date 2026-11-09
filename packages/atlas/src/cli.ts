@@ -65,6 +65,7 @@ import { atlasMarkdown } from "./report.ts";
 import { mcpCommand, toolCommand } from "./tools-cli.ts";
 import { scanRepoInto } from "./rescan.ts";
 import { conventionsBreaks, conventionsMarkdown } from "./conventions.ts";
+import { formulaReport, formulasMarkdown, type FormulaVerdict, type OwnerFind } from "./formulas.ts";
 import { plannedDuplication, plannedMarkdown } from "./planned.ts";
 import { FACTS_VERSION } from "./facts.ts";
 import { headOf, scanRepo, type RepoScan } from "./scan.ts";
@@ -123,6 +124,7 @@ const USAGE = `Usage:
   codeatlas drift --db <catalog.sqlite> [--out drift.json] [--markdown drift.md]
   codeatlas breaks --db <catalog.sqlite> [--out breaks.json] [--markdown breaks.md]
   codeatlas planned --db <catalog.sqlite> [--out planned.json] [--markdown planned.md] [--min 0.25]
+  codeatlas formulas --db <catalog.sqlite> --finds <finds.jsonl> [--verdicts <verdicts.jsonl>] [--out formulas.json] [--markdown formulas.md] [--top 30]
   codeatlas coverage --db <catalog.sqlite> --owner <owner> --dir <folder> [--out coverage.json] [--markdown coverage.md]
   codeatlas clone --owner <owner> --into <folder>
   codeatlas mcp --db <catalog.sqlite> [--write]
@@ -154,6 +156,7 @@ function main(argv: readonly string[]): number | Promise<number> {
   if (command === "breaks") return breaks(rest);
   if (command === "coverage") return coverage(rest);
   if (command === "planned") return planned(rest);
+  if (command === "formulas") return formulas(rest);
   if (command === "queries") return queries(rest);
   if (command === "mcp") return mcpCommand(rest);
   if (command === "tool") return toolCommand(rest);
@@ -511,6 +514,43 @@ async function planned(argv: readonly string[]): Promise<number> {
     if (out !== undefined) writeFileSync(out, `${JSON.stringify({ pairs })}\n`);
     if (markdown !== undefined) writeFileSync(markdown, plannedMarkdown(pairs));
     console.error(`planned: ${pairs.length} pairs, ${pairs.filter((p) => p.kind === "both open").length} of two open plans`);
+    return 0;
+  } finally {
+    catalog.close();
+  }
+}
+
+/** This function gives the rows of a JSON Lines file, or no rows when the file does not exist. */
+function jsonLines<T>(path: string | undefined): T[] {
+  if (path === undefined || !existsSync(path)) return [];
+  return readFileSync(path, "utf8")
+    .split("\n")
+    .filter((line) => line.trim() !== "")
+    .map((line) => JSON.parse(line) as T);
+}
+
+/**
+ * This function writes the formula classes of the catalog `--db` as JSON `--out` and Markdown `--markdown`. The recall
+ * comes from the owner finds `--finds`, and the precision from the owner verdicts `--verdicts`.
+ */
+async function formulas(argv: readonly string[]): Promise<number> {
+  const option = (name: string): string | undefined => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined);
+  const db = option("--db");
+  const finds = option("--finds");
+  const top = Number(option("--top") ?? "30");
+  if (db === undefined || finds === undefined || !Number.isInteger(top)) {
+    console.error(USAGE);
+    return 2;
+  }
+  const catalog = readOnlyCatalog(db);
+  try {
+    const report = await formulaReport(queryOf(catalog), jsonLines<OwnerFind>(finds), jsonLines<FormulaVerdict>(option("--verdicts")));
+    const out = option("--out");
+    const markdown = option("--markdown");
+    if (out !== undefined) writeFileSync(out, `${JSON.stringify(report)}\n`);
+    if (markdown !== undefined) writeFileSync(markdown, formulasMarkdown(report, top));
+    const recall = report.recall.map((r) => `${r.recalled} of ${r.total} at ${r.floor}`).join(", ");
+    console.error(`formulas: ${report.classes.length} classes, recall ${recall}, precision ${report.precision.decision}`);
     return 0;
   } finally {
     catalog.close();

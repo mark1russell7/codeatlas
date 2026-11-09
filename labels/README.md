@@ -13,6 +13,8 @@ This folder holds the hand-labeled sample of Layer 2. `docs/SCHEMA.md` gives the
 | `members-1.jsonl` | The other copies of each clone class of the subset, with their moves, and the owner verdict of each `pr` move. The lists named only one copy of each class. |
 | `planned-1.jsonl`, `planned-2.jsonl` | The owner verdicts of the planned pairs of CA5, round 1 and round 2. |
 | `owner-homes-1.jsonl` | The home of each of the 50 functions with an owner verdict, from that verdict. It is a labeled sample for CA12. |
+| `finds-1.jsonl` | The fixed recall benchmark: the 16 real copies that the owners moved, 8 from `owners-1.jsonl` and 8 from `missed-1.jsonl`. |
+| `formulas-1.jsonl` | The owner verdicts of the formula leads (CA15): the hash of the class, the verdict, the reason and the day. |
 | `pilot-1.jsonl` | The labels of the first pilot of Layer 2 (CA13): 172 functions of `otel-ts`, `page-lifecycle-tracker` and `ste-lint`, from one blind model. |
 
 The command `codeatlas sample` wrote `sample.json` from the catalog of the CI run 42455568174, at the commit `1b710df` of this repository. The function of an item is at its `repo`, `commit`, `path` and lines `line` to `endLine`.
@@ -151,3 +153,13 @@ The field `owner` of `members-1.jsonl` has the verdict of the owner of each of t
 - 3 are keeps, and 1 is wrong: a frozen copy that a test uses as the oracle of the home.
 - Thus 22 of the 26 are real copies: 0.846 [0.665, 0.938].
 - The owners found 4 more copies of the manifest writer with a different shape. They are near copies, for CA6.
+
+## The formula leads (CA15)
+
+The command `codeatlas formulas` gives the classes of formula skeletons. The first 30 classes go to their owners as leads to read.
+
+- Each lead names its home from `conventions map`.
+- Each owner verdict goes into `formulas-1.jsonl`. A partial verdict does not count as right.
+- The scan stays in Layer 1 when the Wilson lower bound of the owner precision is 0.25 or more. Below that, we keep only the classes with the most repositories, or we stop the scan.
+- Each run gives the recall of `finds-1.jsonl` at the floors 2 and 3. Thus a change of the scan shows as a gain or a loss.
+- The scan costs no model tokens. The report gives the tokens for each right move.

@@ -57,6 +57,9 @@ CREATE TABLE IF NOT EXISTS call_site (
 CREATE INDEX IF NOT EXISTS call_site_callee ON call_site(callee);
 CREATE TABLE IF NOT EXISTS marker (blob TEXT NOT NULL REFERENCES blob(key), kind TEXT NOT NULL, line INTEGER NOT NULL, text TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS marker_blob ON marker(blob);
+CREATE TABLE IF NOT EXISTS formula (blob TEXT NOT NULL REFERENCES blob(key), line INTEGER NOT NULL, hash TEXT NOT NULL, skeleton TEXT NOT NULL, arith INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS formula_blob ON formula(blob);
+CREATE INDEX IF NOT EXISTS formula_hash ON formula(hash);
 -- Layer 1c: the manifests of each snapshot, and the dependencies of each manifest blob
 CREATE TABLE IF NOT EXISTS manifest (
   snapshot TEXT NOT NULL REFERENCES snapshot(id), path TEXT NOT NULL, oid TEXT NOT NULL, name TEXT, version TEXT,
@@ -177,6 +180,7 @@ export class Catalog {
   readonly #import: StatementSync;
   readonly #call: StatementSync;
   readonly #marker: StatementSync;
+  readonly #formula: StatementSync;
 
   /** This constructor opens the file at `path`, or a database in memory for `:memory:`, and makes the tables. */
   constructor(path: string) {
@@ -198,6 +202,7 @@ export class Catalog {
     this.#import = this.db.prepare('INSERT INTO "import" (blob, ordinal, specifier, package, kind, names, line) VALUES (?, ?, ?, ?, ?, ?, ?)');
     this.#call = this.db.prepare("INSERT INTO call_site (blob, ordinal, caller, callee, is_new, line) VALUES (?, ?, ?, ?, ?, ?)");
     this.#marker = this.db.prepare("INSERT INTO marker (blob, kind, line, text) VALUES (?, ?, ?, ?)");
+    this.#formula = this.db.prepare("INSERT INTO formula (blob, line, hash, skeleton, arith) VALUES (?, ?, ?, ?, ?)");
   }
 
   /** The cache of the scan (`factsOfRepo`): a key is known when the database has its blob. */
@@ -229,6 +234,7 @@ export class Catalog {
     for (const i of facts.imports) this.#import.run(key, i.ordinal, i.specifier, i.package, i.kind, JSON.stringify(i.names), i.line);
     for (const c of facts.callSites) this.#call.run(key, c.ordinal, c.caller, c.callee, bool(c.isNew), c.line);
     for (const m of facts.markers) this.#marker.run(key, m.kind, m.line, m.text);
+    for (const f of facts.formulas) this.#formula.run(key, f.line, f.hash, f.skeleton, f.arith);
   }
 
   #snapshotRefs: readonly string[] | undefined;
