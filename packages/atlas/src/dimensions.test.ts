@@ -56,7 +56,7 @@ describe("codeIndex", () => {
       const index = await codeIndex(queryOf(catalog.db));
       const byName = new Map(index.functions.map((f) => [f.name, f]));
       expect([...byName.keys()]).toEqual(["load", "trim", "twice"]);
-      expect(byName.get("load")?.values).toEqual({ length: 7, params: 2, nodes: byName.get("load")?.values["nodes"], cyclomatic: 2, depth: 1, fan_out: 3, fan_in: 4, unsafe_types: 1 });
+      expect(byName.get("load")?.values).toEqual({ length: 7, params: 2, nodes: byName.get("load")?.values["nodes"], cyclomatic: 2, depth: 1, cognitive: 1, fan_out: 3, fan_in: 4, unsafe_types: 1 });
       // The fan-in is by name, tests included: `text.trim()` counts for `trim`. The precision check measures this error
       expect(byName.get("trim")?.values).toMatchObject({ length: 3, params: 1, fan_out: 1, fan_in: 8, unsafe_types: 2 });
       expect(byName.get("twice")?.values).toMatchObject({ fan_out: 2, fan_in: 0 });

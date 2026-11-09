@@ -9,7 +9,7 @@ import { lineOf, lineStarts, packageOf } from "./scan.ts";
 import { isNode, type AstNode } from "./shape.ts";
 
 /** The version of the facts. A new version makes the catalog read each blob again. */
-export const FACTS_VERSION: string = "facts/2";
+export const FACTS_VERSION: string = "facts/3";
 
 export type SymbolKind = "function" | "method" | "class" | "variable" | "type" | "interface" | "enum" | "namespace";
 
@@ -44,6 +44,8 @@ export interface FunctionFact {
   readonly cyclomatic: number;
   /** The deepest nesting of control statements (`if`, loops, `switch`, `try`) in the body. */
   readonly depth: number;
+  /** The cognitive complexity of the body, from `cognitiveOf`. */
+  readonly cognitive: number;
 }
 
 export type ImportKind = "static" | "type" | "dynamic" | "require" | "re-export";
@@ -325,6 +327,7 @@ export function factsOf(file: string, text: string): FileFacts {
       hashShape: hashes.shape,
       cyclomatic,
       depth,
+      cognitive: cognitiveOf(body),
     };
   };
 
@@ -499,4 +502,75 @@ export function complexityOf(body: unknown): { readonly cyclomatic: number; read
   // A body with no control statement has depth 0. An `else if` is one more level, as it is in the syntax.
   walk(body, 0);
   return { cyclomatic: decisions + 1, depth: deepest };
+}
+
+/** The loops: each one adds 1 plus its nesting, and its body is one level deeper. */
+const LOOPS: ReadonlySet<string> = new Set(["ForStatement", "ForInStatement", "ForOfStatement", "WhileStatement", "DoWhileStatement"]);
+/** The fields of a structure that are one level deeper than the structure. */
+const NESTED_FIELDS: ReadonlySet<string> = new Set(["body", "consequent", "alternate", "cases"]);
+const BOOLEAN: ReadonlySet<string> = new Set(["&&", "||", "??"]);
+const SAME_LEVEL: ReadonlySet<string> = new Set();
+
+/**
+ * This function gives the cognitive complexity of a body, after the specification of G. Ann Campbell (SonarSource, 2017).
+ * Each `if`, `else if`, `else`, conditional, `switch`, loop and `catch` adds 1. A structure that nests also adds its
+ * nesting level. Each run of one boolean operator adds 1, and each `break` or `continue` to a label adds 1. A nested
+ * function counts for itself, not for this one, as in `complexityOf`. The recursion increment is not counted.
+ */
+export function cognitiveOf(body: unknown): number {
+  let total = 0;
+  const walkFields = (node: AstNode, nesting: number, deeper: ReadonlySet<string>): void => {
+    for (const [field, value] of Object.entries(node)) if (field !== "span" && typeof value === "object" && value !== null) walk(value, deeper.has(field) ? nesting + 1 : nesting);
+  };
+  const walkIf = (node: AstNode, nesting: number, elseIf: boolean): void => {
+    total += elseIf ? 1 : 1 + nesting;
+    walk(node["test"], nesting);
+    walk(node["consequent"], nesting + 1);
+    const alternate = node["alternate"];
+    if (isNode(alternate) && alternate.type === "IfStatement") walkIf(alternate, nesting, true);
+    else if (isNode(alternate)) {
+      total += 1;
+      walk(alternate, nesting + 1);
+    }
+  };
+  const walk = (node: unknown, nesting: number): void => {
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item, nesting);
+      return;
+    }
+    if (!isNode(node)) {
+      if (typeof node === "object" && node !== null) for (const value of Object.values(node)) walk(value, nesting);
+      return;
+    }
+    if (FUNCTIONS.has(node.type)) return;
+    if (node.type === "IfStatement") return walkIf(node, nesting, false);
+    if (node.type === "ConditionalExpression" || node.type === "SwitchStatement" || node.type === "CatchClause" || LOOPS.has(node.type)) {
+      total += 1 + nesting;
+      return walkFields(node, nesting, NESTED_FIELDS);
+    }
+    if ((node.type === "BreakStatement" || node.type === "ContinueStatement") && isNode(node["label"])) total += 1;
+    if (node.type === "BinaryExpression" && BOOLEAN.has(String(node["operator"]))) {
+      const operators: string[] = [];
+      const leaves: unknown[] = [];
+      flattenBoolean(node, operators, leaves);
+      total += operators.filter((operator, i) => i === 0 || operator !== operators[i - 1]).length;
+      return walk(leaves, nesting);
+    }
+    walkFields(node, nesting, SAME_LEVEL);
+  };
+  walk(body, 0);
+  return total;
+}
+
+/** This function puts the boolean operators of a chain in their order in the text, and the operands that are not boolean chains. */
+function flattenBoolean(node: unknown, operators: string[], leaves: unknown[]): void {
+  let inner = node;
+  while (isNode(inner) && inner.type === "ParenthesisExpression") inner = inner["expression"];
+  if (isNode(inner) && inner.type === "BinaryExpression" && BOOLEAN.has(String(inner["operator"]))) {
+    flattenBoolean(inner["left"], operators, leaves);
+    operators.push(String(inner["operator"]));
+    flattenBoolean(inner["right"], operators, leaves);
+    return;
+  }
+  leaves.push(inner);
 }

@@ -63,6 +63,7 @@ export interface CatalogColumns {
     readonly cyclomatic: "integer?";
     readonly depth: "integer?";
     readonly type_hash: "text?";
+    readonly cognitive: "integer?";
   };
   readonly export: { readonly blob: "text"; readonly name: "text"; readonly symbol: "text?"; readonly from: "text?"; readonly type_only: "integer" };
   readonly import: {
@@ -239,6 +240,7 @@ export const CATALOG_COLUMNS: CatalogColumns = {
     cyclomatic: "integer?",
     depth: "integer?",
     type_hash: "text?",
+    cognitive: "integer?",
   },
   export: { blob: "text", name: "text", symbol: "text?", from: "text?", type_only: "integer" },
   import: { blob: "text", ordinal: "integer", specifier: "text", package: "text?", kind: "text", names: "text", line: "integer" },

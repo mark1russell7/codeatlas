@@ -1,6 +1,6 @@
 import { parseSync } from "@swc/core";
 import { describe, expect, it } from "vitest";
-import { calleeText, commentsOf, complexityOf, factsOf } from "./facts.ts";
+import { calleeText, cognitiveOf, commentsOf, complexityOf, factsOf } from "./facts.ts";
 import { cloneHashes } from "./hashes.ts";
 import { shapeOf, type AstNode } from "./shape.ts";
 
@@ -231,5 +231,27 @@ describe("helpers", () => {
     expect(complexityOf(body("function f(a) { switch (a) { case 1: break; case 2: break; default: } return a ?? (a || 1); }")).cyclomatic).toBe(5);
     // A nested function counts for itself
     expect(complexityOf(body("function f() { const g = () => { if (x) {} }; }")).cyclomatic).toBe(1);
+  });
+
+  it("gives the cognitive complexity of the examples of the specification", () => {
+    const body = (code: string) => (parseSync(code, { syntax: "typescript" }).body[0] as unknown as AstNode)["body"];
+    expect(cognitiveOf(body("function f() { return 1; }"))).toBe(0);
+    // sumOfPrimes: the loops +1 and +2, the if +3, the continue to a label +1
+    const primes = "function f(max) { let t = 0; OUT: for (let i = 1; i <= max; ++i) { for (let j = 2; j < i; ++j) { if (i % j == 0) { continue OUT; } } t += i; } return t; }";
+    expect(cognitiveOf(body(primes))).toBe(7);
+    // getWords: one switch, with no nesting, is +1 for all of its cases
+    expect(cognitiveOf(body('function f(n) { switch (n) { case 1: return "one"; case 2: return "two"; default: return "lots"; } }'))).toBe(1);
+    // An else if and an else add 1 each, with no nesting
+    expect(cognitiveOf(body("function f(a, b) { if (a) {} else if (b) {} else {} }"))).toBe(3);
+    // A nested if adds its nesting
+    expect(cognitiveOf(body("function f(a, b) { if (a) { if (b) {} } }"))).toBe(3);
+    // Each run of one boolean operator adds 1, and parentheses do not start a run
+    expect(cognitiveOf(body("function f(a, b, c, d) { return a && b && c || d; }"))).toBe(2);
+    expect(cognitiveOf(body("function f(a, b, c) { return a && (b && c); }"))).toBe(1);
+    // A conditional in an if, and a catch with an if in it
+    expect(cognitiveOf(body("function f(a, b) { let x; if (a) { x = b ? 1 : 2; } return x; }"))).toBe(3);
+    expect(cognitiveOf(body("function f(a, b) { try { if (a) {} } catch (e) { if (b) {} } }"))).toBe(4);
+    // A nested function counts for itself
+    expect(cognitiveOf(body("function f() { const g = () => { if (x) {} }; }"))).toBe(0);
   });
 });

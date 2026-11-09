@@ -105,6 +105,19 @@ describe("Catalog", () => {
     catalog.close();
     expect(() => new Catalog(path)).toThrow(/codeatlas\/0/);
   });
+
+  it("adds a column of a later facts version to an older database of the same schema", () => {
+    const folder = mkdtempSync(join(tmpdir(), "atlas-db-"));
+    folders.push(folder);
+    const path = join(folder, "older.sqlite");
+    const catalog = new Catalog(path);
+    catalog.db.exec("ALTER TABLE symbol DROP COLUMN cognitive");
+    catalog.close();
+    const again = new Catalog(path);
+    const columns = again.db.prepare("PRAGMA table_info(symbol)").all() as { name: string }[];
+    again.close();
+    expect(columns.map((c) => c.name)).toContain("cognitive");
+  });
 });
 
 describe("gateVerdict", () => {

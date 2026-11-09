@@ -121,6 +121,8 @@ A declaration of a file: a function, a method, a class, a variable, a type, an i
 | `hash_shape` | text | The hash of the atlas of today (`codeatlas/1`). |
 | `cyclomatic` | integer | The decision points plus one. |
 | `depth` | integer | The deepest nesting of control statements: `if`, the loops, `switch` and `try`. |
+| `type_hash` | text | Only for a type or an interface: the hash of its members, sorted by name. |
+| `cognitive` | integer | The cognitive complexity of the body, after the specification of SonarSource. A nested function counts for itself. Since `facts/3`. |
 
 ### `export`
 
@@ -420,6 +422,8 @@ A dimension is an attribute of each function or each file, as data in `DIMENSION
 - A dimension counts only when the Wilson lower bound of its precision check is 0.9 or more. The check compares the values with an independent source, as the TypeScript compiler.
 - The query `codeIndex` gives the value of each dimension for each function and each file outside the tests of the current snapshots.
 - `dimensions/1` has length, parameters, size, cyclomatic complexity, nesting depth, fan-out, fan-in, type escapes and module coupling.
+- `dimensions/2` adds the cognitive complexity.
+- A column that a later facts version adds goes into `ADDED_COLUMNS` (`store.ts`). An older database of the same schema gets the column when it opens.
 - The fan-in is by name. Two functions with one name share their calls, so its check is necessary before it counts.
 
 The algebra is the relational algebra over these relations: selection, projection, join, union, difference, grouping, and the transitive closure for `calls`, `imports` and `depends_on`. The typed query layer builds each query from the declared columns, so a query of a column that does not exist does not compile.

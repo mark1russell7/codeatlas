@@ -8,7 +8,7 @@ export { shapeOf, shapeTokens } from "./shape.ts";
 export type { AstNode, Shape } from "./shape.ts";
 export { buildCorpus, corpusMarkdown, corpusOfRepo, countRepo, kindOf, lineCounts, FILE_KINDS } from "./corpus.ts";
 export type { Corpus, CorpusFile, FileKind, KindCount, RepoCorpus } from "./corpus.ts";
-export { calleeText, commentsOf, complexityOf, factsOf, syntaxOf, typeShapeOf, FACTS_VERSION } from "./facts.ts";
+export { calleeText, cognitiveOf, commentsOf, complexityOf, factsOf, syntaxOf, typeShapeOf, FACTS_VERSION } from "./facts.ts";
 export type { CallSiteFact, ExportFact, FileFacts, FunctionFact, ImportFact, ImportKind, MarkerFact, MarkerKind, SymbolFact, SymbolKind, Syntax } from "./facts.ts";
 export { cloneHashes, literalText, typeHash } from "./hashes.ts";
 export type { CloneHashes } from "./hashes.ts";

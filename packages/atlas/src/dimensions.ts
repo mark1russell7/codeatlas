@@ -7,7 +7,7 @@ import { quantile, wilson } from "@mark1russell7/rigor-statistics";
 import type { CatalogQuery } from "./query.ts";
 
 /** The version of the dimension catalog. A new dimension or a new definition gives a new version. */
-export const DIMENSIONS_VERSION: string = "dimensions/1";
+export const DIMENSIONS_VERSION: string = "dimensions/2";
 
 /** A dimension counts when the Wilson lower bound of its precision check is this value or more. */
 export const DIMENSION_PRECISION_GATE: number = 0.9;
@@ -45,7 +45,7 @@ export interface Dimension {
   readonly precision: DimensionPrecision | null;
 }
 
-/** The dimensions of `dimensions/1`. Each one comes from the facts of the parser, with no model tokens. */
+/** The dimensions of `dimensions/2`. Each one comes from the facts of the parser, with no model tokens. */
 export const DIMENSIONS: readonly Dimension[] = [
   {
     id: "length",
@@ -99,6 +99,17 @@ export const DIMENSIONS: readonly Dimension[] = [
     scope: "function",
     extractor: "parser",
     source: "symbol.depth",
+    higherIsWorse: true,
+    precision: null,
+  },
+  {
+    id: "cognitive",
+    title: "Cognitive complexity",
+    definition: "The effort to read the body, after the specification of SonarSource. Each structure adds 1 plus its nesting. A nested function counts for itself.",
+    unit: "points",
+    scope: "function",
+    extractor: "parser",
+    source: "symbol.cognitive",
     higherIsWorse: true,
     precision: null,
   },
@@ -185,7 +196,7 @@ export async function codeIndex(q: CatalogQuery): Promise<CodeIndex> {
     .innerJoin("symbol as s", "s.blob", "f.blob")
     .where("f.test", "=", 0)
     .where("s.kind", "in", ["function", "method"])
-    .select(["f.repo as repo", "f.path as path", "f.blob as blob", "s.qualified_name as name", "s.name as simple", "s.line as line", "s.end_line as endLine", "s.params as params", "s.nodes as nodes", "s.cyclomatic as cyclomatic", "s.depth as depth"])
+    .select(["f.repo as repo", "f.path as path", "f.blob as blob", "s.qualified_name as name", "s.name as simple", "s.line as line", "s.end_line as endLine", "s.params as params", "s.nodes as nodes", "s.cyclomatic as cyclomatic", "s.depth as depth", "s.cognitive as cognitive"])
     .orderBy("repo")
     .orderBy("path")
     .orderBy("line")
@@ -242,6 +253,7 @@ export async function codeIndex(q: CatalogQuery): Promise<CodeIndex> {
       nodes: s.nodes ?? 0,
       cyclomatic: s.cyclomatic ?? 1,
       depth: s.depth ?? 0,
+      cognitive: s.cognitive ?? 0,
       fan_out: outOf.get(`${s.blob}\0${s.name}`) ?? 0,
       fan_in: inOf.get(`${s.repo}\0${s.simple}`) ?? 0,
       unsafe_types: (markerLines.get(s.blob) ?? []).filter((line) => s.line <= line && line <= s.endLine).length,
