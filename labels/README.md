@@ -14,6 +14,7 @@ This folder holds the hand-labeled sample of Layer 2. `docs/SCHEMA.md` gives the
 | `planned-1.jsonl`, `planned-2.jsonl` | The owner verdicts of the planned pairs of CA5, round 1 and round 2. |
 | `owner-homes-1.jsonl` | The home of each of the 50 functions with an owner verdict, from that verdict. It is a labeled sample for CA12. |
 | `finds-1.jsonl` | The fixed recall benchmark: the 16 real copies that the owners moved, 8 from `owners-1.jsonl` and 8 from `missed-1.jsonl`. |
+| `formula-leads-1.md` | The first 30 formula leads (CA15), grouped by their home, for the owners to read. |
 | `formulas-1.jsonl` | The owner verdicts of the formula leads (CA15): the hash of the class, the verdict, the reason and the day. |
 | `pilot-1.jsonl` | The labels of the first pilot of Layer 2 (CA13): 172 functions of `otel-ts`, `page-lifecycle-tracker` and `ste-lint`, from one blind model. |
 
