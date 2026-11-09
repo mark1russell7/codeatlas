@@ -9,7 +9,7 @@ import { FACTS_VERSION } from "./facts.ts";
 import { lockfilesOfRepo } from "./lockfiles.ts";
 import { manifestsOfRepo } from "./manifests.ts";
 import { roadmapsOfRepo } from "./roadmaps.ts";
-import { headOf } from "./scan.ts";
+import { commitTimeOf, headOf } from "./scan.ts";
 import { conventionsCheckOfRepo } from "./conventions.ts";
 import type { Catalog } from "./store.ts";
 import { TEMPLATE_REPO, templateRecordsOfRepo, type TemplateRecords } from "./templates.ts";
@@ -32,7 +32,7 @@ export function scanRepoInto(db: Catalog, name: string, root: string, keep: read
   const tree = treeOf(root);
   const scan = factsOfRepo(name, root, db, tree);
   const commit = headOf(root);
-  const snapshot = db.putSnapshot(name, commit, scannedAt, FACTS_VERSION, scan.files, scan.counts);
+  const snapshot = db.putSnapshot(name, commit, scannedAt, FACTS_VERSION, scan.files, scan.counts, commitTimeOf(root));
   db.putManifests(snapshot, manifestsOfRepo(root, tree));
   db.putLockfiles(snapshot, lockfilesOfRepo(root, tree));
   db.putRoadmaps(snapshot, roadmapsOfRepo(root, tree));

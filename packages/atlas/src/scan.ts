@@ -85,6 +85,15 @@ export function headOf(root: string): string | null {
   }
 }
 
+/** This function gives the commit time of `HEAD` of the checkout at `root` as ISO 8601, or null outside a repository. */
+export function commitTimeOf(root: string): string | null {
+  try {
+    return execFileSync("git", ["-C", root, "show", "-s", "--format=%cI", "HEAD"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim() || null;
+  } catch {
+    return null;
+  }
+}
+
 /** The byte offset of each line start, so that a swc position (a byte offset) gives a line. */
 export function lineStarts(bytes: Buffer): number[] {
   const starts = [0];

@@ -22,6 +22,8 @@ interface SnapshotColumns {
   readonly parsed: "integer";
   readonly reused: "integer";
   readonly errors: "integer";
+  readonly committed_at: "text?";
+  readonly indexed_at: "text?";
 }
 
 interface FileColumns {
@@ -211,6 +213,8 @@ const SNAPSHOT: SnapshotColumns = {
   parsed: "integer",
   reused: "integer",
   errors: "integer",
+  committed_at: "text?",
+  indexed_at: "text?",
 };
 
 const FILE: FileColumns = { snapshot: "text", path: "text", blob: "text", oid: "text", bytes: "integer", test: "integer" };
