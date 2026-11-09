@@ -26,7 +26,8 @@ CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS repo (name TEXT PRIMARY KEY, owner TEXT, visibility TEXT NOT NULL DEFAULT 'public');
 CREATE TABLE IF NOT EXISTS snapshot (
   id TEXT PRIMARY KEY, repo TEXT NOT NULL REFERENCES repo(name), "commit" TEXT, scanned_at TEXT NOT NULL,
-  scanner TEXT NOT NULL, files INTEGER NOT NULL, parsed INTEGER NOT NULL, reused INTEGER NOT NULL, errors INTEGER NOT NULL
+  scanner TEXT NOT NULL, files INTEGER NOT NULL, parsed INTEGER NOT NULL, reused INTEGER NOT NULL, errors INTEGER NOT NULL,
+  committed_at TEXT, indexed_at TEXT
 );
 CREATE TABLE IF NOT EXISTS blob (key TEXT PRIMARY KEY, oid TEXT NOT NULL, syntax TEXT NOT NULL, version TEXT NOT NULL, parse_error TEXT);
 CREATE INDEX IF NOT EXISTS blob_oid ON blob(oid);
@@ -284,16 +285,19 @@ export class Catalog {
    * This method writes a snapshot of one repository and its files. Each blob of the files must be in the database.
    * A second scan of one commit replaces the rows of the first.
    */
-  putSnapshot(repo: string, commit: string | null, scannedAt: string, scanner: string, files: readonly FileRecord[], counts: ScanCounts): string {
+  putSnapshot(repo: string, commit: string | null, scannedAt: string, scanner: string, files: readonly FileRecord[], counts: ScanCounts, committedAt: string | null = null): string {
     const id = `${repo}@${commit ?? "worktree"}`;
     this.#transaction(() => {
+      // The first scan of the commit stays: the delay from the commit to the index is a measure (CA21)
+      const before = this.db.prepare("SELECT indexed_at, scanned_at FROM snapshot WHERE id = ?").get(id) as { indexed_at: string | null; scanned_at: string } | undefined;
+      const indexedAt = before === undefined ? scannedAt : (before.indexed_at ?? before.scanned_at);
       this.db.prepare("INSERT OR IGNORE INTO repo (name) VALUES (?)").run(repo);
       // The rows of each table that refers to the snapshot go first. The put method of each source writes them again
       for (const table of this.#snapshotTables()) this.db.prepare(`DELETE FROM ${table} WHERE snapshot = ?`).run(id);
       this.db.prepare("DELETE FROM snapshot WHERE id = ?").run(id);
       this.db
-        .prepare('INSERT INTO snapshot (id, repo, "commit", scanned_at, scanner, files, parsed, reused, errors) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-        .run(id, repo, commit, scannedAt, scanner, counts.files, counts.parsed, counts.reused, counts.errors);
+        .prepare('INSERT INTO snapshot (id, repo, "commit", scanned_at, scanner, files, parsed, reused, errors, committed_at, indexed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .run(id, repo, commit, scannedAt, scanner, counts.files, counts.parsed, counts.reused, counts.errors, committedAt, indexedAt);
       const insert = this.db.prepare("INSERT INTO file (snapshot, path, blob, oid, bytes, test) VALUES (?, ?, ?, ?, ?, ?)");
       for (const file of files) insert.run(id, file.path, factsKey(file.blob, file.path), file.blob, file.bytes, file.test ? 1 : 0);
     });
@@ -542,6 +546,8 @@ export class Catalog {
 const ADDED_COLUMNS: readonly { readonly table: string; readonly column: string; readonly type: string }[] = [
   { table: "symbol", column: "cognitive", type: "INTEGER" },
   { table: "symbol", column: "tokens", type: "INTEGER" },
+  { table: "snapshot", column: "committed_at", type: "TEXT" },
+  { table: "snapshot", column: "indexed_at", type: "TEXT" },
 ];
 
 /** This function adds each column of `ADDED_COLUMNS` that an older database of the same schema does not have. */

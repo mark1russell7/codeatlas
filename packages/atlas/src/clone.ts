@@ -36,16 +36,19 @@ export function publicNames(owner: string): string[] {
 
 /**
  * This function clones each repository into `into/<name>`, and gives the names that did not clone. A repository
- * of `options` gets those arguments of `git clone`. Each other repository gets `CLONE_ARGS`.
+ * of `options` gets those arguments of `git clone`. Each other repository gets `CLONE_ARGS`. With `only`, the function
+ * clones only the repositories of that set.
  */
 export function clonePublic(
   owner: string,
   into: string,
   log: (line: string) => void = console.error,
   options: Readonly<Record<string, readonly string[]>> = {},
+  only?: ReadonlySet<string>,
 ): { cloned: string[]; failed: string[] } {
-  const names = publicNames(owner);
-  log(`${names.length} public repositories of ${owner}`);
+  const all = publicNames(owner);
+  const names = only === undefined ? all : all.filter((name) => only.has(name));
+  log(only === undefined ? `${names.length} public repositories of ${owner}` : `${names.length} of ${all.length} public repositories of ${owner}`);
   mkdirSync(into, { recursive: true });
   const cloned: string[] = [];
   const failed: string[] = [];

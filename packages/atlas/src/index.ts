@@ -3,8 +3,25 @@ export type { Atlas, AtlasOptions, CloneClass, Member, PurposeRow, RepoRow, Shar
 export { CHURN_DAYS, churnLogArgs, churnOfLog, churnOfRepo, isShallow } from "./churn.ts";
 export type { FileChurn } from "./churn.ts";
 export { CLONE_ARGS, clonePublic, listArgs, repoNames } from "./clone.ts";
+export {
+  changedRepos,
+  DELAY_DAYS,
+  delayStats,
+  freshMarkdown,
+  FRESHNESS_HOURS,
+  headOfLsRemote,
+  indexedHeads,
+  lsRemoteArgs,
+  remoteHeads,
+  staleRepos,
+  type DelayStats,
+  type FreshReport,
+  type IndexedHead,
+  type RemoteHead,
+  type BehindRepo,
+} from "./fresh.ts";
 export { atlasMarkdown } from "./report.ts";
-export { gitFiles, headOf, isSource, lineOf, lineStarts, packageOf, scanRepo, scanSource, GENERATED, MAX_BYTES, SKIP, SOURCE, TEST } from "./scan.ts";
+export { commitTimeOf, gitFiles, headOf, isSource, lineOf, lineStarts, packageOf, scanRepo, scanSource, GENERATED, MAX_BYTES, SKIP, SOURCE, TEST } from "./scan.ts";
 export type { Export, FileScan, RepoScan, Unit } from "./scan.ts";
 export { shapeOf, shapeTokens } from "./shape.ts";
 export type { AstNode, Shape } from "./shape.ts";

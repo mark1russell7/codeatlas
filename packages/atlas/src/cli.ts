@@ -34,6 +34,7 @@
  * The command drift writes the drift of each repository from the template, and the share of the current repositories.
  * The command mcp serves the tools of agents over a catalog as MCP tools. The command tool calls one of them.
  */
+import { execFileSync } from "node:child_process";
 import { closeSync, existsSync, openSync, readFileSync, readdirSync, statSync, writeFileSync, writeSync } from "node:fs";
 import { join } from "node:path";
 import { buildAtlas } from "./atlas.ts";
@@ -60,7 +61,8 @@ import { Catalog, readOnlyCatalog } from "./store.ts";
 import { addPoint, filterTrend, trendPoint } from "./trend.ts";
 import { querySet } from "./query-set.ts";
 import { factsMarkdown, factsSummary, gateVerdict, type GateVerdict } from "./summary.ts";
-import { clonePublic, publicNames } from "./clone.ts";
+import { clonePublic, isSafeName, publicNames, repoNames } from "./clone.ts";
+import { changedRepos, DELAY_DAYS, delayStats, freshMarkdown, FRESHNESS_HOURS, indexedHeads, remoteHeads, staleRepos, type FreshReport } from "./fresh.ts";
 import { coverageGaps, coverageGapsMarkdown, coverageMarkdown, coverageOfRepo, coverageReport, ghArtifacts } from "./coverage.ts";
 import { buildCorpus, corpusMarkdown, corpusOfRepo } from "./corpus.ts";
 import { atlasMarkdown } from "./report.ts";
@@ -130,8 +132,9 @@ const USAGE = `Usage:
   codeatlas dimensions --db <catalog.sqlite> [--out dimensions.json] [--markdown dimensions.md] [--catalog site-dimensions.json]
   codeatlas formulas --db <catalog.sqlite> --finds <finds.jsonl> [--verdicts <verdicts.jsonl>] [--out formulas.json] [--markdown formulas.md] [--top 30]
   codeatlas coverage --db <catalog.sqlite> --owner <owner> --dir <folder> [--out coverage.json] [--markdown coverage.md]
-  codeatlas clone --owner <owner> --into <folder>
+  codeatlas clone --owner <owner> --into <folder> [--only <names.txt>]
   codeatlas prune --db <catalog.sqlite> --owner <owner>
+  codeatlas fresh --owner <owner> --db <catalog.sqlite> [--changed <names.txt>] [--out fresh.json] [--markdown fresh.md] [--gate]
   codeatlas mcp --db <catalog.sqlite> [--write]
   codeatlas tool <name> [<json input>] --db <catalog.sqlite>`;
 
@@ -144,8 +147,11 @@ function main(argv: readonly string[]): number | Promise<number> {
       console.error(USAGE);
       return 2;
     }
+    // With --only, the clone takes the repositories of that file, one name on each line, and the template
+    const onlyFile = rest.includes("--only") ? rest[rest.indexOf("--only") + 1] : undefined;
+    const only = onlyFile === undefined ? undefined : new Set([TEMPLATE_REPO, ...repoNames(readFileSync(onlyFile, "utf8"))]);
     // The template gets its history, so the drift reads the content of each pin
-    const { failed } = clonePublic(owner, into, console.error, { [TEMPLATE_REPO]: TEMPLATE_CLONE });
+    const { failed } = clonePublic(owner, into, console.error, { [TEMPLATE_REPO]: TEMPLATE_CLONE }, only);
     for (const name of failed) console.log(`::warning::${name} did not clone`);
     return 0;
   }
@@ -164,6 +170,7 @@ function main(argv: readonly string[]): number | Promise<number> {
   if (command === "planned") return planned(rest);
   if (command === "formulas") return formulas(rest);
   if (command === "dimensions") return dimensions(rest);
+  if (command === "fresh") return fresh(rest);
   if (command === "queries") return queries(rest);
   if (command === "mcp") return mcpCommand(rest);
   if (command === "tool") return toolCommand(rest);
@@ -565,6 +572,61 @@ async function planned(argv: readonly string[]): Promise<number> {
     return 0;
   } finally {
     catalog.close();
+  }
+}
+
+/**
+ * This function compares the head of each public repository of `--owner` with the catalog `--db`. It writes the
+ * repositories with a new head to `--changed`. With `--gate`, it fails when a head waits 6 hours or more.
+ */
+async function fresh(argv: readonly string[]): Promise<number> {
+  const option = (name: string): string | undefined => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined);
+  const owner = option("--owner");
+  const db = option("--db");
+  if (owner === undefined || db === undefined || !isSafeName(owner)) {
+    console.error(USAGE);
+    return 2;
+  }
+  const names = publicNames(owner);
+  const heads = remoteHeads(owner, names);
+  const now = new Date().toISOString();
+  const catalog = existsSync(db) ? readOnlyCatalog(db) : undefined;
+  try {
+    const q = catalog === undefined ? undefined : queryOf(catalog);
+    const indexed = q === undefined ? new Map() : await indexedHeads(q);
+    // The commit time of a head comes from the API only for the heads that the index does not have
+    const timeOf = (repo: string, sha: string): string | null => {
+      try {
+        return execFileSync("gh", ["api", `repos/${owner}/${repo}/commits/${sha}`, "--jq", ".commit.committer.date"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim() || null;
+      } catch {
+        return null;
+      }
+    };
+    const report: FreshReport = {
+      at: now,
+      repos: names.length,
+      unread: heads.filter((h) => h.head === null).map((h) => h.repo),
+      changed: changedRepos(heads, indexed),
+      stale: staleRepos(heads, indexed, now, timeOf),
+      delay: q === undefined ? { days: DELAY_DAYS, commits: 0, median: null, p95: null } : await delayStats(q, now),
+    };
+    const changedFile = option("--changed");
+    if (changedFile !== undefined) writeFileSync(changedFile, report.changed.map((name) => `${name}
+`).join(""));
+    const out = option("--out");
+    if (out !== undefined) writeFileSync(out, `${JSON.stringify(report, null, 2)}
+`);
+    const markdown = freshMarkdown(report);
+    const markdownFile = option("--markdown");
+    if (markdownFile !== undefined) writeFileSync(markdownFile, markdown);
+    const failing = report.stale.filter((s) => s.fails);
+    console.error(`fresh: ${report.repos} repositories, ${report.changed.length} changed, ${failing.length} wait ${FRESHNESS_HOURS} hours or more, ${report.unread.length} not read`);
+    if (!argv.includes("--gate")) return 0;
+    for (const s of failing) console.log(`::error::${s.repo} has the head ${s.head.slice(0, 7)} that the index does not have, for ${s.hours === null ? "a time that is not known" : `${Math.round(s.hours)} hours`}.`);
+    for (const name of report.unread) console.log(`::warning::git ls-remote could not read ${name}.`);
+    return failing.length > 0 ? 1 : 0;
+  } finally {
+    catalog?.close();
   }
 }
 
