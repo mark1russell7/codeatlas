@@ -59,7 +59,7 @@ import { addPoint, trendPoint } from "./trend.ts";
 import { querySet } from "./query-set.ts";
 import { factsMarkdown, factsSummary, gateVerdict, type GateVerdict } from "./summary.ts";
 import { clonePublic } from "./clone.ts";
-import { coverageMarkdown, coverageOfRepo, coverageReport, ghArtifacts } from "./coverage.ts";
+import { coverageGaps, coverageGapsMarkdown, coverageMarkdown, coverageOfRepo, coverageReport, ghArtifacts } from "./coverage.ts";
 import { buildCorpus, corpusMarkdown, corpusOfRepo } from "./corpus.ts";
 import { atlasMarkdown } from "./report.ts";
 import { mcpCommand, toolCommand } from "./tools-cli.ts";
@@ -634,11 +634,12 @@ async function coverage(argv: readonly string[]): Promise<number> {
       }
     }
     const result = await coverageReport(queryOf(catalog.db));
+    const gaps = await coverageGaps(queryOf(catalog.db));
     const out = option("--out");
     const markdown = option("--markdown");
-    if (out !== undefined) writeFileSync(out, `${JSON.stringify(result)}\n`);
-    if (markdown !== undefined) writeFileSync(markdown, coverageMarkdown(result));
-    console.error(`coverage: ${result.covered.length} of ${result.repos} repositories have a coverage artifact`);
+    if (out !== undefined) writeFileSync(out, `${JSON.stringify({ ...result, gaps })}\n`);
+    if (markdown !== undefined) writeFileSync(markdown, `${coverageMarkdown(result)}\n${coverageGapsMarkdown(gaps)}`);
+    console.error(`coverage: ${result.covered.length} of ${result.repos} repositories have a coverage artifact, ${gaps.length} have no function report`);
     return 0;
   } finally {
     catalog.close();
