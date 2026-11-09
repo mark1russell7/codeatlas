@@ -67,6 +67,7 @@ The key of a judgment of a function is its `hash_renamed`, not its symbol key. E
 | `commit` | text | |
 | `committed_at` | time | The time of the commit. |
 | `scanned_at` | time | The time of the scan. |
+| `indexed_at` | time | The time of the first scan of the commit. A later scan of the same commit keeps it. |
 | `scanner` | text | The version of the scanner. |
 
 ### `blob`
@@ -501,11 +502,13 @@ The algebra is the relational algebra over these relations: selection, projectio
 | --- | --- | --- |
 | Determinism | Two scans of one commit | The same bytes. |
 | Scan errors | Files with a parse error, of each repository | Taken from 5 runs or more. |
-| Freshness | Freshness of each repository | One week plus the time of one scan. |
+| Freshness | The wait of each head that the index does not have, after the scan of the workflow `Fresh index` | Less than 6 hours. A head with no known commit time fails. |
 | Cost | Cost per 1000 lines of each task | Taken from the pilot. |
 | Precision | Precision of each category of Layer 2 | The lower end of the Wilson 95 % interval is at or above the target of the category. |
 
 A limit comes from measured runs, with the run ids and the formula next to the number.
+
+The workflow `Fresh index` starts every 3 hours. `git ls-remote` gives the head of each public repository with no clone. Before the scan, the command `prune` removes each repository that is not public now. The workflow clones and scans only the repositories with a new head. The delay from the commit to the index is `indexed_at - committed_at`. The command `fresh` gives its median and its 95th percentile over 7 days.
 
 The precision gate decides the size of the sample. For a target `p` and an expected precision above it, the sample must be large enough that the Wilson lower end can reach `p`. The Wilson interval comes from `@mark1russell7/rigor-statistics`, its home. The catalog has no local copy of it.
 
