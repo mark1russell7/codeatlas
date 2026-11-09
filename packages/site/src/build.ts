@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { type DataStamps, type PageStamp, renderDataStamp } from "@mark1russell7/site-pages";
 import { transformSync } from "@swc/core";
 import type { Atlas } from "@mark1russell7/codeatlas";
+import { escapeAttribute as escapeHtml } from "@mark1russell7/text";
 
 export interface SiteArgs {
   readonly atlas: string;
@@ -53,8 +54,6 @@ export function compilePage(source: string): string {
     module: { type: "es6" },
   }).code;
 }
-
-const escapeHtml = (text: string): string => text.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] ?? c);
 
 /** The age limit of the atlas: the gap of 7 days of the weekly schedule, and 1 day for the scan and a second start. */
 export const ATLAS_LIMIT = {
