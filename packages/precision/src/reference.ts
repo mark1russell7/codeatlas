@@ -291,3 +291,26 @@ export function calleeNamesOf(text: string, filename: string): string[] {
   visit(file);
   return names;
 }
+
+/**
+ * This function gives the line of the start of each token of a file, from the leaves of the syntax tree of the
+ * TypeScript compiler. A leaf with no width, the end of the file, the text of a JSX element and a JSDoc comment are not
+ * tokens.
+ */
+export function tokenLinesOf(text: string, filename: string): number[] {
+  const extension = filename.slice(filename.lastIndexOf(".") + 1);
+  const file = ts.createSourceFile(filename, text, ts.ScriptTarget.Latest, true, SCRIPT_KINDS[extension] ?? ts.ScriptKind.TS);
+  const lines: number[] = [];
+  const visit = (node: ts.Node): void => {
+    const children = node.getChildren(file);
+    if (children.length > 0) {
+      for (const child of children) if (!ts.isJSDoc(child)) visit(child);
+      return;
+    }
+    if (node.kind === ts.SyntaxKind.EndOfFileToken || node.kind === ts.SyntaxKind.JsxText) return;
+    const start = node.getStart(file);
+    if (node.end > start) lines.push(file.getLineAndCharacterOfPosition(start).line + 1);
+  };
+  visit(file);
+  return lines.sort((a, b) => a - b);
+}

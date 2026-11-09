@@ -7,9 +7,10 @@ import { formulaOf, type FormulaFact } from "./formulas.ts";
 import { cloneHashes, typeHash } from "./hashes.ts";
 import { lineOf, lineStarts, packageOf } from "./scan.ts";
 import { isNode, type AstNode } from "./shape.ts";
+import { tokenLines, tokensInLines } from "./tokens.ts";
 
 /** The version of the facts. A new version makes the catalog read each blob again. */
-export const FACTS_VERSION: string = "facts/3";
+export const FACTS_VERSION: string = "facts/4";
 
 export type SymbolKind = "function" | "method" | "class" | "variable" | "type" | "interface" | "enum" | "namespace";
 
@@ -36,7 +37,13 @@ export interface FunctionFact {
   readonly params: number;
   /** The text from the start of the function to the start of its body, with single spaces, at most 300 characters. */
   readonly signature: string;
+  /** The count of the nodes of the syntax tree of the parameters and the body. No independent tool checks this count. */
   readonly nodes: number;
+  /**
+   * The count of the tokens that start in the lines of the function, from `tokenLines`. It is null when the tokenizer
+   * cannot read the file.
+   */
+  readonly tokens: number | null;
   readonly hashExact: string;
   readonly hashRenamed: string;
   readonly hashShape: string;
@@ -244,6 +251,12 @@ export function factsOf(file: string, text: string): FileFacts {
     const span = node["span"] as { readonly start?: number; readonly end?: number } | undefined;
     return lineOf(starts, Math.max(0, ((end ? span?.end : span?.start) ?? base) - base - (end ? 1 : 0)));
   };
+  // The tokenizer reads the file only when the file has a function
+  let lines: number[] | null | undefined;
+  const tokensOf = (node: AstNode): number | null => {
+    if (lines === undefined) lines = tokenLines(text, file);
+    return lines === null ? null : tokensInLines(lines, at(node), at(node, true));
+  };
   const sliceText = (from: number, to: number): string => bytes.subarray(Math.max(0, from - base), Math.max(0, to - base)).toString("utf8");
 
   const symbols: SymbolFact[] = [];
@@ -325,6 +338,7 @@ export function factsOf(file: string, text: string): FileFacts {
       params: params.length,
       signature,
       nodes: hashes.nodes,
+      tokens: tokensOf(node),
       hashExact: hashes.exact,
       hashRenamed: hashes.renamed,
       hashShape: hashes.shape,

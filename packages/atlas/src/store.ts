@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS symbol (
   blob TEXT NOT NULL REFERENCES blob(key), qualified_name TEXT NOT NULL, name TEXT NOT NULL, kind TEXT NOT NULL,
   parent TEXT, line INTEGER NOT NULL, end_line INTEGER NOT NULL, exported INTEGER NOT NULL,
   is_async INTEGER, is_generator INTEGER, params INTEGER, signature TEXT, nodes INTEGER,
-  hash_exact TEXT, hash_renamed TEXT, hash_shape TEXT, cyclomatic INTEGER, depth INTEGER, type_hash TEXT, cognitive INTEGER,
+  hash_exact TEXT, hash_renamed TEXT, hash_shape TEXT, cyclomatic INTEGER, depth INTEGER, type_hash TEXT, cognitive INTEGER, tokens INTEGER,
   PRIMARY KEY (blob, qualified_name)
 );
 CREATE INDEX IF NOT EXISTS symbol_exact ON symbol(hash_exact) WHERE hash_exact IS NOT NULL;
@@ -217,7 +217,7 @@ export class Catalog {
     this.#has = this.db.prepare("SELECT 1 AS found FROM blob WHERE key = ?");
     this.#blob = this.db.prepare("INSERT INTO blob (key, oid, syntax, version, parse_error) VALUES (?, ?, ?, ?, ?)");
     this.#symbol = this.db.prepare(
-      "INSERT INTO symbol (blob, qualified_name, name, kind, parent, line, end_line, exported, is_async, is_generator, params, signature, nodes, hash_exact, hash_renamed, hash_shape, cyclomatic, depth, type_hash, cognitive) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO symbol (blob, qualified_name, name, kind, parent, line, end_line, exported, is_async, is_generator, params, signature, nodes, hash_exact, hash_renamed, hash_shape, cyclomatic, depth, type_hash, cognitive, tokens) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     );
     this.#export = this.db.prepare('INSERT INTO "export" (blob, name, symbol, "from", type_only) VALUES (?, ?, ?, ?, ?)');
     this.#import = this.db.prepare('INSERT INTO "import" (blob, ordinal, specifier, package, kind, names, line) VALUES (?, ?, ?, ?, ?, ?, ?)');
@@ -248,7 +248,7 @@ export class Catalog {
       this.#symbol.run(
         key, s.qualifiedName, s.name, s.kind, s.parent, s.line, s.endLine, bool(s.exported),
         fn === null ? null : bool(fn.async), fn === null ? null : bool(fn.generator), fn?.params ?? null, fn?.signature ?? null, fn?.nodes ?? null,
-        fn?.hashExact ?? null, fn?.hashRenamed ?? null, fn?.hashShape ?? null, fn?.cyclomatic ?? null, fn?.depth ?? null, s.typeHash, fn?.cognitive ?? null,
+        fn?.hashExact ?? null, fn?.hashRenamed ?? null, fn?.hashShape ?? null, fn?.cyclomatic ?? null, fn?.depth ?? null, s.typeHash, fn?.cognitive ?? null, fn?.tokens ?? null,
       );
     }
     for (const e of facts.exports) this.#export.run(key, e.name, e.symbol, e.from, bool(e.typeOnly));
@@ -539,7 +539,10 @@ export class Catalog {
 }
 
 /** The columns that came after the first release of a schema, by table. A new facts version fills them. */
-const ADDED_COLUMNS: readonly { readonly table: string; readonly column: string; readonly type: string }[] = [{ table: "symbol", column: "cognitive", type: "INTEGER" }];
+const ADDED_COLUMNS: readonly { readonly table: string; readonly column: string; readonly type: string }[] = [
+  { table: "symbol", column: "cognitive", type: "INTEGER" },
+  { table: "symbol", column: "tokens", type: "INTEGER" },
+];
 
 /** This function adds each column of `ADDED_COLUMNS` that an older database of the same schema does not have. */
 function addColumns(db: DatabaseSync): void {

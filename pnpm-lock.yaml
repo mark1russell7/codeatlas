@@ -205,6 +205,9 @@ importers:
 
   packages/atlas:
     dependencies:
+      '@babel/parser':
+        specifier: ^7.29.13
+        version: 7.29.13
       '@mark1russell7/conventions':
         specifier: ^0.38.4
         version: 0.38.4

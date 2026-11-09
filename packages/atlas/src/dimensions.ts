@@ -8,7 +8,7 @@ import { CHURN_DAYS } from "./churn.ts";
 import type { CatalogQuery } from "./query.ts";
 
 /** The version of the dimension catalog. A new dimension or a new definition gives a new version. */
-export const DIMENSIONS_VERSION: string = "dimensions/2";
+export const DIMENSIONS_VERSION: string = "dimensions/3";
 
 /** A dimension counts when the Wilson lower bound of its precision check is this value or more. */
 export const DIMENSION_PRECISION_GATE: number = 0.9;
@@ -46,7 +46,7 @@ export interface Dimension {
   readonly precision: DimensionPrecision | null;
 }
 
-/** The dimensions of `dimensions/2`. Each one comes from the parser, the git history or the CI, with no model tokens. */
+/** The dimensions of `dimensions/3`. Each one comes from the parser, the git history or the CI, with no model tokens. */
 export const DIMENSIONS: readonly Dimension[] = [
   {
     id: "length",
@@ -71,9 +71,20 @@ export const DIMENSIONS: readonly Dimension[] = [
     precision: { method: "the rule max-params of ESLint", agree: 199, checked: 200, at: "2026-11-09" },
   },
   {
-    id: "nodes",
+    id: "tokens",
     title: "Size",
-    definition: "The syntax nodes of the parameters and the body, without the types.",
+    definition: "The tokens that start in the lines of the function, as the TypeScript compiler counts them. Comments are not tokens.",
+    unit: "tokens",
+    scope: "function",
+    extractor: "parser",
+    source: "symbol.tokens",
+    higherIsWorse: true,
+    precision: null,
+  },
+  {
+    id: "nodes",
+    title: "Syntax nodes",
+    definition: "The syntax nodes of the parameters and the body, without the types. This count is a second measure of size, with no check.",
     unit: "nodes",
     scope: "function",
     extractor: "parser",
@@ -232,7 +243,7 @@ export async function codeIndex(q: CatalogQuery): Promise<CodeIndex> {
     .innerJoin("symbol as s", "s.blob", "f.blob")
     .where("f.test", "=", 0)
     .where("s.kind", "in", ["function", "method"])
-    .select(["f.repo as repo", "f.path as path", "f.blob as blob", "s.qualified_name as name", "s.name as simple", "s.line as line", "s.end_line as endLine", "s.params as params", "s.nodes as nodes", "s.cyclomatic as cyclomatic", "s.depth as depth", "s.cognitive as cognitive"])
+    .select(["f.repo as repo", "f.path as path", "f.blob as blob", "s.qualified_name as name", "s.name as simple", "s.line as line", "s.end_line as endLine", "s.params as params", "s.nodes as nodes", "s.cyclomatic as cyclomatic", "s.depth as depth", "s.cognitive as cognitive", "s.tokens as tokens"])
     .orderBy("repo")
     .orderBy("path")
     .orderBy("line")
@@ -309,6 +320,7 @@ export async function codeIndex(q: CatalogQuery): Promise<CodeIndex> {
     const churnValue = churnRepos.has(s.repo) ? (churnOf.get(file) ?? 0) : undefined;
     const cognitive = s.cognitive ?? 0;
     const later: Record<string, number> = {};
+    if (s.tokens !== null) later["tokens"] = s.tokens;
     if (churnValue !== undefined) later["churn"] = churnValue;
     if (coverage !== undefined) later["coverage"] = coverage;
     if (churnValue !== undefined) later["hotspot"] = cognitive * churnValue * (1 - (coverage ?? 0));

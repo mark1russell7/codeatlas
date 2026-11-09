@@ -8,10 +8,10 @@ import { join } from "node:path";
 import { random } from "@mark1russell7/rigor-generators";
 import { wilson } from "@mark1russell7/rigor-statistics";
 import { gitFiles, isSource, MAX_BYTES } from "@mark1russell7/codeatlas";
-import { calleeNamesOf, importsOf, matchFunction, referenceOf, type ReferenceFile, type ReferenceFunction } from "./reference.ts";
+import { calleeNamesOf, importsOf, matchFunction, referenceOf, tokenLinesOf, type ReferenceFile, type ReferenceFunction } from "./reference.ts";
 
 /** The version of the checks. A new check or a new reference tool gives a new version. */
-export const PRECISION_VERSION: string = "precision/2";
+export const PRECISION_VERSION: string = "precision/3";
 
 /** A dimension counts when the Wilson lower bound of its agreement is this value or more. */
 export const PRECISION_GATE: number = 0.9;
@@ -186,6 +186,22 @@ export function checkIndex(index: CodeIndexFile, options: CheckOptions): Precisi
   }
   const checks: DimensionCheck[] = FUNCTION_CHECKS.map((c) => checkOf(c.dimension, c.method, perDimension.get(c.dimension) ?? []));
   checks.push(checkOf("unsafe_types", "the rules no-explicit-any, no-non-null-assertion and ban-ts-comment of typescript-eslint", unsafe));
+
+  // The size: the leaves of the syntax tree of the TypeScript compiler that start in the lines of the function
+  const tokenFiles = new Map<string, readonly number[] | null>();
+  const tokenInputs: CheckInput[] = sample.map((f) => {
+    const key = `${f.repo}/${f.path}`;
+    if (!tokenFiles.has(key)) {
+      try {
+        tokenFiles.set(key, tokenLinesOf(readFileSync(join(options.reposDir, f.repo, f.path), "utf8"), f.path));
+      } catch {
+        tokenFiles.set(key, null);
+      }
+    }
+    const lines = tokenFiles.get(key) ?? null;
+    return { place: place(f), atlas: f.values["tokens"], reference: lines?.filter((line) => f.line <= line && line <= f.endLine).length };
+  });
+  checks.push(checkOf("tokens", "the leaves of the syntax tree of the TypeScript compiler, in the lines of the function", tokenInputs));
 
   // The churn: a log of each file of the sample alone, in the window of the scan
   const churnInputs: CheckInput[] = [];
