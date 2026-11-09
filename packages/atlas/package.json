@@ -15,6 +15,7 @@
     "codeatlas": "./src/cli.ts"
   },
   "dependencies": {
+    "@babel/parser": "^7.29.13",
     "@mark1russell7/conventions": "^0.38.4",
     "@mark1russell7/rigor-generators": "^0.1.6",
     "@mark1russell7/rigor-statistics": "^0.1.17",

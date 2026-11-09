@@ -116,7 +116,7 @@ A declaration of a file: a function, a method, a class, a variable, a type, an i
 | `async`, `generator` | boolean | |
 | `params` | integer | The number of parameters. |
 | `signature` | text | The text of the signature, with the types as they are written. |
-| `nodes` | integer | The size: the syntax nodes of the parameters and the body. |
+| `nodes` | integer | The syntax nodes of the parameters and the body. No independent tool checks this count. |
 | `hash_exact` | text | Refer to [Clone levels](#clone-levels). |
 | `hash_renamed` | text | |
 | `hash_shape` | text | The hash of the atlas of today (`codeatlas/1`). |
@@ -124,6 +124,7 @@ A declaration of a file: a function, a method, a class, a variable, a type, an i
 | `depth` | integer | The deepest nesting of control statements: `if`, the loops, `switch` and `try`. |
 | `type_hash` | text | Only for a type or an interface: the hash of its members, sorted by name. |
 | `cognitive` | integer | The cognitive complexity of the body, as the rule of SonarJS 4 counts it. Only a run of `&&` adds 1, not `||` or `??`. A nested function counts for itself. Since `facts/3`. |
+| `tokens` | integer or null | The size: the tokens that start in the lines of the function. Refer to [Tokens](#tokens). Since `facts/4`. |
 
 ### `export`
 
@@ -446,8 +447,19 @@ A dimension is an attribute of each function or each file, as data in `DIMENSION
 - `dimensions/1` has length, parameters, size, cyclomatic complexity, nesting depth, fan-out, fan-in, type escapes and module coupling.
 - `dimensions/2` adds the cognitive complexity, the churn, the coverage and the hotspot.
 - The hotspot is the cognitive complexity times the churn times one minus the coverage. A function with no coverage value counts as not covered.
+- `dimensions/3` adds the size in tokens (`tokens`). The count of syntax nodes (`nodes`) stays as a second measure, with no check.
 - A column that a later facts version adds goes into `ADDED_COLUMNS` (`store.ts`). An older database of the same schema gets the column when it opens.
 - The fan-in is by name. Two functions with one name share their calls, so its check is necessary before it counts.
+
+#### Tokens
+
+The size of a function is the count of its tokens. The tokenizer of `@babel/parser` reads the file. A token counts for each function that holds the line of its start.
+
+- The count follows the token model of the TypeScript compiler. A template literal has one token for its head, each middle part and its tail.
+- A private name (`#name`) is one token.
+- Comments and the text of JSX elements are not tokens.
+- The check counts the leaves of the syntax tree of the TypeScript compiler on the same lines. The two tokenizers have no common code.
+- `typescript-eslint` gives the tokens of the scanner of the TypeScript compiler, so it is not an independent check.
 
 The package `@codeatlas/precision` checks the dimensions. It draws a seeded sample of 200 functions and 200 files from the index (`checkIndex`).
 
@@ -460,6 +472,7 @@ The package `@codeatlas/precision` checks the dimensions. It draws a seeded samp
 | `cognitive` | The SonarJS rule `cognitive-complexity` |
 | `fan_out` | The different callees of the calls of the function in the syntax tree of `typescript-eslint` |
 | `unsafe_types` | The `typescript-eslint` rules `no-explicit-any`, `no-non-null-assertion` and `ban-ts-comment` |
+| `tokens` | The leaves of the syntax tree of the TypeScript compiler that start in the lines of the function |
 | `churn` | `git log` of each file alone, in the window of `churn_run` |
 | `fan_in` | The calls of the name of the function in each file of its repository, from the TypeScript compiler |
 | `imports` | `ts.preProcessFile` of the TypeScript compiler |

@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { calleeNamesOf, checkIndex, checkOf, commitsOfPath, importsOf, matchFunction, precisionMarkdown, referenceOf, type CodeIndexFile } from "./index.ts";
+import { calleeNamesOf, checkIndex, checkOf, commitsOfPath, importsOf, matchFunction, precisionMarkdown, referenceOf, tokenLinesOf, type CodeIndexFile } from "./index.ts";
 
 const folders: string[] = [];
 afterAll(() => {
@@ -67,6 +67,14 @@ describe("referenceOf", () => {
   });
 });
 
+describe("tokenLinesOf", () => {
+  it("gives the line of each leaf with a width, without comments, JSDoc and the text of JSX", () => {
+    const text = ["/** A doc. */", "const j = <a>{n} words</a>; // end", "const t = `x${y}z`;", ""].join("\n");
+    // const j = < a > { n } < / a > ; and const t = head y tail ;
+    expect(tokenLinesOf(text, "src/x.tsx")).toEqual([...Array<number>(14).fill(2), ...Array<number>(7).fill(3)]);
+  });
+});
+
 describe("importsOf", () => {
   it("gives each different specifier once", () => {
     expect(importsOf(SOURCE)).toEqual(["./a.ts", "./b.ts"]);
@@ -114,19 +122,21 @@ describe("checkIndex", () => {
 
     const index: CodeIndexFile = {
       functions: [
-        { repo: "r", path: "src/load.ts", name: "load", simple: "load", line: 4, endLine: 11, values: { length: 8, params: 2, cyclomatic: 6, depth: 3, cognitive: 7, fan_out: 0, fan_in: 0, unsafe_types: 2, churn: 1 } },
-        { repo: "r", path: "src/load.ts", name: "Store.trim", simple: "trim", line: 13, endLine: 15, values: { length: 3, params: 1, cyclomatic: 1, depth: 0, cognitive: 0, fan_out: 1, fan_in: 1, unsafe_types: 0, churn: 1 } },
-        { repo: "r", path: "src/load.ts", name: "twice", simple: "twice", line: 17, endLine: 18, values: { length: 2, params: 1, cyclomatic: 1, depth: 0, cognitive: 1, fan_out: 0, fan_in: 5, unsafe_types: 0, churn: 2 } },
+        { repo: "r", path: "src/load.ts", name: "load", simple: "load", line: 4, endLine: 11, values: { length: 8, params: 2, cyclomatic: 6, depth: 3, cognitive: 7, fan_out: 0, fan_in: 0, unsafe_types: 2, tokens: 46, churn: 1 } },
+        { repo: "r", path: "src/load.ts", name: "Store.trim", simple: "trim", line: 13, endLine: 15, values: { length: 3, params: 1, cyclomatic: 1, depth: 0, cognitive: 0, fan_out: 1, fan_in: 1, unsafe_types: 0, tokens: 17, churn: 1 } },
+        { repo: "r", path: "src/load.ts", name: "twice", simple: "twice", line: 17, endLine: 18, values: { length: 2, params: 1, cyclomatic: 1, depth: 0, cognitive: 1, fan_out: 0, fan_in: 5, unsafe_types: 0, tokens: 14, churn: 2 } },
         { repo: "r", path: "src/gone.ts", name: "gone", simple: "gone", line: 1, endLine: 2, values: { length: 2, params: 0, cyclomatic: 1, depth: 0, cognitive: 0, unsafe_types: 0 } },
       ],
       modules: [{ repo: "r", path: "src/load.ts", values: { imports: 2 } }],
     };
     const report = checkIndex(index, { reposDir, seed: "test", at: "2026-11-08T00:00:00Z", churnUntil: new Map([["r", { until, days: 90 }]]) });
     const by = new Map(report.checks.map((c) => [c.dimension, c]));
-    expect([...by.keys()]).toEqual(["length", "params", "cyclomatic", "depth", "cognitive", "fan_out", "unsafe_types", "churn", "fan_in", "imports"]);
+    expect([...by.keys()]).toEqual(["length", "params", "cyclomatic", "depth", "cognitive", "fan_out", "unsafe_types", "tokens", "churn", "fan_in", "imports"]);
     expect(by.get("params")).toMatchObject({ agree: 3, checked: 3, unmatched: 1 });
     expect(by.get("cognitive")).toMatchObject({ agree: 2, checked: 3, misses: [{ place: "r:src/load.ts:17", atlas: 1, reference: 0 }] });
     expect(by.get("unsafe_types")).toMatchObject({ agree: 3, checked: 3 });
+    // The TypeScript compiler gives 15 tokens for twice. gone has no file and no value
+    expect(by.get("tokens")).toMatchObject({ agree: 2, checked: 3, unmatched: 1, misses: [{ place: "r:src/load.ts:17", atlas: 14, reference: 15 }] });
     expect(by.get("churn")).toMatchObject({ agree: 2, checked: 3, unmatched: 1 });
     expect(by.get("fan_out")).toMatchObject({ agree: 3, checked: 3, unmatched: 1 });
     // The call text.trim() is the one call of trim in the repository. gone has no value in the index.
