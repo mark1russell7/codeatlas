@@ -289,6 +289,11 @@ function catalog(argv: readonly string[]): number {
   const pinning: { readonly path: string; readonly snapshot: string }[] = [];
   const unchecked: string[] = [];
   for (const repo of args.repos) {
+    // An empty repository has no commit, so it has nothing to scan. It must not stop the scan of the others
+    if (headOf(repo.path) === null) {
+      console.log(`::warning::${repo.name} has no commit, so the scan skips it`);
+      continue;
+    }
     const { snapshot, records, counts, conventions } = scanRepoInto(db, repo.name, repo.path, keep, scannedAt);
     if (conventions !== null) unchecked.push(`${repo.name}: ${conventions}`);
     if (repo.name === TEMPLATE_REPO) templateSnapshot = snapshot;
