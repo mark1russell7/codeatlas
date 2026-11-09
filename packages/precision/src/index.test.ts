@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { checkIndex, checkOf, commitsOfPath, importsOf, matchFunction, precisionMarkdown, referenceOf, type CodeIndexFile } from "./index.ts";
+import { calleeNamesOf, checkIndex, checkOf, commitsOfPath, importsOf, matchFunction, precisionMarkdown, referenceOf, type CodeIndexFile } from "./index.ts";
 
 const folders: string[] = [];
 afterAll(() => {
@@ -39,10 +39,27 @@ describe("referenceOf", () => {
     expect(file.error).toBeNull();
     const load = matchFunction(file.functions, 4, 11);
     // 1, and the if, the for, the if, the && and the ?? of ESLint complexity
-    expect(load).toEqual({ start: 4, end: 11, cyclomatic: 6, params: 2, cognitive: 7, depth: 3 });
-    expect(matchFunction(file.functions, 13, 15)).toMatchObject({ start: 13, end: 15, cyclomatic: 1, params: 1, cognitive: 0, depth: 0 });
+    expect(load).toEqual({ start: 4, end: 11, cyclomatic: 6, params: 2, cognitive: 7, depth: 3, fanOut: 0 });
+    expect(matchFunction(file.functions, 13, 15)).toMatchObject({ start: 13, end: 15, cyclomatic: 1, params: 1, cognitive: 0, depth: 0, fanOut: 1 });
     expect(matchFunction(file.functions, 17, 18)).toMatchObject({ start: 17, end: 18, params: 1 });
     expect(file.unsafeLines).toEqual([4, 7]);
+  });
+
+  it("gives the different callees of each function, as written, and a call in a nested function counts for it", () => {
+    const calls = [
+      "export function run(xs: number[], s: Store) {", // 1
+      "  const f = (x: number) => g(x);", // 2
+      "  s.save(xs); s.save([]); this?.m?.(); new Map();", // 3
+      '  xs[0]!.toFixed(); (s as any).load(); import("./x.ts"); require("y");', // 4
+      "  return f(1);", // 5
+      "}", // 6
+      "",
+    ].join("\n");
+    const file = referenceOf(calls, "src/run.ts");
+    // s.save, this.m, Map, xs[].toFixed, s.load, require and f: the call g belongs to the arrow function
+    expect(matchFunction(file.functions, 1, 6)?.fanOut).toBe(7);
+    expect(matchFunction(file.functions, 2, 2)?.fanOut).toBe(1);
+    expect(calleeNamesOf(calls, "src/run.ts")).toEqual(["g", "save", "save", "m", "Map", "toFixed", "load", "require", "f"]);
   });
 
   it("gives the message of the parser for a file that it cannot read", () => {
@@ -57,7 +74,7 @@ describe("importsOf", () => {
 });
 
 describe("matchFunction", () => {
-  const f = (start: number, end: number) => ({ start, end, cyclomatic: 1, params: 0, cognitive: 0, depth: 0 });
+  const f = (start: number, end: number) => ({ start, end, cyclomatic: 1, params: 0, cognitive: 0, depth: 0, fanOut: 0 });
   it("needs the same last line, and takes the exact first line before a first line one apart", () => {
     expect(matchFunction([f(3, 9), f(4, 9)], 4, 9)).toEqual(f(4, 9));
     expect(matchFunction([f(3, 9)], 4, 9)).toEqual(f(3, 9));
@@ -97,20 +114,23 @@ describe("checkIndex", () => {
 
     const index: CodeIndexFile = {
       functions: [
-        { repo: "r", path: "src/load.ts", name: "load", line: 4, endLine: 11, values: { length: 8, params: 2, cyclomatic: 6, depth: 3, cognitive: 7, unsafe_types: 2, churn: 1 } },
-        { repo: "r", path: "src/load.ts", name: "Store.trim", line: 13, endLine: 15, values: { length: 3, params: 1, cyclomatic: 1, depth: 0, cognitive: 0, unsafe_types: 0, churn: 1 } },
-        { repo: "r", path: "src/load.ts", name: "twice", line: 17, endLine: 18, values: { length: 2, params: 1, cyclomatic: 1, depth: 0, cognitive: 1, unsafe_types: 0, churn: 2 } },
-        { repo: "r", path: "src/gone.ts", name: "gone", line: 1, endLine: 2, values: { length: 2, params: 0, cyclomatic: 1, depth: 0, cognitive: 0, unsafe_types: 0 } },
+        { repo: "r", path: "src/load.ts", name: "load", simple: "load", line: 4, endLine: 11, values: { length: 8, params: 2, cyclomatic: 6, depth: 3, cognitive: 7, fan_out: 0, fan_in: 0, unsafe_types: 2, churn: 1 } },
+        { repo: "r", path: "src/load.ts", name: "Store.trim", simple: "trim", line: 13, endLine: 15, values: { length: 3, params: 1, cyclomatic: 1, depth: 0, cognitive: 0, fan_out: 1, fan_in: 1, unsafe_types: 0, churn: 1 } },
+        { repo: "r", path: "src/load.ts", name: "twice", simple: "twice", line: 17, endLine: 18, values: { length: 2, params: 1, cyclomatic: 1, depth: 0, cognitive: 1, fan_out: 0, fan_in: 5, unsafe_types: 0, churn: 2 } },
+        { repo: "r", path: "src/gone.ts", name: "gone", simple: "gone", line: 1, endLine: 2, values: { length: 2, params: 0, cyclomatic: 1, depth: 0, cognitive: 0, unsafe_types: 0 } },
       ],
       modules: [{ repo: "r", path: "src/load.ts", values: { imports: 2 } }],
     };
     const report = checkIndex(index, { reposDir, seed: "test", at: "2026-11-08T00:00:00Z", churnUntil: new Map([["r", { until, days: 90 }]]) });
     const by = new Map(report.checks.map((c) => [c.dimension, c]));
-    expect([...by.keys()]).toEqual(["length", "params", "cyclomatic", "depth", "cognitive", "unsafe_types", "churn", "imports"]);
+    expect([...by.keys()]).toEqual(["length", "params", "cyclomatic", "depth", "cognitive", "fan_out", "unsafe_types", "churn", "fan_in", "imports"]);
     expect(by.get("params")).toMatchObject({ agree: 3, checked: 3, unmatched: 1 });
     expect(by.get("cognitive")).toMatchObject({ agree: 2, checked: 3, misses: [{ place: "r:src/load.ts:17", atlas: 1, reference: 0 }] });
     expect(by.get("unsafe_types")).toMatchObject({ agree: 3, checked: 3 });
     expect(by.get("churn")).toMatchObject({ agree: 2, checked: 3, unmatched: 1 });
+    expect(by.get("fan_out")).toMatchObject({ agree: 3, checked: 3, unmatched: 1 });
+    // The call text.trim() is the one call of trim in the repository. gone has no value in the index.
+    expect(by.get("fan_in")).toMatchObject({ agree: 2, checked: 3, unmatched: 1, misses: [{ place: "r:src/load.ts:17", atlas: 5, reference: 0 }] });
     expect(by.get("imports")).toMatchObject({ agree: 1, checked: 1 });
     // The same seed draws the same sample
     expect(checkIndex(index, { reposDir, seed: "test", at: "x" }).checks).toEqual(checkIndex(index, { reposDir, seed: "test", at: "y" }).checks);
