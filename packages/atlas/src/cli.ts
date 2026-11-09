@@ -276,7 +276,8 @@ function catalog(argv: readonly string[]): number {
     console.error(args.error);
     return 2;
   }
-  const db = new Catalog(args.out);
+  // A database of the last run with another schema starts again from empty
+  const db = new Catalog(args.out, { rebuild: true });
   const known = Number((db.db.prepare("SELECT count(*) AS n FROM blob").get() as { n: number }).n);
   const scannedAt = new Date().toISOString();
   const started = performance.now();
@@ -581,7 +582,7 @@ async function formulas(argv: readonly string[]): Promise<number> {
     if (out !== undefined) writeFileSync(out, `${JSON.stringify(report)}\n`);
     if (markdown !== undefined) writeFileSync(markdown, formulasMarkdown(report, top));
     const recall = report.recall.map((r) => `${r.recalled} of ${r.total} at ${r.floor}`).join(", ");
-    console.error(`formulas: ${report.classes.length} classes, recall ${recall}, precision ${report.precision.decision}`);
+    console.error(`formulas: ${report.classes.length} classes, recall ${recall}, copy ${report.precision.copy.decision}, home ${report.precision.home.decision}`);
     return 0;
   } finally {
     catalog.close();

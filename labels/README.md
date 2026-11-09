@@ -160,7 +160,20 @@ The field `owner` of `members-1.jsonl` has the verdict of the owner of each of t
 The command `codeatlas formulas` gives the classes of formula skeletons. The first 30 classes go to their owners as leads to read.
 
 - Each lead names its home from `conventions map`.
-- Each owner verdict goes into `formulas-1.jsonl`. A partial verdict does not count as right.
-- The scan stays in Layer 1 when the Wilson lower bound of the owner precision is 0.25 or more. Below that, we keep only the classes with the most repositories, or we stop the scan.
+- Each owner verdict goes into `formulas-1.jsonl`.
+- A lead makes three claims: the class is a real copy, the home is right, and each named member is a copy. Each claim has its precision.
+- From the second round, an owner gives one of 4 labels:
+  - `right`: each member is a copy, and the home is right.
+  - `partial-home`: each member is a copy, and the home is wrong.
+  - `partial-members`: some members are not copies.
+  - `wrong`: no member is a copy.
+- `LABEL_CLAIMS` in `formulas.ts` gives the answer of each label to each claim. A label counts only for the claims that it tests.
+- The first-round label `partial` counts for the copy and against the home. It does not test the members.
+- The scan stays in Layer 1 when the Wilson lower bound of the copy precision is 0.5 or more. Below that, we keep only the classes with the most repositories, or we stop the scan.
+- The leads name a home when the Wilson lower bound of the home precision is 0.25 or more. Below that, a lead names the copy with no home.
+- The leads name all the members of a class when the Wilson lower bound of the member precision is 0.5 or more.
+- A claim with fewer than 20 verdicts stays open. In the first round, only the 7 `right` verdicts test the members, so the member precision waits for the second round.
+- An owner verdict stays as the owner gave it. The first-round `partial` verdicts keep their label.
+- The first round has 7 right, 17 partial and 6 wrong verdicts. The copy precision is 24 of 30: 0.800 [0.627, 0.905]. The home precision is 7 of 24: 0.292 [0.149, 0.492]. Thus the copies are real, and the choice of the home is the weak part.
 - Each run gives the recall of `finds-1.jsonl` at the floors 2 and 3. Thus a change of the scan shows as a gain or a loss.
 - The scan costs no model tokens. The report gives the tokens for each right move.
