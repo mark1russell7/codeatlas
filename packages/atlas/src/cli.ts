@@ -65,6 +65,7 @@ import { atlasMarkdown } from "./report.ts";
 import { mcpCommand, toolCommand } from "./tools-cli.ts";
 import { scanRepoInto } from "./rescan.ts";
 import { conventionsBreaks, conventionsMarkdown } from "./conventions.ts";
+import { codeIndex, dimensionSummaries, dimensionsMarkdown } from "./dimensions.ts";
 import { formulaReport, formulasMarkdown, type FormulaVerdict, type OwnerFind } from "./formulas.ts";
 import { plannedDuplication, plannedMarkdown } from "./planned.ts";
 import { FACTS_VERSION } from "./facts.ts";
@@ -124,6 +125,7 @@ const USAGE = `Usage:
   codeatlas drift --db <catalog.sqlite> [--out drift.json] [--markdown drift.md]
   codeatlas breaks --db <catalog.sqlite> [--out breaks.json] [--markdown breaks.md]
   codeatlas planned --db <catalog.sqlite> [--out planned.json] [--markdown planned.md] [--min 0.25]
+  codeatlas dimensions --db <catalog.sqlite> [--out dimensions.json] [--markdown dimensions.md]
   codeatlas formulas --db <catalog.sqlite> --finds <finds.jsonl> [--verdicts <verdicts.jsonl>] [--out formulas.json] [--markdown formulas.md] [--top 30]
   codeatlas coverage --db <catalog.sqlite> --owner <owner> --dir <folder> [--out coverage.json] [--markdown coverage.md]
   codeatlas clone --owner <owner> --into <folder>
@@ -157,6 +159,7 @@ function main(argv: readonly string[]): number | Promise<number> {
   if (command === "coverage") return coverage(rest);
   if (command === "planned") return planned(rest);
   if (command === "formulas") return formulas(rest);
+  if (command === "dimensions") return dimensions(rest);
   if (command === "queries") return queries(rest);
   if (command === "mcp") return mcpCommand(rest);
   if (command === "tool") return toolCommand(rest);
@@ -514,6 +517,29 @@ async function planned(argv: readonly string[]): Promise<number> {
     if (out !== undefined) writeFileSync(out, `${JSON.stringify({ pairs })}\n`);
     if (markdown !== undefined) writeFileSync(markdown, plannedMarkdown(pairs));
     console.error(`planned: ${pairs.length} pairs, ${pairs.filter((p) => p.kind === "both open").length} of two open plans`);
+    return 0;
+  } finally {
+    catalog.close();
+  }
+}
+
+/** This function writes the index of the dimensions of the catalog `--db` as JSON `--out`, and their distributions as Markdown `--markdown`. */
+async function dimensions(argv: readonly string[]): Promise<number> {
+  const option = (name: string): string | undefined => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined);
+  const db = option("--db");
+  if (db === undefined) {
+    console.error(USAGE);
+    return 2;
+  }
+  const catalog = readOnlyCatalog(db);
+  try {
+    const index = await codeIndex(queryOf(catalog));
+    const summaries = dimensionSummaries(index);
+    const out = option("--out");
+    const markdown = option("--markdown");
+    if (out !== undefined) writeFileSync(out, `${JSON.stringify({ ...index, summaries })}\n`);
+    if (markdown !== undefined) writeFileSync(markdown, dimensionsMarkdown(summaries));
+    console.error(`dimensions: ${index.functions.length} functions, ${index.modules.length} modules, ${summaries.filter((s) => s.counts).length} of ${summaries.length} dimensions checked`);
     return 0;
   } finally {
     catalog.close();

@@ -63,6 +63,7 @@ export interface CatalogColumns {
     readonly cyclomatic: "integer?";
     readonly depth: "integer?";
     readonly type_hash: "text?";
+    readonly cognitive: "integer?";
   };
   readonly export: { readonly blob: "text"; readonly name: "text"; readonly symbol: "text?"; readonly from: "text?"; readonly type_only: "integer" };
   readonly import: {
@@ -115,6 +116,8 @@ export interface CatalogColumns {
     readonly lines_covered: "integer";
   };
   readonly coverage_function: { readonly snapshot: "text"; readonly path: "text"; readonly line: "integer"; readonly name: "text"; readonly hits: "integer" };
+  readonly churn_run: { readonly snapshot: "text"; readonly days: "integer"; readonly until: "text" };
+  readonly churn: { readonly snapshot: "text"; readonly path: "text"; readonly commits: "integer"; readonly authors: "integer"; readonly last_at: "text" };
   readonly label: { readonly subject: "text"; readonly task: "text"; readonly by: "text"; readonly label: "text"; readonly at: "text" };
   readonly current_snapshot: SnapshotColumns;
   readonly current_file: { readonly repo: "text" } & FileColumns;
@@ -239,6 +242,7 @@ export const CATALOG_COLUMNS: CatalogColumns = {
     cyclomatic: "integer?",
     depth: "integer?",
     type_hash: "text?",
+    cognitive: "integer?",
   },
   export: { blob: "text", name: "text", symbol: "text?", from: "text?", type_only: "integer" },
   import: { blob: "text", ordinal: "integer", specifier: "text", package: "text?", kind: "text", names: "text", line: "integer" },
@@ -275,6 +279,8 @@ export const CATALOG_COLUMNS: CatalogColumns = {
     lines_covered: "integer",
   },
   coverage_function: { snapshot: "text", path: "text", line: "integer", name: "text", hits: "integer" },
+  churn_run: { snapshot: "text", days: "integer", until: "text" },
+  churn: { snapshot: "text", path: "text", commits: "integer", authors: "integer", last_at: "text" },
   label: { subject: "text", task: "text", by: "text", label: "text", at: "text" },
   current_snapshot: SNAPSHOT,
   current_file: { repo: "text", ...FILE },

@@ -11,6 +11,7 @@ codeatlas finds the code that many repositories write again and again. It writes
 - **Corpus.** For each repository, the corpus counts the files, the lines and the bytes of each kind of file. Examples of kinds are source, tests, lockfiles and prose. The corpus is the base of each cost estimate.
 - **Facts (Layer 1a).** For each git blob, the scan gives the symbols, the imports, the exports, the call sites and the debt markers. It also gives three clone hashes of each function: exact, renamed and shape. The key of the facts is the blob id, so a rescan with `--cache` parses only new blobs. [docs/SCHEMA.md](docs/SCHEMA.md) gives the schema.
 - **Formula skeletons.** For each arithmetic expression inside a function, the scan keeps its skeleton. Each operand is one token. The operators, the numbers and the members of `Math` stay. One skeleton with 3 or more arithmetic operators in two or more repositories is a lead for the owners, not a move. A stop list removes the generic forms, as a percent change.
+- **Dimensions.** The dimension catalog `DIMENSIONS` gives each attribute that the atlas measures: its definition, its extractor, its unit and its measured precision. The command `dimensions` gives the value of each dimension for each function and each file. A dimension counts only after a check of its precision. The package `precision` compares the values with ESLint, SonarJS, git and the TypeScript compiler. The hotspot is the cognitive complexity times the churn times the part with no test.
 - **Catalog.** The command `catalog` writes the facts into one SQLite database, through `node:sqlite`. The workflow `Catalog` builds it each week over the public repositories, and keeps it as the cache of the next run.
 - **Topics.** The words of the names and the paths put each class into an area of the shared rigor libraries. The areas are generators, statistics, gates, test generation, chaos and load, and measures.
 
@@ -25,6 +26,8 @@ node packages/atlas/src/cli.ts corpus --repos-dir <folder> --out corpus.json --m
 node packages/atlas/src/cli.ts catalog --repos-dir <folder> --out catalog.sqlite --markdown catalog.md
 node packages/atlas/src/cli.ts trend --db catalog.sqlite [--previous trend.json] --out trend.json
 node packages/atlas/src/cli.ts queries --db catalog.sqlite --out queries.json
+node packages/atlas/src/cli.ts dimensions --db catalog.sqlite --out dimensions.json --markdown dimensions.md
+node packages/precision/src/cli.ts --index dimensions.json --repos-dir <folder> --db catalog.sqlite --markdown precision.md
 node packages/atlas/src/cli.ts formulas --db catalog.sqlite --finds labels/finds-1.jsonl --verdicts labels/formulas-1.jsonl --markdown formulas.md
 node packages/atlas/src/cli.ts facts --repos-dir <folder> --out facts.jsonl --markdown facts.md [--cache <facts.jsonl>]
 node packages/atlas/src/cli.ts clone --owner <owner> --into <folder>

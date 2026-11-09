@@ -1,6 +1,8 @@
 export { buildAtlas, topicsOf, wordsOf, PURPOSES, TOPICS } from "./atlas.ts";
 export type { Atlas, AtlasOptions, CloneClass, Member, PurposeRow, RepoRow, SharedName } from "./atlas.ts";
-export { clonePublic, listArgs, repoNames } from "./clone.ts";
+export { CHURN_DAYS, churnLogArgs, churnOfLog, churnOfRepo, isShallow } from "./churn.ts";
+export type { FileChurn } from "./churn.ts";
+export { CLONE_ARGS, clonePublic, listArgs, repoNames } from "./clone.ts";
 export { atlasMarkdown } from "./report.ts";
 export { gitFiles, headOf, isSource, lineOf, lineStarts, packageOf, scanRepo, scanSource, GENERATED, MAX_BYTES, SKIP, SOURCE, TEST } from "./scan.ts";
 export type { Export, FileScan, RepoScan, Unit } from "./scan.ts";
@@ -8,7 +10,7 @@ export { shapeOf, shapeTokens } from "./shape.ts";
 export type { AstNode, Shape } from "./shape.ts";
 export { buildCorpus, corpusMarkdown, corpusOfRepo, countRepo, kindOf, lineCounts, FILE_KINDS } from "./corpus.ts";
 export type { Corpus, CorpusFile, FileKind, KindCount, RepoCorpus } from "./corpus.ts";
-export { calleeText, commentsOf, complexityOf, factsOf, syntaxOf, typeShapeOf, FACTS_VERSION } from "./facts.ts";
+export { calleeText, cognitiveOf, commentsOf, complexityOf, factsOf, syntaxOf, typeShapeOf, FACTS_VERSION } from "./facts.ts";
 export type { CallSiteFact, ExportFact, FileFacts, FunctionFact, ImportFact, ImportKind, MarkerFact, MarkerKind, SymbolFact, SymbolKind, Syntax } from "./facts.ts";
 export { cloneHashes, literalText, typeHash } from "./hashes.ts";
 export type { CloneHashes } from "./hashes.ts";
@@ -46,6 +48,8 @@ export { roadmapOf, roadmapsOfRepo } from "./roadmaps.ts";
 export type { RoadmapItemFact, RoadmapRecord, StatusClass } from "./roadmaps.ts";
 export { PLAN_STOP_WORDS, PLANNED_VERSION, planWords, plannedDuplication, plannedMarkdown, plannedPairs } from "./planned.ts";
 export type { PlanItem, PlannedOptions, PlannedPair } from "./planned.ts";
+export { DIMENSION_PRECISION_GATE, DIMENSIONS, DIMENSIONS_VERSION, codeIndex, dimensionCounts, dimensionSummaries, dimensionsMarkdown } from "./dimensions.ts";
+export type { CodeIndex, Dimension, DimensionPrecision, DimensionScope, DimensionSummary, Extractor, FunctionIndexRow, ModuleIndexRow } from "./dimensions.ts";
 export {
   FORMULA_MIN_LEAD,
   FORMULA_MIN_RECORD,

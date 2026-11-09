@@ -9,7 +9,7 @@ import { lineOf, lineStarts, packageOf } from "./scan.ts";
 import { isNode, type AstNode } from "./shape.ts";
 
 /** The version of the facts. A new version makes the catalog read each blob again. */
-export const FACTS_VERSION: string = "facts/2";
+export const FACTS_VERSION: string = "facts/3";
 
 export type SymbolKind = "function" | "method" | "class" | "variable" | "type" | "interface" | "enum" | "namespace";
 
@@ -40,10 +40,15 @@ export interface FunctionFact {
   readonly hashExact: string;
   readonly hashRenamed: string;
   readonly hashShape: string;
-  /** The decision points plus one. A nested function counts for itself, not for this one. */
+  /**
+   * The decision points plus one, as the rule `complexity` of ESLint counts them: default values and optional chains
+   * count. A nested function counts for itself, not for this one.
+   */
   readonly cyclomatic: number;
   /** The deepest nesting of control statements (`if`, loops, `switch`, `try`) in the body. */
   readonly depth: number;
+  /** The cognitive complexity of the body, from `cognitiveOf`. */
+  readonly cognitive: number;
 }
 
 export type ImportKind = "static" | "type" | "dynamic" | "require" | "re-export";
@@ -313,7 +318,7 @@ export function factsOf(file: string, text: string): FileFacts {
     const span = node["span"] as { start: number; end: number };
     const bodySpan = isNode(body) ? (body["span"] as { start: number } | undefined) : undefined;
     const signature = sliceText(span.start, bodySpan?.start ?? span.end).replace(/\s+/g, " ").trim().slice(0, 300);
-    const { cyclomatic, depth } = complexityOf(body);
+    const { cyclomatic, depth } = complexityOf([params, body]);
     return {
       async: fn["async"] === true,
       generator: fn["generator"] === true,
@@ -325,6 +330,7 @@ export function factsOf(file: string, text: string): FileFacts {
       hashShape: hashes.shape,
       cyclomatic,
       depth,
+      cognitive: cognitiveOf(body),
     };
   };
 
@@ -477,6 +483,7 @@ export function typeShapeOf(node: AstNode): string {
 
 /** The decision points and the deepest nesting of control statements of a function body, without its nested functions. */
 export function complexityOf(body: unknown): { readonly cyclomatic: number; readonly depth: number } {
+  // The caller gives the parameters with the body, so a default value of a parameter counts
   let decisions = 0;
   let deepest = 0;
   const walk = (node: unknown, depth: number): void => {
@@ -492,6 +499,9 @@ export function complexityOf(body: unknown): { readonly cyclomatic: number; read
     if (DECISIONS.has(node.type)) decisions++;
     else if (node.type === "SwitchCase" && node["test"] !== null && node["test"] !== undefined) decisions++;
     else if ((node.type === "BinaryExpression" || node.type === "AssignmentExpression") && LOGICAL.has(String(node["operator"]))) decisions++;
+    // A default value and an optional chain are decisions too, as the rule `complexity` of ESLint counts them
+    else if (node.type === "AssignmentPattern" || (node.type === "AssignmentPatternProperty" && isNode(node["value"]))) decisions++;
+    else if (node.type === "OptionalChainingExpression" && node["optional"] === true) decisions++;
     const next = NESTING.has(node.type) ? depth + 1 : depth;
     deepest = Math.max(deepest, next);
     for (const [field, value] of Object.entries(node)) if (field !== "span" && typeof value === "object" && value !== null) walk(value, next);
@@ -499,4 +509,86 @@ export function complexityOf(body: unknown): { readonly cyclomatic: number; read
   // A body with no control statement has depth 0. An `else if` is one more level, as it is in the syntax.
   walk(body, 0);
   return { cyclomatic: decisions + 1, depth: deepest };
+}
+
+/** The loops: each one adds 1 plus its nesting, and its body is one level deeper. */
+const LOOPS: ReadonlySet<string> = new Set(["ForStatement", "ForInStatement", "ForOfStatement", "WhileStatement", "DoWhileStatement"]);
+/** The fields of a structure that are one level deeper than the structure. */
+const NESTED_FIELDS: ReadonlySet<string> = new Set(["body", "consequent", "alternate", "cases"]);
+/** The logical operators of one chain. The rule of SonarJS 4 counts only a run of `&&`, so `||` and `??` add nothing. */
+const BOOLEAN: ReadonlySet<string> = new Set(["&&", "||", "??"]);
+const SAME_LEVEL: ReadonlySet<string> = new Set();
+
+/**
+ * This function gives the cognitive complexity of a body, after the specification of G. Ann Campbell (SonarSource, 2017).
+ * Each `if`, `else if`, `else`, conditional, `switch`, loop and `catch` adds 1. A structure that nests also adds its
+ * nesting level. Each `break` or `continue` to a label adds 1. A nested function counts for itself, as in `complexityOf`.
+ *
+ * The logical operators follow the rule of SonarJS 4. Each run of `&&` adds 1. A chain of one operator in a JSX
+ * expression adds nothing. The recursion increment is not counted.
+ */
+export function cognitiveOf(body: unknown): number {
+  let total = 0;
+  const walkFields = (node: AstNode, nesting: number, deeper: ReadonlySet<string>): void => {
+    for (const [field, value] of Object.entries(node)) if (field !== "span" && typeof value === "object" && value !== null) walk(value, deeper.has(field) ? nesting + 1 : nesting);
+  };
+  const walkIf = (node: AstNode, nesting: number, elseIf: boolean): void => {
+    total += elseIf ? 1 : 1 + nesting;
+    walk(node["test"], nesting);
+    walk(node["consequent"], nesting + 1);
+    const alternate = node["alternate"];
+    if (isNode(alternate) && alternate.type === "IfStatement") walkIf(alternate, nesting, true);
+    else if (isNode(alternate)) {
+      total += 1;
+      walk(alternate, nesting + 1);
+    }
+  };
+  const walk = (node: unknown, nesting: number): void => {
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item, nesting);
+      return;
+    }
+    if (!isNode(node)) {
+      if (typeof node === "object" && node !== null) for (const value of Object.values(node)) walk(value, nesting);
+      return;
+    }
+    if (FUNCTIONS.has(node.type)) return;
+    if (node.type === "IfStatement") return walkIf(node, nesting, false);
+    if (node.type === "ConditionalExpression" || node.type === "SwitchStatement" || node.type === "CatchClause" || LOOPS.has(node.type)) {
+      total += 1 + nesting;
+      return walkFields(node, nesting, NESTED_FIELDS);
+    }
+    if ((node.type === "BreakStatement" || node.type === "ContinueStatement") && isNode(node["label"])) total += 1;
+    if (node.type === "JSXExpressionContainer") {
+      const operators: string[] = [];
+      const leaves: unknown[] = [];
+      flattenBoolean(node["expression"], operators, leaves);
+      // SonarJS does not count a short circuit in JSX: a chain of one operator with no conditional in it
+      const shortCircuit = operators.length > 0 && operators.every((operator) => operator === operators[0]) && !leaves.some((leaf) => isNode(leaf) && leaf.type === "ConditionalExpression");
+      if (shortCircuit) return walk(leaves, nesting);
+    }
+    if (node.type === "BinaryExpression" && BOOLEAN.has(String(node["operator"]))) {
+      const operators: string[] = [];
+      const leaves: unknown[] = [];
+      flattenBoolean(node, operators, leaves);
+      total += operators.filter((operator, i) => operator === "&&" && operators[i - 1] !== "&&").length;
+      return walk(leaves, nesting);
+    }
+    walkFields(node, nesting, SAME_LEVEL);
+  };
+  walk(body, 0);
+  return total;
+}
+
+/** This function puts the boolean operators of a chain in their order in the text, and the operands that are not boolean chains. */
+function flattenBoolean(node: unknown, operators: string[], leaves: unknown[]): void {
+  let inner = node;
+  while (isNode(inner) && inner.type === "ParenthesisExpression") inner = inner["expression"];
+  if (isNode(inner) && inner.type === "BinaryExpression" && BOOLEAN.has(String(inner["operator"]))) {
+    flattenBoolean(inner["left"], operators, leaves);
+    operators.push(String(inner["operator"]));
+    flattenBoolean(inner["right"], operators, leaves);
+    return;
+  }
+  leaves.push(inner);
 }

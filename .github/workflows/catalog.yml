@@ -9,6 +9,7 @@ on:
     branches: [main]
     paths:
       - "packages/atlas/**"
+      - "packages/precision/**"
       - ".github/workflows/catalog.yml"
       - "labels/finds-1.jsonl"
       - "labels/formulas-1.jsonl"
@@ -40,6 +41,7 @@ jobs:
         with:
           paths: |
             packages/atlas/**
+            packages/precision/**
             .github/workflows/catalog.yml
             labels/finds-1.jsonl
             labels/formulas-1.jsonl
@@ -119,6 +121,18 @@ jobs:
           set -euo pipefail
           node packages/atlas/src/cli.ts planned --db "$RUNNER_TEMP/catalog.sqlite" --out "$RUNNER_TEMP/planned.json" --markdown "$RUNNER_TEMP/planned.md"
           tee -a "$GITHUB_STEP_SUMMARY" < "$RUNNER_TEMP/planned.md"
+      # The value of each dimension for each function and each file (CA20)
+      - name: Dimensions
+        run: |
+          set -euo pipefail
+          node packages/atlas/src/cli.ts dimensions --db "$RUNNER_TEMP/catalog.sqlite" --out "$RUNNER_TEMP/dimensions.json" --markdown "$RUNNER_TEMP/dimensions.md"
+          tee -a "$GITHUB_STEP_SUMMARY" < "$RUNNER_TEMP/dimensions.md"
+      # The values of the dimensions against independent tools, on a seeded sample of the index (CA20)
+      - name: Precision of the dimensions
+        run: |
+          set -euo pipefail
+          node packages/precision/src/cli.ts --index "$RUNNER_TEMP/dimensions.json" --repos-dir "$RUNNER_TEMP/repos" --db "$RUNNER_TEMP/catalog.sqlite" --out "$RUNNER_TEMP/precision.json" --markdown "$RUNNER_TEMP/precision.md"
+          tee -a "$GITHUB_STEP_SUMMARY" < "$RUNNER_TEMP/precision.md"
       # One formula skeleton in two repositories or more: leads for the owners (CA15)
       - name: Formula skeletons
         run: |
@@ -138,6 +152,8 @@ jobs:
             ${{ runner.temp }}/catalog.sqlite
             ${{ runner.temp }}/planned.json
             ${{ runner.temp }}/formulas.json
+            ${{ runner.temp }}/dimensions.json
+            ${{ runner.temp }}/precision.json
           retention-days: 14
           if-no-files-found: error
 

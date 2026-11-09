@@ -5,6 +5,7 @@
  */
 import { DatabaseSync, type StatementSync } from "node:sqlite";
 import { factsKey, type BlobFacts, type FileRecord, type ScanCounts } from "./blobs.ts";
+import type { FileChurn } from "./churn.ts";
 import { CLASS_MIN_NODES, type FactsSummary, type Unread } from "./summary.ts";
 import type { FileFacts, MarkerKind } from "./facts.ts";
 import type { ManifestRecord } from "./manifests.ts";
@@ -35,7 +36,7 @@ CREATE TABLE IF NOT EXISTS symbol (
   blob TEXT NOT NULL REFERENCES blob(key), qualified_name TEXT NOT NULL, name TEXT NOT NULL, kind TEXT NOT NULL,
   parent TEXT, line INTEGER NOT NULL, end_line INTEGER NOT NULL, exported INTEGER NOT NULL,
   is_async INTEGER, is_generator INTEGER, params INTEGER, signature TEXT, nodes INTEGER,
-  hash_exact TEXT, hash_renamed TEXT, hash_shape TEXT, cyclomatic INTEGER, depth INTEGER, type_hash TEXT,
+  hash_exact TEXT, hash_renamed TEXT, hash_shape TEXT, cyclomatic INTEGER, depth INTEGER, type_hash TEXT, cognitive INTEGER,
   PRIMARY KEY (blob, qualified_name)
 );
 CREATE INDEX IF NOT EXISTS symbol_exact ON symbol(hash_exact) WHERE hash_exact IS NOT NULL;
@@ -136,6 +137,14 @@ CREATE TABLE IF NOT EXISTS coverage_function (
   snapshot TEXT NOT NULL REFERENCES snapshot(id), path TEXT NOT NULL, line INTEGER NOT NULL, name TEXT NOT NULL, hits INTEGER NOT NULL,
   PRIMARY KEY (snapshot, path, line, name)
 );
+-- Layer 1c: the churn of each file in the window of days before the scan, from the git history
+CREATE TABLE IF NOT EXISTS churn_run (
+  snapshot TEXT PRIMARY KEY REFERENCES snapshot(id), days INTEGER NOT NULL, "until" TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS churn (
+  snapshot TEXT NOT NULL REFERENCES snapshot(id), path TEXT NOT NULL, commits INTEGER NOT NULL, authors INTEGER NOT NULL,
+  last_at TEXT NOT NULL, PRIMARY KEY (snapshot, path)
+);
 CREATE TABLE IF NOT EXISTS label (
   subject TEXT NOT NULL, task TEXT NOT NULL, "by" TEXT NOT NULL, label TEXT NOT NULL, at TEXT NOT NULL, PRIMARY KEY (subject, task, "by")
 );
@@ -192,11 +201,12 @@ export class Catalog {
       throw new Error(`The database has the schema ${version}, not ${CATALOG_SCHEMA}.`);
     }
     this.db.exec(DDL);
+    addColumns(this.db);
     this.db.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema', ?)").run(CATALOG_SCHEMA);
     this.#has = this.db.prepare("SELECT 1 AS found FROM blob WHERE key = ?");
     this.#blob = this.db.prepare("INSERT INTO blob (key, oid, syntax, version, parse_error) VALUES (?, ?, ?, ?, ?)");
     this.#symbol = this.db.prepare(
-      "INSERT INTO symbol (blob, qualified_name, name, kind, parent, line, end_line, exported, is_async, is_generator, params, signature, nodes, hash_exact, hash_renamed, hash_shape, cyclomatic, depth, type_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO symbol (blob, qualified_name, name, kind, parent, line, end_line, exported, is_async, is_generator, params, signature, nodes, hash_exact, hash_renamed, hash_shape, cyclomatic, depth, type_hash, cognitive) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     );
     this.#export = this.db.prepare('INSERT INTO "export" (blob, name, symbol, "from", type_only) VALUES (?, ?, ?, ?, ?)');
     this.#import = this.db.prepare('INSERT INTO "import" (blob, ordinal, specifier, package, kind, names, line) VALUES (?, ?, ?, ?, ?, ?, ?)');
@@ -227,7 +237,7 @@ export class Catalog {
       this.#symbol.run(
         key, s.qualifiedName, s.name, s.kind, s.parent, s.line, s.endLine, bool(s.exported),
         fn === null ? null : bool(fn.async), fn === null ? null : bool(fn.generator), fn?.params ?? null, fn?.signature ?? null, fn?.nodes ?? null,
-        fn?.hashExact ?? null, fn?.hashRenamed ?? null, fn?.hashShape ?? null, fn?.cyclomatic ?? null, fn?.depth ?? null, s.typeHash,
+        fn?.hashExact ?? null, fn?.hashRenamed ?? null, fn?.hashShape ?? null, fn?.cyclomatic ?? null, fn?.depth ?? null, s.typeHash, fn?.cognitive ?? null,
       );
     }
     for (const e of facts.exports) this.#export.run(key, e.name, e.symbol, e.from, bool(e.typeOnly));
@@ -432,6 +442,19 @@ export class Catalog {
   }
 
   /** This method replaces the coverage of the snapshot `snapshot`. */
+  /**
+   * This method writes the churn of the files of a snapshot in the window of `days` that ends at `until`. A file with
+   * no row in a snapshot with a `churn_run` row has no commit in the window.
+   */
+  putChurn(snapshot: string, days: number, until: string, churn: readonly FileChurn[]): void {
+    this.#transaction(() => {
+      for (const table of ["churn_run", "churn"]) this.db.prepare(`DELETE FROM ${table} WHERE snapshot = ?`).run(snapshot);
+      this.db.prepare('INSERT INTO churn_run (snapshot, days, "until") VALUES (?, ?, ?)').run(snapshot, days, until);
+      const insert = this.db.prepare("INSERT INTO churn (snapshot, path, commits, authors, last_at) VALUES (?, ?, ?, ?, ?)");
+      for (const c of churn) insert.run(snapshot, c.path, c.commits, c.authors, c.lastAt);
+    });
+  }
+
   putCoverage(snapshot: string, run: CoverageRun): void {
     this.#transaction(() => {
       for (const table of ["coverage_run", "coverage_file", "coverage_function"]) this.db.prepare(`DELETE FROM ${table} WHERE snapshot = ?`).run(snapshot);
@@ -459,6 +482,17 @@ export class Catalog {
 
   close(): void {
     this.db.close();
+  }
+}
+
+/** The columns that came after the first release of a schema, by table. A new facts version fills them. */
+const ADDED_COLUMNS: readonly { readonly table: string; readonly column: string; readonly type: string }[] = [{ table: "symbol", column: "cognitive", type: "INTEGER" }];
+
+/** This function adds each column of `ADDED_COLUMNS` that an older database of the same schema does not have. */
+function addColumns(db: DatabaseSync): void {
+  for (const { table, column, type } of ADDED_COLUMNS) {
+    const columns = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+    if (!columns.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
   }
 }
 
