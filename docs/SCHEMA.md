@@ -491,7 +491,9 @@ The algebra is the relational algebra over these relations: selection, projectio
 - SQLite, through `node:sqlite` of Node 24. It needs no native dependency.
 - One file for the public catalog. A private catalog is a separate file that does not go to public CI or the public site.
 - The tables of Layer 1a are the cache. CI keeps the database of the last run, so a rescan reads only new blobs.
-- A new `CATALOG_SCHEMA` makes the scan drop the restored database and start from empty. Each other command refuses a database of another schema.
+- A new `CATALOG_SCHEMA` makes the scan and the prune drop the restored database and start from empty. Each other command refuses a database of another schema.
+- Before each scan, `codeatlas prune` removes each repository that is not public now, with its rows and the facts of its blobs. Then a vacuum removes the deleted rows from the file.
+- The trend file of the site (`data/trend.json`) keeps one point for each build. At each build, `codeatlas trend --owner` removes the rows of each repository that is not public from each point. A point that loses rows keeps its totals in the field `totals`, and gets `filtered: true`.
 - The site and the agents read the same file.
 
 ## Gates
