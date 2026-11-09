@@ -10,6 +10,8 @@ on:
     paths:
       - "packages/atlas/**"
       - ".github/workflows/catalog.yml"
+      - "labels/finds-1.jsonl"
+      - "labels/formulas-1.jsonl"
   # Each pull request starts this workflow, so its summary check is always there. The job changes skips the
   # work when the pull request changes no file of the gate (CI.md of the template, "A gate with paths").
   pull_request:
@@ -39,6 +41,8 @@ jobs:
           paths: |
             packages/atlas/**
             .github/workflows/catalog.yml
+            labels/finds-1.jsonl
+            labels/formulas-1.jsonl
 
   catalog:
     needs: changes
@@ -115,6 +119,12 @@ jobs:
           set -euo pipefail
           node packages/atlas/src/cli.ts planned --db "$RUNNER_TEMP/catalog.sqlite" --out "$RUNNER_TEMP/planned.json" --markdown "$RUNNER_TEMP/planned.md"
           tee -a "$GITHUB_STEP_SUMMARY" < "$RUNNER_TEMP/planned.md"
+      # One formula skeleton in two repositories or more: leads for the owners (CA15)
+      - name: Formula skeletons
+        run: |
+          set -euo pipefail
+          node packages/atlas/src/cli.ts formulas --db "$RUNNER_TEMP/catalog.sqlite" --finds labels/finds-1.jsonl --verdicts labels/formulas-1.jsonl --out "$RUNNER_TEMP/formulas.json" --markdown "$RUNNER_TEMP/formulas.md"
+          tee -a "$GITHUB_STEP_SUMMARY" < "$RUNNER_TEMP/formulas.md"
       - name: Save the catalog for the next run
         if: github.event_name != 'pull_request'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -127,6 +137,7 @@ jobs:
           path: |
             ${{ runner.temp }}/catalog.sqlite
             ${{ runner.temp }}/planned.json
+            ${{ runner.temp }}/formulas.json
           retention-days: 14
           if-no-files-found: error
 

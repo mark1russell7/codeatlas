@@ -3,12 +3,13 @@
  * depend only on the bytes of the file, so the git blob id of the file is their key. A rescan reads only new blobs.
  */
 import { parseSync } from "@swc/core";
+import { formulaOf, type FormulaFact } from "./formulas.ts";
 import { cloneHashes, typeHash } from "./hashes.ts";
 import { lineOf, lineStarts, packageOf } from "./scan.ts";
 import { isNode, type AstNode } from "./shape.ts";
 
 /** The version of the facts. A new version makes the catalog read each blob again. */
-export const FACTS_VERSION: string = "facts/1";
+export const FACTS_VERSION: string = "facts/2";
 
 export type SymbolKind = "function" | "method" | "class" | "variable" | "type" | "interface" | "enum" | "namespace";
 
@@ -94,6 +95,8 @@ export interface FileFacts {
   readonly exports: readonly ExportFact[];
   readonly callSites: readonly CallSiteFact[];
   readonly markers: readonly MarkerFact[];
+  /** The expressions inside functions with 2 or more arithmetic operators (`formulas.ts`). */
+  readonly formulas: readonly FormulaFact[];
 }
 
 const FUNCTIONS: ReadonlySet<string> = new Set([
@@ -243,6 +246,8 @@ export function factsOf(file: string, text: string): FileFacts {
   const exports: ExportFact[] = [];
   const callSites: CallSiteFact[] = [];
   const markers: MarkerFact[] = [];
+  const formulas: FormulaFact[] = [];
+  const formulaKeys = new Set<string>();
   const exportedNodes = new Map<unknown, string | null>();
 
   const unique = (frame: Frame, name: string): string => {
@@ -394,6 +399,15 @@ export function factsOf(file: string, text: string): FileFacts {
       markers.push({ kind: "any", line: at(node), text: "" });
     }
 
+    if (caller !== "<module>") {
+      const formula = formulaOf(node, at(node));
+      const key = formula === undefined ? "" : `${formula.line}:${formula.hash}`;
+      if (formula !== undefined && !formulaKeys.has(key)) {
+        formulaKeys.add(key);
+        formulas.push(formula);
+      }
+    }
+
     for (const [field, value] of Object.entries(node)) {
       if (field === "span" || field === "ctxt" || typeof value !== "object" || value === null) continue;
       let next = nextHint;
@@ -430,6 +444,7 @@ export function factsOf(file: string, text: string): FileFacts {
     exports: exports.sort((a, b) => compare(a.name, b.name) || compare(a.from ?? "", b.from ?? "")),
     callSites,
     markers: markers.sort((a, b) => byLine(a, b) || compare(a.kind, b.kind)),
+    formulas: formulas.sort((a, b) => byLine(a, b) || compare(a.hash, b.hash)),
   };
 }
 

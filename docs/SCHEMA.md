@@ -158,6 +158,16 @@ For each interface and type alias: the hash of its members, with the names sorte
 
 A debt marker of a file: `TODO`, `FIXME`, `HACK`, `XXX`, `@ts-ignore`, `@ts-expect-error`, `eslint-disable`, an explicit `any`, `as unknown as`, and a non-null assertion. Each row has the blob, the line, the kind and the text of the comment.
 
+### `formula`
+
+An arithmetic expression inside a function, with 2 or more arithmetic operators (`formulas.ts`). Each row has the blob, the line, the hash of the skeleton, the skeleton text (at most 300 characters) and the count of the operators.
+
+- In the skeleton, each name, member and literal that is not a number is `V`. A number is `N:<value>`. A member of a global, as `Math.sqrt`, stays.
+- The arithmetic operators are `+ - * / % ** & | ^ << >> >>>`, and each member of `Math` counts as one.
+- An expression with a string, a template, a spread or a function has no skeleton.
+- The command `formulas` groups the rows of the current files outside the tests by hash. A class has 3 or more operators and 2 or more repositories. A class whose places are the places of a longer class is not a class of its own.
+- The stop list `GENERIC_FORMULAS` removes the generic forms. The recall comes from the fixed benchmark `labels/finds-1.jsonl` at the floors 2 and 3.
+
 ### `dependency`
 
 From each `package.json` and its lockfile: the package, the dependency name, the range, the resolved version, and the field (`dependencies`, `devDependencies`, `peerDependencies`). A `github:` or `workspace:` range is a value of its own.

@@ -46,6 +46,39 @@ export { roadmapOf, roadmapsOfRepo } from "./roadmaps.ts";
 export type { RoadmapItemFact, RoadmapRecord, StatusClass } from "./roadmaps.ts";
 export { PLAN_STOP_WORDS, PLANNED_VERSION, planWords, plannedDuplication, plannedMarkdown, plannedPairs } from "./planned.ts";
 export type { PlanItem, PlannedOptions, PlannedPair } from "./planned.ts";
+export {
+  FORMULA_MIN_LEAD,
+  FORMULA_MIN_RECORD,
+  FORMULA_PRECISION_GATE,
+  FORMULAS_VERSION,
+  GENERIC_FORMULAS,
+  fileKey,
+  formulaClasses,
+  formulaHash,
+  formulaHome,
+  formulaOf,
+  formulaPrecision,
+  formulaRecall,
+  formulaReport,
+  formulaRows,
+  formulasMarkdown,
+  skeletonOf,
+} from "./formulas.ts";
+export type {
+  FormulaClass,
+  FormulaClassOptions,
+  FormulaFact,
+  FormulaHome,
+  FormulaMember,
+  FormulaPrecision,
+  FormulaRecall,
+  FormulaReport,
+  FormulaRow,
+  FormulaVerdict,
+  GenericFormula,
+  OwnerFind,
+  Skeleton,
+} from "./formulas.ts";
 export type { LockfileFacts, LockfileRecord, ResolvedFact } from "./lockfiles.ts";
 export {
   DRIFT_STATES,
