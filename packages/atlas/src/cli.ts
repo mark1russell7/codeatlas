@@ -276,7 +276,8 @@ function catalog(argv: readonly string[]): number {
     console.error(args.error);
     return 2;
   }
-  const db = new Catalog(args.out);
+  // A database of the last run with another schema starts again from empty
+  const db = new Catalog(args.out, { rebuild: true });
   const known = Number((db.db.prepare("SELECT count(*) AS n FROM blob").get() as { n: number }).n);
   const scannedAt = new Date().toISOString();
   const started = performance.now();
