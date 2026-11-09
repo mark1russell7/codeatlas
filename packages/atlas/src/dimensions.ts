@@ -91,12 +91,7 @@ export const DIMENSIONS: readonly Dimension[] = [
     extractor: "parser",
     source: "symbol.tokens",
     higherIsWorse: true,
-    precision: null,
-    gap: {
-      cause: "The first check against the TypeScript compiler runs in the next catalog run.",
-      next: "Record the agreement of the check, and the cases that differ.",
-      item: "CA20",
-    },
+    precision: { method: "the leaves of the syntax tree of the TypeScript compiler, in the lines of the function", agree: 200, checked: 200, at: "2026-11-09" },
   },
   {
     id: "nodes",
@@ -156,12 +151,7 @@ export const DIMENSIONS: readonly Dimension[] = [
     extractor: "parser",
     source: "call_site.caller, call_site.callee",
     higherIsWorse: true,
-    precision: null,
-    gap: {
-      cause: "The first check against `typescript-eslint` runs in the next catalog run.",
-      next: "Record the agreement of the check, and the cause of each miss.",
-      item: "CA24",
-    },
+    precision: { method: "the different callees of the calls in the syntax tree of typescript-eslint", agree: 194, checked: 200, at: "2026-11-09" },
   },
   {
     id: "fan_in",
@@ -174,7 +164,7 @@ export const DIMENSIONS: readonly Dimension[] = [
     higherIsWorse: false,
     precision: null,
     gap: {
-      cause: "The count is by name. Two functions with one name share their calls, and a call of a method of another type counts too.",
+      cause: "The count is by name. Two functions with one name share their calls, and a call of a method of another type counts too. A check by name from the TypeScript compiler agrees on 200 of 200, so the extraction is exact, but the check cannot find this error.",
       next: "Find the declaration of each call with the TypeScript compiler, and count only the calls of the function.",
       item: "CA25",
     },

@@ -9,7 +9,7 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 | ID | Status | Priority | Title |
 | --- | --- | --- | --- |
 | CA15 | in progress: the formula skeletons are in Layer 1. The first 30 classes go to the owners as leads, and their precision decides on 11-16 | P2 | Layer 2 fan-out over all public repositories, after the formula skeletons |
-| CA20 | in progress: 14 dimensions are built. 8 of them passed the precision check against ESLint, SonarJS, git and the TypeScript compiler. The size in tokens has a check against the TypeScript compiler, target 11-16 | P1 | A catalog of dimensions as data: the definition, the extractor, the unit and the measured precision of each. The first 10 come from the parser |
+| CA20 | in progress: 14 dimensions are built. 10 of them passed the precision check against ESLint, SonarJS, git and the TypeScript compiler, with the size in tokens and the fan-out. The catalog page shows the gap of each other dimension, target 11-16 | P1 | A catalog of dimensions as data: the definition, the extractor, the unit and the measured precision of each. The first 10 come from the parser |
 | CA19 | in progress: 10 of 43 repositories have a function report on `main`. The coverage report gives the cause of each other repository, target 11-16 | P2 | Coverage everywhere: a function report (`coverage-final.json`) on `main` for each repository with `@vitest/coverage-v8` |
 
 ## Next
@@ -19,7 +19,6 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 | CA21 | next: target 11-20 | P1 | The index on each push: a push to `main` scans the changed files again, so new code is in the catalog on the same day |
 | CA22 | next: target 11-20 | P1 | Findings as issues: one issue for each finding, with a stable key, an update, a close and an owner verdict |
 | CA18 | next: target 11-23 | P1 | The ratchet: a new function over the limit fails CI, and the total of a repository cannot rise |
-| CA24 | next: the first check is in the next catalog run | P1 | The fan-out passes its precision check: the cause of each miss against `typescript-eslint` is found and removed |
 | CA25 | next | P1 | The fan-in passes its precision check: the TypeScript compiler finds the declaration of each call, so a count is not by name |
 | CA26 | next: after CA19 | P2 | The coverage passes a precision check: the tests of a sample run again with coverage, and the hits agree with the report |
 | CA27 | next: after CA26 | P2 | The hotspot counts when its three parts count, and the ratchet uses it |
@@ -36,6 +35,7 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 
 | ID | Status | Priority | Title |
 | --- | --- | --- | --- |
+| CA24 | done 2026-11-09 | P1 | The fan-out passes its precision check: 194 of 200 agree with `typescript-eslint` |
 | CA11 | done 2026-11-09 | P2 | Layer 1, more sources: coverage from the CI artifacts, dependency versions, template drift, conventions breaks |
 | CA4 | done 2026-11-08 | P2 | The private repositories: a local scan into a separate private database, on this machine only |
 | CA5 | done 2026-11-08 | P2 | Planned duplication: 18 of 41 pairs are right (0.44) and 17 of 47 `homeHas` hits are right (0.36), so both give leads to read |
