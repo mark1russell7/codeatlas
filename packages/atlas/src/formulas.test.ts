@@ -3,7 +3,8 @@ import { parseSync } from "@swc/core";
 import { afterAll, describe, expect, it } from "vitest";
 import { factsOf } from "./facts.ts";
 import {
-  FORMULA_PRECISION_GATE,
+  FORMULA_COPY_GATE,
+  FORMULA_HOME_GATE,
   GENERIC_FORMULAS,
   fileKey,
   formulaClasses,
@@ -158,14 +159,29 @@ describe("formulaRecall", () => {
 });
 
 describe("formulaPrecision", () => {
-  it("is open with no verdict, and keeps the scan when the lower bound is at the gate", () => {
-    expect(formulaPrecision([]).decision).toBe("open");
-    const verdict = (v: "right" | "wrong") => ({ hash: "x", verdict: v, reason: "r", at: "2026-11-10" });
-    const keep = formulaPrecision([...Array<"right">(13).fill("right"), ...Array<"wrong">(17).fill("wrong")].map(verdict), 0);
-    expect(keep.low).toBeGreaterThanOrEqual(FORMULA_PRECISION_GATE);
-    expect([keep.decision, keep.right, keep.judged, keep.tokensPerRightMove]).toEqual(["keep", 13, 30, 0]);
-    const cut = formulaPrecision([...Array<"right">(5).fill("right"), ...Array<"wrong">(25).fill("wrong")].map(verdict), 1000);
-    expect([cut.decision, cut.tokensPerRightMove]).toEqual(["cut", 200]);
+  const verdict = (v: "right" | "partial" | "wrong") => ({ hash: "x", verdict: v, reason: "r", at: "2026-11-10" });
+  const verdicts = (right: number, partial: number, wrong: number) =>
+    [...Array<"right">(right).fill("right"), ...Array<"partial">(partial).fill("partial"), ...Array<"wrong">(wrong).fill("wrong")].map(verdict);
+
+  it("is open with no verdict", () => {
+    const none = formulaPrecision([]);
+    expect([none.copy.decision, none.home.decision]).toEqual(["open", "open"]);
+  });
+
+  it("gives a copy precision over all leads and a home precision over the real copies", () => {
+    // The verdicts of the first round: 7 right, 17 partial, 6 wrong
+    const first = formulaPrecision(verdicts(7, 17, 6), 0);
+    expect(first.copy).toMatchObject({ right: 24, judged: 30, low: 0.627, gate: FORMULA_COPY_GATE, decision: "keep" });
+    expect(first.home).toMatchObject({ right: 7, judged: 24, low: 0.149, gate: FORMULA_HOME_GATE, decision: "cut" });
+    expect(first.tokensPerRightMove).toBe(0);
+    // A better home turns partial verdicts into right ones: only the home precision changes
+    const better = formulaPrecision(verdicts(14, 10, 6), 1400);
+    expect(better.copy).toEqual(first.copy);
+    expect([better.home.right, better.home.decision, better.tokensPerRightMove]).toEqual([14, "keep", 100]);
+    expect(formulaPrecision(verdicts(0, 0, 30)).home.decision).toBe("open");
+    const markdown = formulasMarkdown({ version: "formulas/1", classes: [], recall: [], precision: first, generic: 0 });
+    expect(markdown).toContain("| A real copy | 24 of 30 | 0.800 | [0.627, 0.905] | 0.5 | keep |");
+    expect(markdown).toContain("| The right home, among the real copies | 7 of 24 | 0.292 |");
   });
 });
 

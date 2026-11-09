@@ -20,8 +20,11 @@ export const FORMULA_MIN_RECORD: number = 2;
 /** A class with this many arithmetic operators or more is a lead for the owners. */
 export const FORMULA_MIN_LEAD: number = 3;
 
-/** The owners keep the scan in Layer 1 when the Wilson lower bound of their precision is this value or more. */
-export const FORMULA_PRECISION_GATE: number = 0.25;
+/** The owners keep the scan in Layer 1 when the Wilson lower bound of the copy precision is this value or more. */
+export const FORMULA_COPY_GATE: number = 0.5;
+
+/** The leads name a home when the Wilson lower bound of the home precision is this value or more. */
+export const FORMULA_HOME_GATE: number = 0.25;
 
 /** The longest skeleton text that the catalog keeps. The hash is of the full text. */
 const MAX_SKELETON = 300;
@@ -349,33 +352,61 @@ export interface FormulaVerdict {
   readonly moved?: string;
 }
 
-/** The precision of the leads from the owner verdicts, and the decision of the gate. */
-export interface FormulaPrecision {
+/** The precision of one claim of the leads, and the decision of its gate. */
+export interface ClaimPrecision {
+  /** The leads that make the claim and have a verdict. */
   readonly judged: number;
+  /** The leads with a right claim. */
   readonly right: number;
   readonly low: number;
   readonly high: number;
+  readonly gate: number;
   /** `keep`: the lower bound is at the gate or more. `cut`: it is below. `open`: no verdict yet. */
   readonly decision: "keep" | "cut" | "open";
+}
+
+/**
+ * The precision of the leads from the owner verdicts. A lead makes two claims, so it has two precisions. The copy
+ * precision is the part of the leads with a real copy. The home precision is the part of the real copies with the
+ * right home. Thus a better choice of the home changes only the home precision.
+ */
+export interface FormulaPrecision {
+  readonly judged: number;
+  /** Is the class a real copy? A right or a partial verdict says yes. */
+  readonly copy: ClaimPrecision;
+  /** Is the home right, among the real copies? Only a right verdict says yes. */
+  readonly home: ClaimPrecision;
   /** The model tokens of the scan: Layer 1 costs none. */
   readonly tokens: number;
   /** The model tokens for each right move, or null with no right move. */
   readonly tokensPerRightMove: number | null;
 }
 
-/** This function gives the owner precision of the leads. A partial verdict does not count as right. */
-export function formulaPrecision(verdicts: readonly FormulaVerdict[], tokens: number = 0): FormulaPrecision {
-  const judged = verdicts.length;
-  const right = verdicts.filter((v) => v.verdict === "right").length;
-  if (judged === 0) return { judged, right, low: 0, high: 1, decision: "open", tokens, tokensPerRightMove: null };
+/** This function gives the precision of one claim, with its Wilson interval and the decision of `gate`. */
+export function claimPrecision(right: number, judged: number, gate: number): ClaimPrecision {
+  if (judged === 0) return { judged, right, low: 0, high: 1, gate, decision: "open" };
   const interval = wilson(right, judged);
-  const low = Number(interval.low.toFixed(3));
   return {
     judged,
     right,
-    low,
+    low: Number(interval.low.toFixed(3)),
     high: Number(interval.high.toFixed(3)),
-    decision: interval.low >= FORMULA_PRECISION_GATE ? "keep" : "cut",
+    gate,
+    decision: interval.low >= gate ? "keep" : "cut",
+  };
+}
+
+/**
+ * This function gives the copy precision and the home precision of the leads. A partial verdict names a real copy
+ * with another home, or a real copy in only some members. Thus it counts for the copy, and against the home.
+ */
+export function formulaPrecision(verdicts: readonly FormulaVerdict[], tokens: number = 0): FormulaPrecision {
+  const right = verdicts.filter((v) => v.verdict === "right").length;
+  const copies = right + verdicts.filter((v) => v.verdict === "partial").length;
+  return {
+    judged: verdicts.length,
+    copy: claimPrecision(copies, verdicts.length, FORMULA_COPY_GATE),
+    home: claimPrecision(right, copies, FORMULA_HOME_GATE),
     tokens,
     tokensPerRightMove: right === 0 ? null : Math.round(tokens / right),
   };
@@ -406,6 +437,10 @@ export async function formulaReport(q: CatalogQuery, finds: readonly OwnerFind[]
 
 const cell = (text: string): string => text.replaceAll("|", "\\|");
 
+/** This function writes one row of the table of the claims. */
+const claimRow = (claim: string, c: ClaimPrecision): string =>
+  `| ${claim} | ${c.right} of ${c.judged} | ${c.judged === 0 ? "none" : (c.right / c.judged).toFixed(3)} | [${c.low.toFixed(3)}, ${c.high.toFixed(3)}] | ${c.gate} | ${c.decision} |`;
+
 /** This function writes the report as Markdown, with the first `top` classes. */
 export function formulasMarkdown(report: FormulaReport, top: number = 30): string {
   const { precision } = report;
@@ -419,9 +454,17 @@ export function formulasMarkdown(report: FormulaReport, top: number = 30): strin
     "| --- | --- | --- |",
     ...report.recall.map((r) => `| ${r.floor} | ${r.recalled} of ${r.total} | ${r.present} |`),
     "",
-    precision.judged === 0
-      ? "The owners have not judged a lead yet."
-      : `The owners found ${precision.right} of ${precision.judged} leads right: ${(precision.right / precision.judged).toFixed(3)} [${precision.low.toFixed(3)}, ${precision.high.toFixed(3)}]. The gate is ${FORMULA_PRECISION_GATE}: ${precision.decision}.`,
+    ...(precision.judged === 0
+      ? ["The owners have not judged a lead yet."]
+      : [
+          "A lead makes two claims: the class is a real copy, and the home is right. Each claim has its precision and its gate.",
+          "",
+          "| Claim | Right | Precision | 95% interval | Gate | Decision |",
+          "| --- | --- | --- | --- | --- | --- |",
+          claimRow("A real copy", precision.copy),
+          claimRow("The right home, among the real copies", precision.home),
+          "",
+        ]),
     `The scan used ${precision.tokens} model tokens. Tokens for each right move: ${precision.tokensPerRightMove ?? "none yet"}.`,
     "",
     "| Rank | Repositories | Operators | Skeleton | Places | Home |",

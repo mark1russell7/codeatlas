@@ -160,7 +160,10 @@ The field `owner` of `members-1.jsonl` has the verdict of the owner of each of t
 The command `codeatlas formulas` gives the classes of formula skeletons. The first 30 classes go to their owners as leads to read.
 
 - Each lead names its home from `conventions map`.
-- Each owner verdict goes into `formulas-1.jsonl`. A partial verdict does not count as right.
-- The scan stays in Layer 1 when the Wilson lower bound of the owner precision is 0.25 or more. Below that, we keep only the classes with the most repositories, or we stop the scan.
+- Each owner verdict goes into `formulas-1.jsonl`.
+- A lead makes two claims, so it has two precisions. The copy precision is the part of the leads with a real copy. A right or a partial verdict counts. The home precision is the part of the real copies with the right home. Only a right verdict counts.
+- The scan stays in Layer 1 when the Wilson lower bound of the copy precision is 0.5 or more. Below that, we keep only the classes with the most repositories, or we stop the scan.
+- The leads name a home when the Wilson lower bound of the home precision is 0.25 or more. Below that, a lead names the copy with no home.
+- The first round has 7 right, 17 partial and 6 wrong verdicts. The copy precision is 24 of 30: 0.800 [0.627, 0.905]. The home precision is 7 of 24: 0.292 [0.149, 0.492]. Thus the copies are real, and the choice of the home is the weak part.
 - Each run gives the recall of `finds-1.jsonl` at the floors 2 and 3. Thus a change of the scan shows as a gain or a loss.
 - The scan costs no model tokens. The report gives the tokens for each right move.

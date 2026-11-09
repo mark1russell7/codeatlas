@@ -53,9 +53,11 @@ export type { CodeIndex, Dimension, DimensionPrecision, DimensionScope, Dimensio
 export {
   FORMULA_MIN_LEAD,
   FORMULA_MIN_RECORD,
-  FORMULA_PRECISION_GATE,
+  FORMULA_COPY_GATE,
+  FORMULA_HOME_GATE,
   FORMULAS_VERSION,
   GENERIC_FORMULAS,
+  claimPrecision,
   fileKey,
   formulaClasses,
   formulaHash,
@@ -69,6 +71,7 @@ export {
   skeletonOf,
 } from "./formulas.ts";
 export type {
+  ClaimPrecision,
   FormulaClass,
   FormulaClassOptions,
   FormulaFact,
