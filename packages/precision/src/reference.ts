@@ -1,7 +1,8 @@
 /**
  * The values of the reference tools for one file. One pass of ESLint, with the parser of typescript-eslint, gives each
  * function with its lines. The same pass gives the values of the ESLint rules `complexity`, `max-params` and
- * `max-depth`, and of the SonarJS rule `cognitive-complexity`. The TypeScript compiler gives the imports of the file.
+ * `max-depth`, and of the SonarJS rule `cognitive-complexity`. It also gives the callees of each function. The
+ * TypeScript compiler gives the imports of the file and the last name of the callee of each call.
  */
 import { createRequire } from "node:module";
 import ts from "typescript";
@@ -28,6 +29,8 @@ export interface ReferenceFunction {
   readonly cognitive: number;
   /** The highest value of the rule `max-depth` of ESLint in the function. */
   readonly depth: number;
+  /** The different callees of the calls in the function, as written, from the syntax tree of typescript-eslint. */
+  readonly fanOut: number;
 }
 
 /** The reference values of one file. */
@@ -46,6 +49,43 @@ interface Located {
 interface FunctionNode extends Located {
   readonly type: string;
   readonly parent?: FunctionNode;
+}
+
+/** A node of the syntax tree of typescript-eslint, with the fields that the callee text reads. */
+interface EsNode {
+  readonly type: string;
+  readonly name?: string;
+  readonly computed?: boolean;
+  readonly object?: EsNode;
+  readonly property?: EsNode;
+  readonly expression?: EsNode;
+}
+
+/**
+ * This function gives the callee of a call as written, from the syntax tree of typescript-eslint: `name`, `a.b.c`,
+ * `a[]`, `super`, `this` or `<expr>`. A computed member gives `[]`. A private name has no `#`, as in the atlas.
+ */
+export function esCalleeText(node: EsNode | undefined): string {
+  if (node === undefined) return "<expr>";
+  switch (node.type) {
+    case "Identifier":
+      return node.name ?? "<expr>";
+    case "Super":
+      return "super";
+    case "ThisExpression":
+      return "this";
+    case "MemberExpression": {
+      const property = node.property;
+      const name = node.computed === true || property === undefined ? "[]" : (property.name ?? "[]");
+      return `${esCalleeText(node.object)}${name === "[]" ? "[]" : `.${name}`}`;
+    }
+    case "ChainExpression":
+    case "TSNonNullExpression":
+    case "TSAsExpression":
+      return esCalleeText(node.expression);
+    default:
+      return "<expr>";
+  }
 }
 
 interface Report {
@@ -87,6 +127,7 @@ export function referenceOf(text: string, filename: string): ReferenceFile {
   const cognitive: { at: Position; value: number }[] = [];
   const depths: { at: Located; value: number }[] = [];
   const unsafeLines: number[] = [];
+  const calls: { at: Position; callee: string }[] = [];
   const entry = (node: Located): { cyclomatic: number; params: number; depth: number } => {
     const found = values.get(node) ?? { cyclomatic: 1, params: 0, depth: 0 };
     values.set(node, found);
@@ -106,6 +147,14 @@ export function referenceOf(text: string, filename: string): ReferenceFile {
       return { FunctionDeclaration: visit, FunctionExpression: visit, ArrowFunctionExpression: visit };
     },
   };
+  const callSites: RuleModule = {
+    create: () => {
+      const visit = (node: Located & { readonly callee: EsNode }): void => {
+        calls.push({ at: node.loc.start, callee: esCalleeText(node.callee) });
+      };
+      return { CallExpression: visit, NewExpression: visit };
+    },
+  };
   const unsafe = (report: Report): void => {
     const line = report.loc?.start.line ?? report.node?.loc.start.line;
     if (line !== undefined) unsafeLines.push(line);
@@ -113,6 +162,7 @@ export function referenceOf(text: string, filename: string): ReferenceFile {
   const plugin = {
     rules: {
       functions,
+      calls: callSites,
       complexity: capture(rule("complexity"), (r) => {
         if (r.node !== undefined) entry(r.node).cyclomatic = Number(r.data?.["complexity"]);
       }),
@@ -142,6 +192,7 @@ export function referenceOf(text: string, filename: string): ReferenceFile {
         plugins: { reference: plugin as never },
         rules: {
           "reference/functions": "error",
+          "reference/calls": "error",
           "reference/complexity": ["error", 0],
           "reference/params": ["error", 0],
           "reference/depth": ["error", 0],
@@ -172,6 +223,14 @@ export function referenceOf(text: string, filename: string): ReferenceFile {
     const node = innermost(report.at);
     if (node !== undefined) cognitiveOf.set(node, report.value);
   }
+  const calleesOf = new Map<Located, Set<string>>();
+  for (const call of calls) {
+    const node = innermost(call.at);
+    if (node === undefined) continue;
+    const callees = calleesOf.get(node) ?? new Set<string>();
+    callees.add(call.callee);
+    calleesOf.set(node, callees);
+  }
   for (const report of depths) {
     const node = innermost(report.at.loc.start);
     if (node !== undefined) entry(node).depth = Math.max(entry(node).depth, report.value);
@@ -179,7 +238,7 @@ export function referenceOf(text: string, filename: string): ReferenceFile {
   return {
     functions: nodes.map(({ node, outer }): ReferenceFunction => {
       const found = values.get(node) ?? { cyclomatic: 1, params: 0, depth: 0 };
-      return { start: outer.loc.start.line, end: outer.loc.end.line, cyclomatic: found.cyclomatic, params: found.params, cognitive: cognitiveOf.get(node) ?? 0, depth: found.depth };
+      return { start: outer.loc.start.line, end: outer.loc.end.line, cyclomatic: found.cyclomatic, params: found.params, cognitive: cognitiveOf.get(node) ?? 0, depth: found.depth, fanOut: calleesOf.get(node)?.size ?? 0 };
     }),
     unsafeLines: unsafeLines.sort((a, b) => a - b),
     error: null,
@@ -201,4 +260,34 @@ export function matchFunction(functions: readonly ReferenceFunction[], line: num
   const exact = candidates.filter((f) => f.start === line);
   const pool = exact.length > 0 ? exact : candidates;
   return [...pool].sort((a, b) => a.start - b.start)[0];
+}
+
+/** This function gives the last name of a callee from the TypeScript compiler: the name after the last `.`. */
+function lastNameOf(node: ts.Expression): string {
+  if (ts.isIdentifier(node)) return node.text;
+  if (node.kind === ts.SyntaxKind.SuperKeyword) return "super";
+  if (node.kind === ts.SyntaxKind.ThisKeyword) return "this";
+  // A private name has no `#`, as in the atlas
+  if (ts.isPropertyAccessExpression(node)) return node.name.text.replace(/^#/, "");
+  if (ts.isParenthesizedExpression(node) || ts.isNonNullExpression(node) || ts.isAsExpression(node)) return lastNameOf(node.expression);
+  return "<expr>";
+}
+
+const SCRIPT_KINDS: Readonly<Record<string, ts.ScriptKind>> = { tsx: ts.ScriptKind.TSX, jsx: ts.ScriptKind.JSX, js: ts.ScriptKind.JS, mjs: ts.ScriptKind.JS, cjs: ts.ScriptKind.JS };
+
+/**
+ * This function gives the last name of the callee of each call and each `new` of a file, from the TypeScript compiler.
+ * A dynamic `import()` is not a call.
+ */
+export function calleeNamesOf(text: string, filename: string): string[] {
+  const extension = filename.slice(filename.lastIndexOf(".") + 1);
+  const file = ts.createSourceFile(filename, text, ts.ScriptTarget.Latest, false, SCRIPT_KINDS[extension] ?? ts.ScriptKind.TS);
+  const names: string[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isCallExpression(node) && node.expression.kind !== ts.SyntaxKind.ImportKeyword) names.push(lastNameOf(node.expression));
+    else if (ts.isNewExpression(node)) names.push(lastNameOf(node.expression));
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
+  return names;
 }

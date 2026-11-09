@@ -11,7 +11,7 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 | CA15 | in progress: the formula skeletons are in Layer 1. The first 30 classes go to the owners as leads, and their precision decides on 11-16 | P2 | Layer 2 fan-out over all public repositories, after the formula skeletons |
 | CA20 | in progress: 13 dimensions are built. 8 of them passed the precision check against ESLint, SonarJS, git and the TypeScript compiler, target 11-16 | P1 | A catalog of dimensions as data: the definition, the extractor, the unit and the measured precision of each. The first 10 come from the parser |
 | CA21 | in progress: the workflow `Fresh index` scans each repository with a new head every 3 hours. The gate fails at a wait of 6 hours, target 11-20 | P1 | The index on each push: a push to `main` scans the changed files again, so new code is in the catalog on the same day |
-| CA19 | in progress: 3 of 43 repositories have a function report on `main`, target 11-16 | P2 | Coverage everywhere: a function report (`coverage-final.json`) on `main` for each repository with `@vitest/coverage-v8` |
+| CA19 | in progress: 10 of 43 repositories have a function report on `main`. The coverage report gives the cause of each other repository, target 11-16 | P2 | Coverage everywhere: a function report (`coverage-final.json`) on `main` for each repository with `@vitest/coverage-v8` |
 
 ## Next
 

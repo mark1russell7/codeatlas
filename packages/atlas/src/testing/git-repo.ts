@@ -27,6 +27,14 @@ export class GitRepos {
     return root;
   }
 
+  /** This method makes a git repository with no commit, as GitHub gives an empty repository, and gives its folder. */
+  empty(): string {
+    const root = mkdtempSync(join(tmpdir(), "atlas-repo-"));
+    this.#roots.push(root);
+    execFileSync("git", ["-C", root, "init", "-q"], { stdio: "pipe" });
+    return root;
+  }
+
   removeAll(): void {
     for (const root of this.#roots.splice(0)) rmSync(root, { recursive: true, force: true });
   }
