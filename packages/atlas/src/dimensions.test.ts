@@ -1,5 +1,6 @@
+import { readFileSync } from "node:fs";
 import { afterAll, describe, expect, it } from "vitest";
-import { codeIndex, DIMENSIONS, dimensionCounts, dimensionSummaries, dimensionsMarkdown, type Dimension } from "./dimensions.ts";
+import { codeIndex, DIMENSIONS, dimensionCatalog, dimensionCounts, dimensionSummaries, dimensionsMarkdown, type Dimension } from "./dimensions.ts";
 import { queryOf } from "./query.ts";
 import { scanRepoInto } from "./rescan.ts";
 import { Catalog } from "./store.ts";
@@ -34,6 +35,25 @@ describe("DIMENSIONS", () => {
       expect(d.definition.length).toBeGreaterThan(20);
       expect(d.unit.length).toBeGreaterThan(0);
     }
+  });
+
+  it("gives each dimension that does not count a gap, with a cause, a next step and an item of the roadmap", () => {
+    const roadmap = readFileSync(new URL("../../../docs/ROADMAP.md", import.meta.url), "utf8");
+    for (const d of DIMENSIONS) {
+      if (dimensionCounts(d)) {
+        expect(d.gap, d.id).toBeUndefined();
+        continue;
+      }
+      expect(d.gap?.cause.length, d.id).toBeGreaterThan(20);
+      expect(d.gap?.next.length, d.id).toBeGreaterThan(20);
+      expect(roadmap, d.id).toContain(`| ${d.gap?.item} |`);
+    }
+    const markdown = dimensionsMarkdown([], DIMENSIONS);
+    expect(markdown).toContain("### The gaps");
+    expect(markdown).toContain("| Hotspot | not checked | The hotspot is the product");
+    const catalog = dimensionCatalog([]);
+    expect(catalog.dimensions.map((d) => d.id)).toEqual(DIMENSIONS.map((d) => d.id));
+    expect(catalog.dimensions.find((d) => d.id === "length")).toMatchObject({ counts: true, summary: null });
   });
 
   it("counts a dimension only after a check with a lower bound at the gate", () => {

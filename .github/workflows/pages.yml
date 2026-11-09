@@ -58,6 +58,8 @@ jobs:
         esac
         # The query set: the duplication of each level, the exact copies, the complex functions and the markers.
         node packages/atlas/src/cli.ts queries --db "$RUNNER_TEMP/catalog.sqlite" --out packages/site/dist/data/queries.json
+        # The dimension catalog: the state of each dimension, the summary of its values, and the cause and next step of each gap.
+        node packages/atlas/src/cli.ts dimensions --db "$RUNNER_TEMP/catalog.sqlite" --catalog packages/site/dist/data/dimensions.json
         cat "$RUNNER_TEMP/atlas.md" "$RUNNER_TEMP/corpus.md" "$RUNNER_TEMP/facts.md" >> "$GITHUB_STEP_SUMMARY"
       out: packages/site/dist
       timeout-minutes: 30

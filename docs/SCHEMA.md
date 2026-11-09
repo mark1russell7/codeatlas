@@ -447,6 +447,7 @@ A dimension is an attribute of each function or each file, as data in `DIMENSION
 - `dimensions/2` adds the cognitive complexity, the churn, the coverage and the hotspot.
 - The hotspot is the cognitive complexity times the churn times one minus the coverage. A function with no coverage value counts as not covered.
 - `dimensions/3` adds the size in tokens (`tokens`). The count of syntax nodes (`nodes`) stays as a second measure, with no check.
+- A dimension that does not count has a gap: the cause of the misses, the next step and its item of `docs/ROADMAP.md`. The site shows each gap from `data/dimensions.json`.
 - A column that a later facts version adds goes into `ADDED_COLUMNS` (`store.ts`). An older database of the same schema gets the column when it opens.
 - The fan-in is by name. Two functions with one name share their calls, so its check is necessary before it counts.
 

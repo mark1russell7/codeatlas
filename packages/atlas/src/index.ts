@@ -48,8 +48,8 @@ export { roadmapOf, roadmapsOfRepo } from "./roadmaps.ts";
 export type { RoadmapItemFact, RoadmapRecord, StatusClass } from "./roadmaps.ts";
 export { PLAN_STOP_WORDS, PLANNED_VERSION, planWords, plannedDuplication, plannedMarkdown, plannedPairs } from "./planned.ts";
 export type { PlanItem, PlannedOptions, PlannedPair } from "./planned.ts";
-export { DIMENSION_PRECISION_GATE, DIMENSIONS, DIMENSIONS_VERSION, codeIndex, dimensionCounts, dimensionSummaries, dimensionsMarkdown } from "./dimensions.ts";
-export type { CodeIndex, Dimension, DimensionPrecision, DimensionScope, DimensionSummary, Extractor, FunctionIndexRow, ModuleIndexRow } from "./dimensions.ts";
+export { DIMENSION_PRECISION_GATE, DIMENSIONS, DIMENSIONS_VERSION, codeIndex, dimensionCatalog, dimensionCounts, dimensionSummaries, dimensionsMarkdown } from "./dimensions.ts";
+export type { CodeIndex, Dimension, DimensionCatalog, DimensionGap, DimensionPrecision, DimensionRow, DimensionScope, DimensionSummary, Extractor, FunctionIndexRow, ModuleIndexRow } from "./dimensions.ts";
 export {
   FORMULA_MIN_LEAD,
   FORMULA_MIN_RECORD,

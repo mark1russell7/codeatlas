@@ -19,6 +19,10 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 | CA21 | next: target 11-20 | P1 | The index on each push: a push to `main` scans the changed files again, so new code is in the catalog on the same day |
 | CA22 | next: target 11-20 | P1 | Findings as issues: one issue for each finding, with a stable key, an update, a close and an owner verdict |
 | CA18 | next: target 11-23 | P1 | The ratchet: a new function over the limit fails CI, and the total of a repository cannot rise |
+| CA24 | next: the first check is in the next catalog run | P1 | The fan-out passes its precision check: the cause of each miss against `typescript-eslint` is found and removed |
+| CA25 | next | P1 | The fan-in passes its precision check: the TypeScript compiler finds the declaration of each call, so a count is not by name |
+| CA26 | next: after CA19 | P2 | The coverage passes a precision check: the tests of a sample run again with coverage, and the hits agree with the report |
+| CA27 | next: after CA26 | P2 | The hotspot counts when its three parts count, and the ratchet uses it |
 
 ## Later
 

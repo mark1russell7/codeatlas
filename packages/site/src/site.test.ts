@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { dimensionCatalog } from "@mark1russell7/codeatlas";
 import type { Atlas, CloneClass, Member, QuerySet, RepoPoint, Trend } from "@mark1russell7/codeatlas";
 import { ATLAS_LIMIT, atlasStamps, compilePage, dataLine, pageHtml, parseSiteArgs, readAtlas, scrollCueCss } from "./build.ts";
-import { levelRows, markerTable, matches, NO_FILTER, NO_TOPIC, pairShares, placeOf, repoChanges, sourceUrl, stepOf, titleOf, topicRows, trendRows } from "./page.ts";
+import { dimensionLines, levelRows, markerTable, matches, NO_FILTER, NO_TOPIC, pairShares, placeOf, repoChanges, sourceUrl, stepOf, titleOf, topicRows, trendRows } from "./page.ts";
 
 const member = (repo: string, name: string, test = false): Member => ({ repo, file: `src/${name}.ts`, line: 3, name, exported: true, test });
 
@@ -216,5 +217,15 @@ describe("the query set", () => {
 
   it("links a function of the catalog to its line at the commit", () => {
     expect(sourceUrl("o", "c1", placeOf({ repo: "a", path: "src/x y.ts", name: "f", line: 7 }))).toBe("https://github.com/o/a/blob/c1/src/x%20y.ts#L7");
+  });
+
+  it("lists the dimensions that count first, then each gap with its cause and next step", () => {
+    const summary = { id: "length", count: 3, median: 4, p95: 9.25, max: 10, top: "a:src/x.ts:1", counts: true };
+    const lines = dimensionLines(dimensionCatalog([summary]));
+    const first = lines.findIndex((d) => !d.counts);
+    expect(lines.slice(0, first).every((d) => d.counts)).toBe(true);
+    expect(lines.slice(first).every((d) => !d.counts && d.gap !== null)).toBe(true);
+    expect(lines.find((d) => d.id === "length")).toMatchObject({ precision: "200 of 200", median: 4, p95: 9.25, gap: null });
+    expect(lines.find((d) => d.id === "hotspot")).toMatchObject({ precision: "not checked", median: null, gap: { item: "CA27" } });
   });
 });

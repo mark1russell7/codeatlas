@@ -65,7 +65,7 @@ import { atlasMarkdown } from "./report.ts";
 import { mcpCommand, toolCommand } from "./tools-cli.ts";
 import { scanRepoInto } from "./rescan.ts";
 import { conventionsBreaks, conventionsMarkdown } from "./conventions.ts";
-import { codeIndex, dimensionSummaries, dimensionsMarkdown } from "./dimensions.ts";
+import { codeIndex, dimensionCatalog, dimensionSummaries, dimensionsMarkdown } from "./dimensions.ts";
 import { formulaReport, formulasMarkdown, type FormulaVerdict, type OwnerFind } from "./formulas.ts";
 import { plannedDuplication, plannedMarkdown } from "./planned.ts";
 import { FACTS_VERSION } from "./facts.ts";
@@ -125,7 +125,7 @@ const USAGE = `Usage:
   codeatlas drift --db <catalog.sqlite> [--out drift.json] [--markdown drift.md]
   codeatlas breaks --db <catalog.sqlite> [--out breaks.json] [--markdown breaks.md]
   codeatlas planned --db <catalog.sqlite> [--out planned.json] [--markdown planned.md] [--min 0.25]
-  codeatlas dimensions --db <catalog.sqlite> [--out dimensions.json] [--markdown dimensions.md]
+  codeatlas dimensions --db <catalog.sqlite> [--out dimensions.json] [--markdown dimensions.md] [--catalog site-dimensions.json]
   codeatlas formulas --db <catalog.sqlite> --finds <finds.jsonl> [--verdicts <verdicts.jsonl>] [--out formulas.json] [--markdown formulas.md] [--top 30]
   codeatlas coverage --db <catalog.sqlite> --owner <owner> --dir <folder> [--out coverage.json] [--markdown coverage.md]
   codeatlas clone --owner <owner> --into <folder>
@@ -544,6 +544,8 @@ async function dimensions(argv: readonly string[]): Promise<number> {
     const markdown = option("--markdown");
     if (out !== undefined) writeFileSync(out, `${JSON.stringify({ ...index, summaries })}\n`);
     if (markdown !== undefined) writeFileSync(markdown, dimensionsMarkdown(summaries));
+    const site = option("--catalog");
+    if (site !== undefined) writeFileSync(site, `${JSON.stringify(dimensionCatalog(summaries))}\n`);
     console.error(`dimensions: ${index.functions.length} functions, ${index.modules.length} modules, ${summaries.filter((s) => s.counts).length} of ${summaries.length} dimensions checked`);
     return 0;
   } finally {
