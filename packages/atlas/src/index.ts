@@ -1,6 +1,8 @@
 export { buildAtlas, topicsOf, wordsOf, PURPOSES, TOPICS } from "./atlas.ts";
 export type { Atlas, AtlasOptions, CloneClass, Member, PurposeRow, RepoRow, SharedName } from "./atlas.ts";
-export { clonePublic, listArgs, repoNames } from "./clone.ts";
+export { CHURN_DAYS, churnLogArgs, churnOfLog, churnOfRepo, isShallow } from "./churn.ts";
+export type { FileChurn } from "./churn.ts";
+export { CLONE_ARGS, clonePublic, listArgs, repoNames } from "./clone.ts";
 export { atlasMarkdown } from "./report.ts";
 export { gitFiles, headOf, isSource, lineOf, lineStarts, packageOf, scanRepo, scanSource, GENERATED, MAX_BYTES, SKIP, SOURCE, TEST } from "./scan.ts";
 export type { Export, FileScan, RepoScan, Unit } from "./scan.ts";

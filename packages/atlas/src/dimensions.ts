@@ -4,6 +4,7 @@
  * The function index gives the value of each dimension for each function outside the tests.
  */
 import { quantile, wilson } from "@mark1russell7/rigor-statistics";
+import { CHURN_DAYS } from "./churn.ts";
 import type { CatalogQuery } from "./query.ts";
 
 /** The version of the dimension catalog. A new dimension or a new definition gives a new version. */
@@ -45,7 +46,7 @@ export interface Dimension {
   readonly precision: DimensionPrecision | null;
 }
 
-/** The dimensions of `dimensions/2`. Each one comes from the facts of the parser, with no model tokens. */
+/** The dimensions of `dimensions/2`. Each one comes from the parser, the git history or the CI, with no model tokens. */
 export const DIMENSIONS: readonly Dimension[] = [
   {
     id: "length",
@@ -147,6 +148,39 @@ export const DIMENSIONS: readonly Dimension[] = [
     precision: null,
   },
   {
+    id: "churn",
+    title: "Churn",
+    definition: `The commits of the ${CHURN_DAYS} days before the scan that changed the file of the function. A shallow clone gives no value.`,
+    unit: "commits",
+    scope: "function",
+    extractor: "git",
+    source: "churn_run, churn.commits",
+    higherIsWorse: true,
+    precision: null,
+  },
+  {
+    id: "coverage",
+    title: "Test coverage",
+    definition: "1 when the CI coverage report has a hit of the function, 0 when it has none. With no record of the function, the line coverage of its file.",
+    unit: "fraction",
+    scope: "function",
+    extractor: "ci",
+    source: "coverage_function.hits, coverage_file.lines_covered",
+    higherIsWorse: false,
+    precision: null,
+  },
+  {
+    id: "hotspot",
+    title: "Hotspot",
+    definition: "The cognitive complexity times the churn times one minus the coverage. A function with no coverage value counts as not covered.",
+    unit: "points",
+    scope: "function",
+    extractor: "derived",
+    source: "cognitive, churn, coverage",
+    higherIsWorse: true,
+    precision: null,
+  },
+  {
     id: "imports",
     title: "Module coupling",
     definition: "The different import specifiers of a file: the modules and the packages that it uses.",
@@ -222,6 +256,27 @@ export async function codeIndex(q: CatalogQuery): Promise<CodeIndex> {
     .where("m.kind", "in", UNSAFE)
     .select(["f.blob as blob", "m.line as line"])
     .execute();
+  const churnRuns = await q.selectFrom("current_file as f").innerJoin("churn_run as r", "r.snapshot", "f.snapshot").select("f.repo as repo").distinct().execute();
+  const churn = await q
+    .selectFrom("current_file as f")
+    .innerJoin("churn as c", (join) => join.onRef("c.snapshot", "=", "f.snapshot").onRef("c.path", "=", "f.path"))
+    .where("f.test", "=", 0)
+    .select(["f.repo as repo", "f.path as path", "c.commits as commits"])
+    .execute();
+  const fnCoverage = await q
+    .selectFrom("current_file as f")
+    .innerJoin("coverage_function as c", (join) => join.onRef("c.snapshot", "=", "f.snapshot").onRef("c.path", "=", "f.path"))
+    .where("f.test", "=", 0)
+    .select(["f.repo as repo", "f.path as path", "c.line as line", (eb) => eb.fn.max<number>("c.hits").as("hits")])
+    .groupBy(["f.repo", "f.path", "c.line"])
+    .execute();
+  const fileCoverage = await q
+    .selectFrom("current_file as f")
+    .innerJoin("coverage_file as c", (join) => join.onRef("c.snapshot", "=", "f.snapshot").onRef("c.path", "=", "f.path"))
+    .where("f.test", "=", 0)
+    .where("c.lines", ">", 0)
+    .select(["f.repo as repo", "f.path as path", "c.lines as lines", "c.lines_covered as covered"])
+    .execute();
   const imports = await q
     .selectFrom("current_file as f")
     .innerJoin("import as i", "i.blob", "f.blob")
@@ -238,27 +293,43 @@ export async function codeIndex(q: CatalogQuery): Promise<CodeIndex> {
     const key = `${row.repo}\0${lastName(row.callee)}`;
     inOf.set(key, (inOf.get(key) ?? 0) + Number(row.n));
   }
+  const churnRepos = new Set(churnRuns.map((row) => row.repo));
+  const churnOf = new Map(churn.map((row) => [`${row.repo}\0${row.path}`, row.commits]));
+  const hitsOf = new Map(fnCoverage.map((row) => [`${row.repo}\0${row.path}\0${row.line}`, Number(row.hits)]));
+  const linesOf = new Map(fileCoverage.map((row) => [`${row.repo}\0${row.path}`, row.covered / row.lines]));
   const markerLines = new Map<string, number[]>();
   for (const row of markers) markerLines.set(row.blob, [...(markerLines.get(row.blob) ?? []), row.line]);
 
-  const functions = symbols.map((s): FunctionIndexRow => ({
-    repo: s.repo,
-    path: s.path,
-    name: s.name,
-    line: s.line,
-    endLine: s.endLine,
-    values: {
-      length: s.endLine - s.line + 1,
-      params: s.params ?? 0,
-      nodes: s.nodes ?? 0,
-      cyclomatic: s.cyclomatic ?? 1,
-      depth: s.depth ?? 0,
-      cognitive: s.cognitive ?? 0,
-      fan_out: outOf.get(`${s.blob}\0${s.name}`) ?? 0,
-      fan_in: inOf.get(`${s.repo}\0${s.simple}`) ?? 0,
-      unsafe_types: (markerLines.get(s.blob) ?? []).filter((line) => s.line <= line && line <= s.endLine).length,
-    },
-  }));
+  const functions = symbols.map((s): FunctionIndexRow => {
+    const file = `${s.repo}\0${s.path}`;
+    const hits = hitsOf.get(`${file}\0${s.line}`);
+    const coverage = hits === undefined ? linesOf.get(file) : hits > 0 ? 1 : 0;
+    const churnValue = churnRepos.has(s.repo) ? (churnOf.get(file) ?? 0) : undefined;
+    const cognitive = s.cognitive ?? 0;
+    const later: Record<string, number> = {};
+    if (churnValue !== undefined) later["churn"] = churnValue;
+    if (coverage !== undefined) later["coverage"] = coverage;
+    if (churnValue !== undefined) later["hotspot"] = cognitive * churnValue * (1 - (coverage ?? 0));
+    return {
+      repo: s.repo,
+      path: s.path,
+      name: s.name,
+      line: s.line,
+      endLine: s.endLine,
+      values: {
+        length: s.endLine - s.line + 1,
+        params: s.params ?? 0,
+        nodes: s.nodes ?? 0,
+        cyclomatic: s.cyclomatic ?? 1,
+        depth: s.depth ?? 0,
+        cognitive,
+        fan_out: outOf.get(`${s.blob}\0${s.name}`) ?? 0,
+        fan_in: inOf.get(`${s.repo}\0${s.simple}`) ?? 0,
+        unsafe_types: (markerLines.get(s.blob) ?? []).filter((line) => s.line <= line && line <= s.endLine).length,
+        ...later,
+      },
+    };
+  });
   const modules = imports.map((row): ModuleIndexRow => ({ repo: row.repo, path: row.path, values: { imports: Number(row.n) } }));
   return { version: DIMENSIONS_VERSION, functions, modules };
 }

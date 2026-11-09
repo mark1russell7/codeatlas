@@ -1,10 +1,14 @@
 /**
  * The repositories that the atlas scans: each public repository of an owner that is not a fork and
- * not archived, as a shallow clone. The scan reads only the newest commit.
+ * not archived. The clone has each commit and each tree, but only the blobs of the newest commit. The scan reads the
+ * files of the newest commit, and the churn reads the names of the files that each commit changed.
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+
+/** The arguments of `git clone` for a repository with no options: the history with no blobs, for the churn. */
+export const CLONE_ARGS: readonly string[] = ["--filter=blob:none"];
 
 /** The arguments of `gh repo list` that give the names of the repositories to scan. */
 export function listArgs(owner: string): string[] {
@@ -26,7 +30,7 @@ export function repoNames(output: string): string[] {
 
 /**
  * This function clones each repository into `into/<name>`, and gives the names that did not clone. A repository
- * of `options` gets those arguments of `git clone`. Each other repository gets `--depth 1`.
+ * of `options` gets those arguments of `git clone`. Each other repository gets `CLONE_ARGS`.
  */
 export function clonePublic(
   owner: string,
@@ -48,7 +52,7 @@ export function clonePublic(
     }
     try {
       // "--" ends the options: git reads the URL and the folder only as arguments
-      execFileSync("git", ["clone", "--quiet", ...(options[name] ?? ["--depth", "1"]), "--", `https://github.com/${owner}/${name}.git`, target], { stdio: ["ignore", "ignore", "pipe"] });
+      execFileSync("git", ["clone", "--quiet", ...(options[name] ?? CLONE_ARGS), "--", `https://github.com/${owner}/${name}.git`, target], { stdio: ["ignore", "ignore", "pipe"] });
       cloned.push(name);
     } catch {
       failed.push(name);

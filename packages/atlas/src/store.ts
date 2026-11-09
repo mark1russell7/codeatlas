@@ -5,6 +5,7 @@
  */
 import { DatabaseSync, type StatementSync } from "node:sqlite";
 import { factsKey, type BlobFacts, type FileRecord, type ScanCounts } from "./blobs.ts";
+import type { FileChurn } from "./churn.ts";
 import { CLASS_MIN_NODES, type FactsSummary, type Unread } from "./summary.ts";
 import type { FileFacts, MarkerKind } from "./facts.ts";
 import type { ManifestRecord } from "./manifests.ts";
@@ -135,6 +136,14 @@ CREATE TABLE IF NOT EXISTS coverage_file (
 CREATE TABLE IF NOT EXISTS coverage_function (
   snapshot TEXT NOT NULL REFERENCES snapshot(id), path TEXT NOT NULL, line INTEGER NOT NULL, name TEXT NOT NULL, hits INTEGER NOT NULL,
   PRIMARY KEY (snapshot, path, line, name)
+);
+-- Layer 1c: the churn of each file in the window of days before the scan, from the git history
+CREATE TABLE IF NOT EXISTS churn_run (
+  snapshot TEXT PRIMARY KEY REFERENCES snapshot(id), days INTEGER NOT NULL, "until" TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS churn (
+  snapshot TEXT NOT NULL REFERENCES snapshot(id), path TEXT NOT NULL, commits INTEGER NOT NULL, authors INTEGER NOT NULL,
+  last_at TEXT NOT NULL, PRIMARY KEY (snapshot, path)
 );
 CREATE TABLE IF NOT EXISTS label (
   subject TEXT NOT NULL, task TEXT NOT NULL, "by" TEXT NOT NULL, label TEXT NOT NULL, at TEXT NOT NULL, PRIMARY KEY (subject, task, "by")
@@ -433,6 +442,19 @@ export class Catalog {
   }
 
   /** This method replaces the coverage of the snapshot `snapshot`. */
+  /**
+   * This method writes the churn of the files of a snapshot in the window of `days` that ends at `until`. A file with
+   * no row in a snapshot with a `churn_run` row has no commit in the window.
+   */
+  putChurn(snapshot: string, days: number, until: string, churn: readonly FileChurn[]): void {
+    this.#transaction(() => {
+      for (const table of ["churn_run", "churn"]) this.db.prepare(`DELETE FROM ${table} WHERE snapshot = ?`).run(snapshot);
+      this.db.prepare('INSERT INTO churn_run (snapshot, days, "until") VALUES (?, ?, ?)').run(snapshot, days, until);
+      const insert = this.db.prepare("INSERT INTO churn (snapshot, path, commits, authors, last_at) VALUES (?, ?, ?, ?, ?)");
+      for (const c of churn) insert.run(snapshot, c.path, c.commits, c.authors, c.lastAt);
+    });
+  }
+
   putCoverage(snapshot: string, run: CoverageRun): void {
     this.#transaction(() => {
       for (const table of ["coverage_run", "coverage_file", "coverage_function"]) this.db.prepare(`DELETE FROM ${table} WHERE snapshot = ?`).run(snapshot);

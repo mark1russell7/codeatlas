@@ -21,7 +21,7 @@ This document gives the layers, the keys, the relations, the measures and their 
 | --- | --- | --- | --- | --- |
 | 1a, syntax | The TypeScript parser reads one file and writes its declarations, imports, exports, call sites, shapes, measures and markers. | CPU only. No install of dependencies. | `(blob, scanner version)` | For a new blob, or a new scanner version. |
 | 1b, program | The TypeScript type checker reads a package with its installed dependencies. It finds the target of each import and each method use, and it writes signatures with their types. | CPU and an install for each repository. | `(snapshot, scanner version)` | For a new commit of the repository. |
-| 1c, outside sources | CI artifacts, lockfiles, roadmaps and the template give coverage, dependency versions, plans, template drift and conventions breaks. | Small. | `(snapshot, source)` | For a new commit or a new CI run. |
+| 1c, outside sources | CI artifacts, lockfiles, roadmaps, the git history and the template give coverage, dependency versions, plans, churn, template drift and conventions breaks. | Small. | `(snapshot, source)` | For a new commit or a new CI run. |
 | 2, judgment | An agent gives the purpose of a function, the features of a package, the home of a helper and findings that need judgment. | Model tokens. | `(subject, task, prompt version, model)` | For a new subject content or a new prompt version. |
 | 3, algebra | Typed queries over the relations of layers 1 and 2, and the measures of the site. | Small. | Not stored. A query is a function of the relations. | Each build of the site. |
 
@@ -244,6 +244,16 @@ The command `codeatlas coverage` reads the coverage of the tests from the CI art
 - An artifact of another format, for example a list of floors, gets a run with no files.
 - The catalog job adds the report to the summary: the repositories with coverage, the lines, the functions, and the exported functions with no hit.
 
+### `churn_run` and `churn`
+
+The scan reads the churn of each file from the git history of the clone (`churn.ts`).
+
+- The window is the 90 days (`CHURN_DAYS`) before the time of the scan.
+- The table `churn_run` has the window of each snapshot. The table `churn` has the commits, the authors and the last commit time of each file of the tree.
+- A file with no row in a snapshot with a `churn_run` row has no commit in the window.
+- A merge commit does not count. A rename counts as a change of the new path.
+- A shallow clone gives no `churn_run` row, because its history is cut. The catalog job clones with `--filter=blob:none`: each commit and tree, and only the newest blobs.
+
 ### `home`
 
 The areas of the map of homes, from `conventions map`: the area, its home packages, its home repository and its signatures.
@@ -422,7 +432,8 @@ A dimension is an attribute of each function or each file, as data in `DIMENSION
 - A dimension counts only when the Wilson lower bound of its precision check is 0.9 or more. The check compares the values with an independent source, as the TypeScript compiler.
 - The query `codeIndex` gives the value of each dimension for each function and each file outside the tests of the current snapshots.
 - `dimensions/1` has length, parameters, size, cyclomatic complexity, nesting depth, fan-out, fan-in, type escapes and module coupling.
-- `dimensions/2` adds the cognitive complexity.
+- `dimensions/2` adds the cognitive complexity, the churn, the coverage and the hotspot.
+- The hotspot is the cognitive complexity times the churn times one minus the coverage. A function with no coverage value counts as not covered.
 - A column that a later facts version adds goes into `ADDED_COLUMNS` (`store.ts`). An older database of the same schema gets the column when it opens.
 - The fan-in is by name. Two functions with one name share their calls, so its check is necessary before it counts.
 

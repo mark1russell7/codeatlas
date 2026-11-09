@@ -4,6 +4,7 @@
  */
 import { execFileSync } from "node:child_process";
 import { factsOfRepo, treeOf, type ScanCounts } from "./blobs.ts";
+import { CHURN_DAYS, churnOfRepo } from "./churn.ts";
 import { FACTS_VERSION } from "./facts.ts";
 import { lockfilesOfRepo } from "./lockfiles.ts";
 import { manifestsOfRepo } from "./manifests.ts";
@@ -35,6 +36,8 @@ export function scanRepoInto(db: Catalog, name: string, root: string, keep: read
   db.putManifests(snapshot, manifestsOfRepo(root, tree));
   db.putLockfiles(snapshot, lockfilesOfRepo(root, tree));
   db.putRoadmaps(snapshot, roadmapsOfRepo(root, tree));
+  const churn = churnOfRepo(root, new Set(tree.map((entry) => entry.path)), scannedAt);
+  if (churn !== null) db.putChurn(snapshot, CHURN_DAYS, scannedAt, churn);
   const records = templateRecordsOfRepo(root, keep, tree);
   db.putTemplateRecords(snapshot, records);
   const conventions = conventionsCheckOfRepo(root);
