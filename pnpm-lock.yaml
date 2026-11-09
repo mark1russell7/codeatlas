@@ -254,6 +254,9 @@ importers:
 
   packages/precision:
     dependencies:
+      '@mark1russell7/codeatlas':
+        specifier: workspace:*
+        version: link:../atlas
       '@mark1russell7/rigor-generators':
         specifier: ^0.1.6
         version: 0.1.6

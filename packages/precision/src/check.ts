@@ -7,10 +7,11 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { random } from "@mark1russell7/rigor-generators";
 import { wilson } from "@mark1russell7/rigor-statistics";
-import { importsOf, matchFunction, referenceOf, type ReferenceFile, type ReferenceFunction } from "./reference.ts";
+import { gitFiles, isSource, MAX_BYTES } from "@mark1russell7/codeatlas";
+import { calleeNamesOf, importsOf, matchFunction, referenceOf, type ReferenceFile, type ReferenceFunction } from "./reference.ts";
 
 /** The version of the checks. A new check or a new reference tool gives a new version. */
-export const PRECISION_VERSION: string = "precision/1";
+export const PRECISION_VERSION: string = "precision/2";
 
 /** A dimension counts when the Wilson lower bound of its agreement is this value or more. */
 export const PRECISION_GATE: number = 0.9;
@@ -23,6 +24,8 @@ export interface IndexFunction {
   readonly repo: string;
   readonly path: string;
   readonly name: string;
+  /** The name of the function without the names of the declarations that hold it. */
+  readonly simple?: string;
   readonly line: number;
   readonly endLine: number;
   readonly values: Readonly<Record<string, number>>;
@@ -104,7 +107,30 @@ const FUNCTION_CHECKS: readonly { readonly dimension: string; readonly method: s
   { dimension: "cyclomatic", method: "the rule complexity of ESLint", value: (f) => f.cyclomatic },
   { dimension: "depth", method: "the rule max-depth of ESLint", value: (f) => f.depth },
   { dimension: "cognitive", method: "the rule cognitive-complexity of SonarJS", value: (f) => f.cognitive },
+  { dimension: "fan_out", method: "the different callees of the calls in the syntax tree of typescript-eslint", value: (f) => f.fanOut },
 ];
+
+const IDENTIFIER = /^[A-Za-z_$][\w$]*$/;
+
+/**
+ * This function counts the calls of each last name of a callee in the files of a repository that the scan reads.
+ * The TypeScript compiler parses each file.
+ */
+export function callCountsOf(root: string): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const path of gitFiles(root).filter(isSource)) {
+    let text: string;
+    try {
+      const bytes = readFileSync(join(root, path));
+      if (bytes.length > MAX_BYTES) continue;
+      text = bytes.toString("utf8");
+    } catch {
+      continue;
+    }
+    for (const name of calleeNamesOf(text, path)) counts.set(name, (counts.get(name) ?? 0) + 1);
+  }
+  return counts;
+}
 
 const CHECKED_EXTENSIONS = /\.(?:[cm]?[jt]sx?)$/;
 
@@ -178,6 +204,24 @@ export function checkIndex(index: CodeIndexFile, options: CheckOptions): Precisi
     churnInputs.push({ place: place(f), atlas, reference: counted.get(key) });
   }
   checks.push(checkOf("churn", "git log of each file alone", churnInputs));
+
+  // The fan-in: the calls of the name of the function in each file of its repository, from the TypeScript compiler.
+  // Only a function with a name that a call can write is in this sample.
+  const named = population.filter((f) => f.simple !== undefined && IDENTIFIER.test(f.simple));
+  const fanInSample = rng.fork("fan-in").sample(named, Math.min(size, named.length));
+  const repoCounts = new Map<string, Map<string, number> | undefined>();
+  const fanInInputs = fanInSample.map((f): CheckInput => {
+    if (!repoCounts.has(f.repo)) {
+      try {
+        repoCounts.set(f.repo, callCountsOf(join(options.reposDir, f.repo)));
+      } catch {
+        repoCounts.set(f.repo, undefined);
+      }
+    }
+    const counts = repoCounts.get(f.repo);
+    return { place: place(f), atlas: f.values["fan_in"], reference: counts === undefined ? undefined : (counts.get(f.simple ?? "") ?? 0) };
+  });
+  checks.push(checkOf("fan_in", "the calls of the name in each file of the repository, from the TypeScript compiler", fanInInputs));
 
   // The module coupling: the imports of the TypeScript compiler
   const modules = rng.fork("modules").sample(
