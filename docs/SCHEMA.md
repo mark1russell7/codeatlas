@@ -244,6 +244,17 @@ The command `codeatlas coverage` reads the coverage of the tests from the CI art
 - An artifact of another format, for example a list of floors, gets a run with no files.
 - The catalog job adds the report to the summary: the repositories with coverage, the lines, the functions, and the exported functions with no hit.
 
+The report also gives the cause of each repository with no function report. The catalog facts decide the cause, in this order:
+
+| Cause | The fact |
+| --- | --- |
+| `no-tests` | The repository has no test file. |
+| `no-coverage-v8` | No manifest has the dependency `@vitest/coverage-v8`. |
+| `summary-only` | A coverage run exists, but it has no `coverage-final.json`. The Vitest reporter `json` is not set. |
+| `no-shared-ci` | No workflow pins the shared CI `reusable-ci.yml` of the template. |
+| `old-ci` | The pinned `reusable-ci.yml` is not the file on `main` of the template. The template sync moves the pin. |
+| `no-artifact` | The CI of `main` gave no artifact. The run failed, did not end, or its artifact expired. |
+
 ### `churn_run` and `churn`
 
 The scan reads the churn of each file from the git history of the clone (`churn.ts`).
@@ -446,13 +457,16 @@ The package `@codeatlas/precision` checks the dimensions. It draws a seeded samp
 | `cyclomatic` | The ESLint rule `complexity` |
 | `depth` | The ESLint rule `max-depth` |
 | `cognitive` | The SonarJS rule `cognitive-complexity` |
+| `fan_out` | The different callees of the calls of the function in the syntax tree of `typescript-eslint` |
 | `unsafe_types` | The `typescript-eslint` rules `no-explicit-any`, `no-non-null-assertion` and `ban-ts-comment` |
 | `churn` | `git log` of each file alone, in the window of `churn_run` |
+| `fan_in` | The calls of the name of the function in each file of its repository, from the TypeScript compiler |
 | `imports` | `ts.preProcessFile` of the TypeScript compiler |
 
 - The check finds the function of the tool by its last line, and by its first line or the line before it.
 - A function that the tool does not find is not in the count. The report gives these functions as "not found".
 - A comment in the file cannot turn off a rule of the check.
+- The sample of `fan_in` has only functions with a name that a call can write. A function with the name `<anonymous>` has no calls of its name.
 - The report gives the first 10 values that do not agree, for each dimension.
 - The measured precision goes into `DIMENSIONS` with the date and the seed of the check.
 

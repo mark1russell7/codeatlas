@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { factsOfRepo } from "./blobs.ts";
-import { coverageMarkdown, coverageOfRepo, coverageReport, coverageRunOf, pathOfKey, type ArtifactInfo, type ArtifactSource } from "./coverage.ts";
+import { coverageGaps, coverageGapsMarkdown, coverageMarkdown, coverageOfRepo, coverageReport, coverageRunOf, pathOfKey, type ArtifactInfo, type ArtifactSource } from "./coverage.ts";
 import { queryOf } from "./query.ts";
 import { Catalog } from "./store.ts";
 import { GitRepos } from "./testing/git-repo.ts";
@@ -107,5 +107,52 @@ describe("the coverage of a repository", () => {
     // A scan of the same commit again replaces the snapshot, so its coverage rows go first
     catalog.putSnapshot("app", "c0", "2026-11-08T01:00:00Z", "test", result.files, result.counts);
     expect((await coverageReport(queryOf(catalog.db))).covered).toEqual([]);
+  });
+});
+
+describe("coverageGaps", () => {
+  it("gives the cause of each repository with no function report, in a fixed order", async () => {
+    const catalog = new Catalog(":memory:");
+    afterAll(() => catalog.close());
+    const tested = repos.with({ "src/a.ts": "export const a = 1;\n", "src/a.test.ts": "import { a } from './a';\n" });
+    const untested = repos.with({ "src/a.ts": "export const a = 1;\n" });
+    const ci = ".github/workflows/reusable-ci.yml";
+    const put = (repo: string, root: string): string => {
+      const result = factsOfRepo(repo, root, catalog);
+      return catalog.putSnapshot(repo, `${repo}-head`, "2026-11-09T00:00:00Z", "test", result.files, result.counts);
+    };
+    const run = (functions: number) => ({
+      runId: 1, commit: "c", createdAt: "2026-11-09T00:00:00Z", artifacts: ["coverage"], files: [], unmatched: 0,
+      functions: Array.from({ length: functions }, (_, i) => ({ path: "src/a.ts", line: i + 1, name: `f${i}`, hits: 1 })),
+    });
+    const sql = (text: string, ...values: (string | number | null)[]): void => {
+      catalog.db.prepare(text).run(...values);
+    };
+    const template = put("template", tested);
+    sql("INSERT INTO template_version (snapshot, ref, committed_at, path, oid) VALUES (?, ?, ?, ?, ?)", template, "template-head", "2026-11-09", ci, "new");
+    sql("INSERT INTO template_version (snapshot, ref, committed_at, path, oid) VALUES (?, ?, ?, ?, ?)", template, "older", "2026-11-08", ci, "new");
+    sql("INSERT INTO template_version (snapshot, ref, committed_at, path, oid) VALUES (?, ?, ?, ?, ?)", template, "oldest", "2026-11-07", ci, "old");
+    catalog.putCoverage(template, run(1));
+    put("bare", untested);
+    for (const repo of ["plain", "summary", "own", "old", "fresh"]) {
+      const snapshot = put(repo, tested);
+      sql("INSERT INTO manifest (snapshot, path, oid, name, version, private, parse_error) VALUES (?, ?, ?, ?, ?, ?, ?)", snapshot, "package.json", `m-${repo}`, repo, "0.0.0", 0, null);
+      if (repo !== "plain") sql('INSERT INTO dependency (oid, field, name, "range", kind) VALUES (?, ?, ?, ?, ?)', `m-${repo}`, "devDependencies", "@vitest/coverage-v8", "^4.0.0", "semver");
+      if (repo === "summary") catalog.putCoverage(snapshot, run(0));
+      if (repo === "old" || repo === "fresh") sql("INSERT INTO template_pin (snapshot, path, line, target, ref) VALUES (?, ?, ?, ?, ?)", snapshot, ".github/workflows/ci.yml", 9, ci, repo === "old" ? "oldest" : "older");
+    }
+    const gaps = await coverageGaps(queryOf(catalog.db));
+    expect(gaps).toEqual([
+      { repo: "bare", cause: "no-tests" },
+      { repo: "fresh", cause: "no-artifact" },
+      { repo: "old", cause: "old-ci", ref: "oldest" },
+      { repo: "own", cause: "no-shared-ci" },
+      { repo: "plain", cause: "no-coverage-v8" },
+      { repo: "summary", cause: "summary-only" },
+    ]);
+    const markdown = coverageGapsMarkdown(gaps);
+    expect(markdown).toContain("| `old-ci` | `old` (`oldest`) | Merge the sync of the template. It moves the pin of the shared CI. |");
+    expect(markdown.indexOf("`no-tests`")).toBeLessThan(markdown.indexOf("`no-artifact`"));
+    expect(coverageGapsMarkdown([])).toBe("");
   });
 });
