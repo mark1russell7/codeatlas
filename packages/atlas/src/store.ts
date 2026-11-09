@@ -122,6 +122,9 @@ CREATE TABLE IF NOT EXISTS template_ref (
   snapshot TEXT NOT NULL REFERENCES snapshot(id), ref TEXT NOT NULL, committed_at TEXT NOT NULL, behind INTEGER NOT NULL,
   PRIMARY KEY (snapshot, ref)
 );
+CREATE TABLE IF NOT EXISTS template_change (
+  snapshot TEXT NOT NULL REFERENCES snapshot(id), ref TEXT NOT NULL, path TEXT NOT NULL, changed_at TEXT NOT NULL, PRIMARY KEY (snapshot, ref, path)
+);
 CREATE TABLE IF NOT EXISTS template_use (
   snapshot TEXT NOT NULL REFERENCES snapshot(id), target TEXT NOT NULL, path TEXT NOT NULL, PRIMARY KEY (snapshot, target, path)
 );
@@ -422,12 +425,15 @@ export class Catalog {
       this.db.prepare("DELETE FROM template_version WHERE snapshot = ?").run(snapshot);
       this.db.prepare("DELETE FROM template_use WHERE snapshot = ?").run(snapshot);
       this.db.prepare("DELETE FROM template_ref WHERE snapshot = ?").run(snapshot);
+      this.db.prepare("DELETE FROM template_change WHERE snapshot = ?").run(snapshot);
       const ref = this.db.prepare("INSERT INTO template_ref (snapshot, ref, committed_at, behind) VALUES (?, ?, ?, ?)");
       for (const v of records.versions) ref.run(snapshot, v.ref, v.committedAt, v.behind);
       const version = this.db.prepare("INSERT INTO template_version (snapshot, ref, committed_at, path, oid) VALUES (?, ?, ?, ?, ?)");
       const use = this.db.prepare("INSERT INTO template_use (snapshot, target, path) VALUES (?, ?, ?)");
       for (const v of records.versions) for (const f of v.files) version.run(snapshot, v.ref, v.committedAt, f.path, f.oid);
       for (const u of records.uses) use.run(snapshot, u.target, u.path);
+      const change = this.db.prepare("INSERT INTO template_change (snapshot, ref, path, changed_at) VALUES (?, ?, ?, ?)");
+      for (const c of records.changes) change.run(snapshot, c.ref, c.path, c.changedAt);
     });
   }
 

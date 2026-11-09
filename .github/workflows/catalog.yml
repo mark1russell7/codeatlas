@@ -100,11 +100,11 @@ jobs:
           set -euo pipefail
           node packages/atlas/src/cli.ts catalog --repos-dir "$RUNNER_TEMP/repos" --out "$RUNNER_TEMP/catalog.sqlite" --markdown "$RUNNER_TEMP/again.md" 2>&1 | tee "$RUNNER_TEMP/again.log"
           grep -q " 0 parsed," "$RUNNER_TEMP/again.log" || { echo "::error::The second scan parsed blobs again."; exit 1; }
-      # The pin freshness and the stamp freshness of the repositories that pin the template
+      # The pin age and its gate, with the pin freshness, the stamp freshness and the pin lag as readings
       - name: Drift from the template
         run: |
           set -euo pipefail
-          node packages/atlas/src/cli.ts drift --db "$RUNNER_TEMP/catalog.sqlite" --markdown "$RUNNER_TEMP/drift.md"
+          node packages/atlas/src/cli.ts drift --db "$RUNNER_TEMP/catalog.sqlite" --markdown "$RUNNER_TEMP/drift.md" --out "$RUNNER_TEMP/drift.json"
           tee -a "$GITHUB_STEP_SUMMARY" < "$RUNNER_TEMP/drift.md"
       # The rules of the conventions that each repository breaks
       - name: Conventions breaks
@@ -159,8 +159,14 @@ jobs:
             ${{ runner.temp }}/formulas.json
             ${{ runner.temp }}/dimensions.json
             ${{ runner.temp }}/precision.json
+            ${{ runner.temp }}/drift.json
           retention-days: 14
           if-no-files-found: error
+      # The gate of the pin age: the p90 of the repositories is at most 3 days. It runs after the save of the catalog,
+      # so a fail keeps the catalog. A pull request does not change the pins of other repositories, so it skips the gate.
+      - name: Pin age gate
+        if: github.event_name != 'pull_request'
+        run: node packages/atlas/src/cli.ts drift --db "$RUNNER_TEMP/catalog.sqlite" --gate
 
   catalog-ok:
     name: Catalog OK

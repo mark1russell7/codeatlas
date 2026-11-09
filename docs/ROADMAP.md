@@ -37,7 +37,7 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 | ID | Status | Priority | Title |
 | --- | --- | --- | --- |
 | CA24 | done 2026-11-09 | P1 | The fan-out passes its precision check: 194 of 200 agree with `typescript-eslint` |
-| CA11 | done 2026-11-09 | P2 | Layer 1, more sources: coverage from the CI artifacts, dependency versions, template drift, conventions breaks |
+| CA11 | done 2026-11-09 | P2 | Layer 1, more sources: coverage from the CI artifacts, dependency versions, template drift with the gate of the pin age (p90 at most 3 days), conventions breaks |
 | CA4 | done 2026-11-08 | P2 | The private repositories: a local scan into a separate private database, on this machine only |
 | CA5 | done 2026-11-08 | P2 | Planned duplication: 18 of 41 pairs are right (0.44) and 17 of 47 `homeHas` hits are right (0.36), so both give leads to read |
 | CA14 | done 2026-11-08 | P1 | Layer 2 on 999 functions with copies or shared names: 149 moves to check, owner precision 0.16 and owner recall 0.50 |

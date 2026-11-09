@@ -4,7 +4,7 @@
  * template. This module reads the pins and the copied files of each repository. The query `templateDrift` compares
  * them with the template.
  */
-import { median } from "@mark1russell7/rigor-statistics";
+import { median, quantile } from "@mark1russell7/rigor-statistics";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -70,6 +70,19 @@ export interface TemplateVersions {
   readonly versions: readonly TemplateVersion[];
   /** Each file that a shared workflow or action uses, at the commit of the template. A target uses itself. */
   readonly uses: readonly { readonly target: string; readonly path: string }[];
+  /**
+   * The oldest change of each file that differs at a ref and at the commit of the template. It is the oldest commit
+   * after the ref that changes the file.
+   */
+  readonly changes: readonly TemplateChange[];
+}
+
+/** The oldest change of the template to one file after one ref. */
+export interface TemplateChange {
+  readonly ref: string;
+  readonly path: string;
+  /** The commit time of the oldest commit after `ref` that changes `path`, in ISO 8601 form. */
+  readonly changedAt: string;
 }
 
 interface SwcNode {
@@ -357,7 +370,33 @@ export function templateVersionsOfRepo(root: string, refs: readonly string[], ke
     }
     for (const path of [...seen].sort(byText)) uses.push({ target, path });
   }
-  return { versions, uses };
+  return { versions, uses, changes: changesOf(git, versions) };
+}
+
+/**
+ * This function gives the oldest change of each file that differs at a ref and at HEAD, the first version. It reads
+ * one log for each ref, the oldest commit first, so the first commit with a file is its oldest change.
+ */
+function changesOf(git: (...args: string[]) => string, versions: readonly TemplateVersion[]): TemplateChange[] {
+  const [head, ...refs] = versions;
+  if (head === undefined) return [];
+  const main = new Map(head.files.map((f) => [f.path, f.oid]));
+  const changes: TemplateChange[] = [];
+  for (const version of refs) {
+    const oids = new Map(version.files.map((f) => [f.path, f.oid]));
+    const differ = new Set([...main].filter(([path, oid]) => oids.get(path) !== oid).map(([path]) => path));
+    if (differ.size === 0) continue;
+    const log = git("log", "--reverse", "--no-renames", "--name-only", "--format=%x00%cI", "--end-of-options", `${version.ref}..${head.ref}`);
+    for (const commit of log.split("\0")) {
+      const [at, ...paths] = commit.split("\n").map((line) => line.trim());
+      for (const path of paths) {
+        if (at === undefined || !differ.delete(path)) continue;
+        // The form of %cI differs by the version of git, so the time gets one form
+        changes.push({ ref: version.ref, path, changedAt: new Date(at).toISOString() });
+      }
+    }
+  }
+  return changes.sort((a, b) => byText(a.ref, b.ref) || byText(a.path, b.path));
 }
 
 /** One repository that is not current, with the template files that differ from the commit of the template. */
@@ -498,6 +537,111 @@ export async function pinLag(q: CatalogQuery, template: string = TEMPLATE_REPO):
   };
 }
 
+/** The limit of the gate of the pin age: the p90 of the repositories is at most this count of days. */
+export const PIN_AGE_LIMIT = 3;
+
+/** The pin age of one repository: the age of the oldest change of the template that it does not have. */
+export interface RepoPinAge {
+  readonly repo: string;
+  /** The age in days of the oldest change that the repository does not have. It is 0 when the repository is current. */
+  readonly days: number;
+  /** The oldest change that the repository does not have, or `null` when the repository is current. */
+  readonly oldest: { readonly ref: string; readonly path: string; readonly changedAt: string } | null;
+}
+
+/** The pin age of the repositories that pin the template, and the result of its gate. */
+export interface PinAges {
+  readonly commit: string | null;
+  /** The time of the measure, in ISO 8601 form. */
+  readonly at: string | null;
+  readonly limit: number;
+  /** The age of each repository, the oldest first. */
+  readonly repos: readonly RepoPinAge[];
+  /** The repositories with a pin that the catalog does not know. Their age is not known, so they do not count. */
+  readonly unknown: readonly string[];
+  /** The nearest-rank quantiles of the days of `repos`, or `null` when no repository counts. */
+  readonly p50: number | null;
+  readonly p90: number | null;
+  /** The repositories with an age over `limit`, the oldest first. The sync of the template goes to them first. */
+  readonly over: readonly RepoPinAge[];
+  /** The gate passes when `p90` is at most `limit`. With no repository that counts, it fails. */
+  readonly pass: boolean;
+}
+
+/** The options of `pinAge`. */
+export interface PinAgeOptions {
+  /** The time of the measure. The default is the time of the scan of the template. */
+  readonly at?: string;
+  readonly limit?: number;
+  readonly template?: string;
+}
+
+/**
+ * This function gives the pin age of each repository that pins the template. For each pin, it takes each used file
+ * that differs at the pin and at the commit of the template. The age of the file is the age of the oldest commit of
+ * the template after the pin that changes it. The age of a repository is the age of its oldest file, or 0.
+ */
+export async function pinAge(q: CatalogQuery, options: PinAgeOptions = {}): Promise<PinAges> {
+  const template = options.template ?? TEMPLATE_REPO;
+  const limit = options.limit ?? PIN_AGE_LIMIT;
+  const snapshot = await q.selectFrom("current_snapshot").select(["id", "commit", "scanned_at"]).where("repo", "=", template).executeTakeFirst();
+  const id = snapshot?.id ?? "";
+  const versions = new Map<string, { committedAt: string; oids: Map<string, string> }>();
+  for (const row of await q.selectFrom("template_version").select(["ref", "committed_at", "path", "oid"]).where("snapshot", "=", id).execute()) {
+    const version = versions.get(row.ref) ?? { committedAt: row.committed_at, oids: new Map<string, string>() };
+    versions.set(row.ref, version);
+    version.oids.set(row.path, row.oid);
+  }
+  const changes = new Map<string, string>();
+  for (const row of await q.selectFrom("template_change").select(["ref", "path", "changed_at"]).where("snapshot", "=", id).execute()) changes.set(`${row.ref}\n${row.path}`, row.changed_at);
+  const main = versions.get(snapshot?.commit ?? "");
+  const paths = new Set(main?.oids.keys() ?? []);
+  const usesOf = new Map<string, string[]>();
+  for (const row of await q.selectFrom("template_use").select(["target", "path"]).where("snapshot", "=", id).execute()) usesOf.set(row.target, [...(usesOf.get(row.target) ?? []), row.path]);
+  const pinsOfRepo = new Map<string, Map<string, Set<string>>>();
+  for (const pin of await q.selectFrom("current_template_pin").select(["repo", "ref", "target"]).where("repo", "!=", template).execute()) {
+    const refs = pinsOfRepo.get(pin.repo) ?? new Map<string, Set<string>>();
+    pinsOfRepo.set(pin.repo, refs.set(pin.ref, (refs.get(pin.ref) ?? new Set<string>()).add(fileOfTarget(pin.target, paths))));
+  }
+  const at = options.at ?? snapshot?.scanned_at ?? null;
+  const now = Date.parse(at ?? "");
+  const repos: RepoPinAge[] = [];
+  const unknown: string[] = [];
+  for (const [repo, refs] of pinsOfRepo) {
+    if (main === undefined || Number.isNaN(now) || [...refs.keys()].some((ref) => !versions.has(ref))) {
+      unknown.push(repo);
+      continue;
+    }
+    let oldest: RepoPinAge["oldest"] = null;
+    for (const [ref, targets] of refs) {
+      const version = versions.get(ref);
+      for (const path of new Set([...targets].flatMap((target) => usesOf.get(target) ?? [target]))) {
+        if (version === undefined || version.oids.get(path) === main.oids.get(path)) continue;
+        // A file with no change row is a file that git did not tell: the commit time of the pin is its upper bound
+        const changedAt = changes.get(`${ref}\n${path}`) ?? version.committedAt;
+        const older = oldest === null || Date.parse(changedAt) < Date.parse(oldest.changedAt) || (changedAt === oldest.changedAt && byText(`${ref} ${path}`, `${oldest.ref} ${oldest.path}`) < 0);
+        if (older) oldest = { ref, path, changedAt };
+      }
+    }
+    const days = oldest === null ? 0 : Math.max(0, Math.floor((now - Date.parse(oldest.changedAt)) / DAY_MS));
+    repos.push({ repo, days, oldest });
+  }
+  repos.sort((a, b) => b.days - a.days || byText(a.repo, b.repo));
+  const days = repos.map((r) => r.days);
+  const p90 = days.length === 0 ? null : quantile(days, 0.9, "nearest-rank");
+  return {
+    commit: snapshot?.commit ?? null,
+    at,
+    limit,
+    repos,
+    unknown: unknown.sort(byText),
+    p50: days.length === 0 ? null : quantile(days, 0.5, "nearest-rank"),
+    p90,
+    over: repos.filter((r) => r.days > limit),
+    pass: p90 !== null && p90 <= limit,
+  };
+}
+
 /** The path of the command of the stamp. Its option `--check` tells which files of `KEEP` the stamp changes in a repository. */
 export const STAMP_MAIN = "scripts/stamp/main.ts";
 
@@ -610,16 +754,26 @@ const short = (ref: string): string => (/^[0-9a-f]{40}$/.test(ref) ? ref.slice(0
 
 const code = (text: string): string => `\`${text}\``;
 
-/** This function gives the Markdown of the drift from the template: the pin freshness, the stamp freshness and the changed copies. */
-export function driftMarkdown(pins: PinFreshness, stamp: StampFreshness, lag?: PinLags): string {
+/**
+ * This function gives the Markdown of the drift from the template. The pin age and its gate come first. The pin
+ * freshness, the stamp freshness and the pin lag are readings beside it.
+ */
+export function driftMarkdown(pins: PinFreshness, stamp: StampFreshness, lag?: PinLags, age?: PinAges): string {
   const share = (current: number, behind: number, value: number): string => `**${current} of ${current + behind}** repositories (${Math.round(value * 100)}%)`;
   const at = pins.commit === null ? "the template" : `${code(short(pins.commit))} of the template`;
-  const lines = [
-    "## Drift from the template",
-    "",
+  const lines = ["## Drift from the template", ""];
+  if (age !== undefined) {
+    const value = (days: number | null): string => (days === null ? "not known" : `**${days} days**`);
+    lines.push(
+      `- Pin age, the measure of the gate: p50 ${value(age.p50)}, p90 ${value(age.p90)} over ${age.repos.length} repositories. The gate is p90 at most ${age.limit} days: **${age.pass ? "pass" : "fail"}**.`,
+      `  The age of a repository is the age of the oldest change of the template to a pinned file that it does not have. It is 0 when the repository is current.`,
+    );
+    if (age.unknown.length > 0) lines.push(`- Age not known: ${age.unknown.map(code).join(", ")}. The catalog does not know a pin of these repositories, so they do not count.`);
+  }
+  lines.push(
     `- Pin freshness: ${share(pins.current.length, pins.behind.length, pins.share)}. Each pinned workflow and action, and each file that it uses, is the same at the pins and at ${at}.`,
     `- Stamp freshness: ${share(stamp.current.length, stamp.behind.length, stamp.share)}. For each current repository, ${code("stamp --check")} at ${stamp.commit === null ? "the template" : `${code(short(stamp.commit))} of the template`} changes no file.`,
-  ];
+  );
   if (stamp.unchecked.length > 0) lines.push(`- Not checked: ${stamp.unchecked.map(code).join(", ")}. ${code("stamp --check")} gave no result, so these repositories do not count.`);
   const worst = lag?.repos[0];
   if (lag?.median !== undefined && lag.median !== null && worst !== undefined) {
@@ -629,6 +783,11 @@ export function driftMarkdown(pins: PinFreshness, stamp: StampFreshness, lag?: P
   }
   if (lag !== undefined && lag.unknown.length > 0) lines.push(`- Lag not known: ${lag.unknown.map(code).join(", ")}. The catalog does not know a pin of these repositories.`);
   lines.push("");
+  if (age !== undefined && age.over.length > 0) {
+    lines.push(`### Over the line of ${age.limit} days`, "", "The sync of the template goes to these repositories first.", "", "| Repository | Age in days | Oldest change that it does not have | Pin |", "| --- | ---: | --- | --- |");
+    for (const r of age.over) lines.push(`| ${r.repo} | ${r.days} | ${r.oldest === null ? "" : `${code(r.oldest.path)}, ${r.oldest.changedAt.slice(0, 10)}`} | ${r.oldest === null ? "" : code(short(r.oldest.ref))} |`);
+    lines.push("");
+  }
   if (lag !== undefined && lag.repos.length > 0) {
     lines.push("### Pin lag", "", "| Repository | Oldest pin | Commits behind | Days behind |", "| --- | --- | ---: | ---: |");
     for (const r of lag.repos) lines.push(`| ${r.repo} | ${code(short(r.ref))} | ${r.behind} | ${r.days} |`);

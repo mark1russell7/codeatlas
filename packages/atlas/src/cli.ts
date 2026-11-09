@@ -11,7 +11,7 @@
  * - `codeatlas reference --sample <sample.json> --rater <name>=<labels.jsonl> ... [--labeler <name>=<labels.jsonl> ...] [--db <catalog.sqlite>] --out <reference.json> [--markdown <reference.md>]`
  * - `codeatlas verdict --sample <sample.json> --a <a.jsonl> --agreement <agreement.json> --answers <answers.jsonl> --out <verdict.json>`
  * - `codeatlas trend --db <catalog.sqlite> [--previous <trend.json>] [--owner <owner>] --out <trend.json>`
- * - `codeatlas drift --db <catalog.sqlite> [--out drift.json] [--markdown drift.md]`
+ * - `codeatlas drift --db <catalog.sqlite> [--out drift.json] [--markdown drift.md] [--gate]`
  * - `codeatlas coverage --db <catalog.sqlite> --owner <owner> --dir <folder> [--out coverage.json] [--markdown coverage.md]`
  * - `codeatlas clone --owner <owner> --into <folder>`
  * - `codeatlas prune --db <catalog.sqlite> --owner <owner>`
@@ -43,6 +43,7 @@ import {
   driftMarkdown,
   keepListOfRepo,
   pinFreshness,
+  pinAge,
   pinLag,
   STAMP_MAIN,
   stampCheckOfRepo,
@@ -126,7 +127,7 @@ const USAGE = `Usage:
   codeatlas trend --db <catalog.sqlite> [--previous <trend.json>] [--owner <owner>] --out <trend.json>
   codeatlas queries --db <catalog.sqlite> --out <queries.json>
   codeatlas facts [--out facts.jsonl] [--markdown facts.md] [--cache <facts.jsonl>] [--repos-dir <folder>] [<name>=<path> ...]
-  codeatlas drift --db <catalog.sqlite> [--out drift.json] [--markdown drift.md]
+  codeatlas drift --db <catalog.sqlite> [--out drift.json] [--markdown drift.md] [--gate]
   codeatlas breaks --db <catalog.sqlite> [--out breaks.json] [--markdown breaks.md]
   codeatlas planned --db <catalog.sqlite> [--out planned.json] [--markdown planned.md] [--min 0.25]
   codeatlas dimensions --db <catalog.sqlite> [--out dimensions.json] [--markdown dimensions.md] [--catalog site-dimensions.json]
@@ -527,7 +528,10 @@ async function queries(argv: readonly string[]): Promise<number> {
     catalog.close();
   }
 }
-/** This function writes the drift from the template of the catalog `--db` as JSON and as Markdown. */
+/**
+ * This function writes the drift from the template of the catalog `--db` as JSON and as Markdown. With `--gate`, it
+ * fails when the p90 of the pin age is over the limit.
+ */
 async function drift(argv: readonly string[]): Promise<number> {
   const option = (name: string): string | undefined => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined);
   const db = option("--db");
@@ -539,14 +543,18 @@ async function drift(argv: readonly string[]): Promise<number> {
   try {
     const q = queryOf(catalog);
     const [freshness, stamp, lag, all] = [await pinFreshness(q), await stampFreshness(q), await pinLag(q), await templateDrift(q)];
+    const age = await pinAge(q, { at: new Date().toISOString() });
     const out = option("--out");
     const markdown = option("--markdown");
-    if (out !== undefined) writeFileSync(out, `${JSON.stringify({ pins: freshness, stamp, lag, drift: all })}\n`);
-    if (markdown !== undefined) writeFileSync(markdown, driftMarkdown(freshness, stamp, lag));
+    if (out !== undefined) writeFileSync(out, `${JSON.stringify({ age, pins: freshness, stamp, lag, drift: all })}\n`);
+    if (markdown !== undefined) writeFileSync(markdown, driftMarkdown(freshness, stamp, lag, age));
     const line = (current: number, behind: number): string => `${current} of ${current + behind}`;
     const median = lag.median === null ? "not known" : `${lag.median.behind} commits, ${lag.median.days} days`;
-    console.error(`drift: pins ${line(freshness.current.length, freshness.behind.length)} current, copies ${line(stamp.current.length, stamp.behind.length)} current, median pin lag ${median}`);
-    return 0;
+    const days = (value: number | null): string => (value === null ? "not known" : `${value} days`);
+    console.error(`drift: pin age p50 ${days(age.p50)}, p90 ${days(age.p90)} (${age.pass ? "pass" : "fail"}), pins ${line(freshness.current.length, freshness.behind.length)} current, copies ${line(stamp.current.length, stamp.behind.length)} current, median pin lag ${median}`);
+    if (!argv.includes("--gate") || age.pass) return 0;
+    console.error(`::error::The p90 of the pin age is ${days(age.p90)}, over the limit of ${age.limit} days. Over the line: ${age.over.map((r) => `${r.repo} (${r.days} days)`).join(", ") || "none"}.`);
+    return 1;
   } finally {
     catalog.close();
   }
