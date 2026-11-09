@@ -201,6 +201,8 @@ export interface FunctionIndexRow {
   readonly repo: string;
   readonly path: string;
   readonly name: string;
+  /** The name of the function without the names of the declarations that hold it. */
+  readonly simple: string;
   readonly line: number;
   readonly endLine: number;
   /** The value of each function dimension, by its id. */
@@ -314,6 +316,7 @@ export async function codeIndex(q: CatalogQuery): Promise<CodeIndex> {
       repo: s.repo,
       path: s.path,
       name: s.name,
+      simple: s.simple,
       line: s.line,
       endLine: s.endLine,
       values: {

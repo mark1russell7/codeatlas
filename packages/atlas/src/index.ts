@@ -51,11 +51,16 @@ export type { PlanItem, PlannedOptions, PlannedPair } from "./planned.ts";
 export { DIMENSION_PRECISION_GATE, DIMENSIONS, DIMENSIONS_VERSION, codeIndex, dimensionCounts, dimensionSummaries, dimensionsMarkdown } from "./dimensions.ts";
 export type { CodeIndex, Dimension, DimensionPrecision, DimensionScope, DimensionSummary, Extractor, FunctionIndexRow, ModuleIndexRow } from "./dimensions.ts";
 export {
+  CLAIM_MIN_JUDGED,
   FORMULA_MIN_LEAD,
   FORMULA_MIN_RECORD,
-  FORMULA_PRECISION_GATE,
+  FORMULA_COPY_GATE,
+  FORMULA_HOME_GATE,
+  FORMULA_MEMBER_GATE,
   FORMULAS_VERSION,
   GENERIC_FORMULAS,
+  LABEL_CLAIMS,
+  claimPrecision,
   fileKey,
   formulaClasses,
   formulaHash,
@@ -69,10 +74,13 @@ export {
   skeletonOf,
 } from "./formulas.ts";
 export type {
+  ClaimPrecision,
+  FormulaClaim,
   FormulaClass,
   FormulaClassOptions,
   FormulaFact,
   FormulaHome,
+  FormulaLabel,
   FormulaMember,
   FormulaPrecision,
   FormulaRecall,

@@ -22,6 +22,12 @@ describe("factsOfRepo", () => {
     expect(tree.map((entry) => entry.path).sort()).toEqual(["README.md", "dist/out.js", "src/clamp.test.ts", "src/clamp.ts"]);
   });
 
+  it("gives an empty tree for an empty repository, with no commit", () => {
+    const empty = repos.empty();
+    expect(treeOf(empty)).toEqual([]);
+    expect(factsOfRepo("empty", empty, new Map()).files).toEqual([]);
+  });
+
   it("parses one blob once over two repositories", () => {
     const cache = new Map<string, BlobFacts>();
     const first = factsOfRepo("a", a, cache);

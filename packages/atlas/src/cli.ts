@@ -61,7 +61,7 @@ import { addPoint, filterTrend, trendPoint } from "./trend.ts";
 import { querySet } from "./query-set.ts";
 import { factsMarkdown, factsSummary, gateVerdict, type GateVerdict } from "./summary.ts";
 import { clonePublic, publicNames } from "./clone.ts";
-import { coverageMarkdown, coverageOfRepo, coverageReport, ghArtifacts } from "./coverage.ts";
+import { coverageGaps, coverageGapsMarkdown, coverageMarkdown, coverageOfRepo, coverageReport, ghArtifacts } from "./coverage.ts";
 import { buildCorpus, corpusMarkdown, corpusOfRepo } from "./corpus.ts";
 import { atlasMarkdown } from "./report.ts";
 import { mcpCommand, toolCommand } from "./tools-cli.ts";
@@ -294,6 +294,11 @@ function catalog(argv: readonly string[]): number {
   const pinning: { readonly path: string; readonly snapshot: string }[] = [];
   const unchecked: string[] = [];
   for (const repo of args.repos) {
+    // An empty repository has no commit, so it has nothing to scan. It must not stop the scan of the others
+    if (headOf(repo.path) === null) {
+      console.log(`::warning::${repo.name} has no commit, so the scan skips it`);
+      continue;
+    }
     const { snapshot, records, counts, conventions } = scanRepoInto(db, repo.name, repo.path, keep, scannedAt);
     if (conventions !== null) unchecked.push(`${repo.name}: ${conventions}`);
     if (repo.name === TEMPLATE_REPO) templateSnapshot = snapshot;
@@ -616,7 +621,7 @@ async function formulas(argv: readonly string[]): Promise<number> {
     if (out !== undefined) writeFileSync(out, `${JSON.stringify(report)}\n`);
     if (markdown !== undefined) writeFileSync(markdown, formulasMarkdown(report, top));
     const recall = report.recall.map((r) => `${r.recalled} of ${r.total} at ${r.floor}`).join(", ");
-    console.error(`formulas: ${report.classes.length} classes, recall ${recall}, precision ${report.precision.decision}`);
+    console.error(`formulas: ${report.classes.length} classes, recall ${recall}, copy ${report.precision.copy.decision}, home ${report.precision.home.decision}`);
     return 0;
   } finally {
     catalog.close();
@@ -674,11 +679,12 @@ async function coverage(argv: readonly string[]): Promise<number> {
       }
     }
     const result = await coverageReport(queryOf(catalog.db));
+    const gaps = await coverageGaps(queryOf(catalog.db));
     const out = option("--out");
     const markdown = option("--markdown");
-    if (out !== undefined) writeFileSync(out, `${JSON.stringify(result)}\n`);
-    if (markdown !== undefined) writeFileSync(markdown, coverageMarkdown(result));
-    console.error(`coverage: ${result.covered.length} of ${result.repos} repositories have a coverage artifact`);
+    if (out !== undefined) writeFileSync(out, `${JSON.stringify({ ...result, gaps })}\n`);
+    if (markdown !== undefined) writeFileSync(markdown, `${coverageMarkdown(result)}\n${coverageGapsMarkdown(gaps)}`);
+    console.error(`coverage: ${result.covered.length} of ${result.repos} repositories have a coverage artifact, ${gaps.length} have no function report`);
     return 0;
   } finally {
     catalog.close();

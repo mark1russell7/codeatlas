@@ -7,6 +7,7 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { CatalogQuery } from "./query.ts";
+import { TEMPLATE_REPO } from "./templates.ts";
 
 /** One measure of a file: the count of the items and the count of the items that a test reached. */
 export interface Measure {
@@ -279,6 +280,77 @@ export function coverageMarkdown(report: CoverageReport): string {
     for (const r of report.covered) {
       lines.push(`| \`${r.repo}\` | \`${r.commit.slice(0, 7)}\`${r.current ? "" : " (older)"} | ${r.files === 0 ? "no report" : r.files} | ${percent(r.lines)} | ${percent(r.functions)} | ${r.reported === 0 ? "no function report" : `${r.exportedUnhit} of ${r.exported}`} |`);
     }
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+/** The shared CI workflow of the template. Its action `coverage` writes the artifact `coverage` on `main`. */
+const SHARED_CI = ".github/workflows/reusable-ci.yml";
+
+/**
+ * The cause of a repository with no function report on `main`, in the order that the function `coverageGaps` examines:
+ * - `no-tests`: the repository has no test file.
+ * - `no-coverage-v8`: no manifest has the dependency `@vitest/coverage-v8`.
+ * - `summary-only`: the artifact has no `coverage-final.json`. The reporter `json` of Vitest is not set.
+ * - `no-shared-ci`: no workflow uses the shared CI of the template, and no artifact `coverage` is on `main`.
+ * - `old-ci`: the pinned shared CI is not the one on `main` of the template. The sync of the template moves the pin.
+ * - `no-artifact`: the CI of `main` gave no artifact. The run failed, did not end, or its artifact expired.
+ */
+export type CoverageCause = "no-tests" | "no-coverage-v8" | "summary-only" | "no-shared-ci" | "old-ci" | "no-artifact";
+
+/** One repository with no function report, and its cause. `ref` is the pin of the shared CI, when the cause is `old-ci`. */
+export interface CoverageGap {
+  readonly repo: string;
+  readonly cause: CoverageCause;
+  readonly ref?: string;
+}
+
+/** This function gives the cause of each current snapshot with no function report, from the facts of the catalog. */
+export async function coverageGaps(q: CatalogQuery, template: string = TEMPLATE_REPO): Promise<CoverageGap[]> {
+  const snapshots = await q.selectFrom("current_snapshot").select(["repo", "id", "commit"]).orderBy("repo").execute();
+  const reported = new Set((await q.selectFrom("current_snapshot as s").innerJoin("coverage_function as c", "c.snapshot", "s.id").select("s.repo as repo").distinct().execute()).map((r) => r.repo));
+  const runs = new Set((await q.selectFrom("current_snapshot as s").innerJoin("coverage_run as r", "r.snapshot", "s.id").select("s.repo as repo").distinct().execute()).map((r) => r.repo));
+  const tested = new Set((await q.selectFrom("current_file").select("repo").where("test", "=", 1).distinct().execute()).map((r) => r.repo));
+  const withV8 = new Set(
+    (await q.selectFrom("current_manifest as m").innerJoin("dependency as d", "d.oid", "m.oid").select("m.repo as repo").where("d.name", "=", "@vitest/coverage-v8").distinct().execute()).map((r) => r.repo),
+  );
+  const pins = await q.selectFrom("current_template_pin").select(["repo", "ref"]).where("target", "=", SHARED_CI).execute();
+  const head = snapshots.find((s) => s.repo === template);
+  const versions = head === undefined ? [] : await q.selectFrom("template_version").select(["ref", "oid"]).where("snapshot", "=", head.id).where("path", "=", SHARED_CI).execute();
+  const oidAt = new Map(versions.map((v) => [v.ref, v.oid]));
+  const current = head?.commit == null ? undefined : oidAt.get(head.commit);
+  const gaps: CoverageGap[] = [];
+  for (const { repo } of snapshots) {
+    if (reported.has(repo)) continue;
+    const own = pins.filter((p) => p.repo === repo);
+    const old = own.find((p) => current !== undefined && oidAt.get(p.ref) !== current);
+    if (!tested.has(repo)) gaps.push({ repo, cause: "no-tests" });
+    else if (!withV8.has(repo)) gaps.push({ repo, cause: "no-coverage-v8" });
+    else if (runs.has(repo)) gaps.push({ repo, cause: "summary-only" });
+    else if (own.length === 0) gaps.push({ repo, cause: "no-shared-ci" });
+    else if (old !== undefined) gaps.push({ repo, cause: "old-ci", ref: old.ref });
+    else gaps.push({ repo, cause: "no-artifact" });
+  }
+  return gaps;
+}
+
+/** The step that closes each cause, for the report. */
+const NEXT_STEP: Readonly<Record<CoverageCause, string>> = {
+  "no-tests": "Write tests.",
+  "no-coverage-v8": "Add `@vitest/coverage-v8` at the range of Vitest. The sync of the template adds it.",
+  "summary-only": "Add the reporter `json` to the coverage of Vitest.",
+  "no-shared-ci": "Use the shared CI of the template, or upload an artifact `coverage` on `main`.",
+  "old-ci": "Merge the sync of the template. It moves the pin of the shared CI.",
+  "no-artifact": "Read the last CI run of `main`.",
+};
+
+/** This function writes the causes of the repositories with no function report as Markdown. */
+export function coverageGapsMarkdown(gaps: readonly CoverageGap[]): string {
+  if (gaps.length === 0) return "";
+  const lines = ["### No function report", "", "| Cause | Repositories | Next step |", "| --- | --- | --- |"];
+  for (const cause of Object.keys(NEXT_STEP) as CoverageCause[]) {
+    const list = gaps.filter((g) => g.cause === cause);
+    if (list.length > 0) lines.push(`| \`${cause}\` | ${list.map((g) => `\`${g.repo}\`${g.ref === undefined ? "" : ` (\`${g.ref.slice(0, 7)}\`)`}`).join(", ")} | ${NEXT_STEP[cause]} |`);
   }
   return `${lines.join("\n")}\n`;
 }
