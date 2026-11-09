@@ -9,18 +9,22 @@ The goal: a catalog of all code of all repositories in one database, as an algeb
 | ID | Status | Priority | Title |
 | --- | --- | --- | --- |
 | CA15 | in progress: the formula skeletons are in Layer 1. The first 30 classes go to the owners as leads, and their precision decides on 11-16 | P2 | Layer 2 fan-out over all public repositories, after the formula skeletons |
+| CA20 | in progress: target 11-16 | P1 | A catalog of dimensions as data: the definition, the extractor, the unit and the measured precision of each. The first 10 come from the parser |
 | CA19 | in progress: 3 of 43 repositories have a function report on `main`, target 11-16 | P2 | Coverage everywhere: a function report (`coverage-final.json`) on `main` for each repository with `@vitest/coverage-v8` |
 
 ## Next
 
 | ID | Status | Priority | Title |
 | --- | --- | --- | --- |
+| CA21 | next: target 11-20 | P1 | The index on each push: a push to `main` scans the changed files again, so new code is in the catalog on the same day |
+| CA22 | next: target 11-20 | P1 | Findings as issues: one issue for each finding, with a stable key, an update, a close and an owner verdict |
+| CA18 | next: target 11-23 | P1 | The ratchet: a new function over the limit fails CI, and the total of a repository cannot rise |
 
 ## Later
 
 | ID | Status | Priority | Title |
 | --- | --- | --- | --- |
-| CA18 | later | P2 | Gates: freshness of each repository, cost per 1000 lines, precision of each category |
+| CA23 | later: first entry 11-30 | P2 | The automation ledger: each month, the judgment task with the most volume goes into the parser |
 | CA12 | later: an owner sample of 50 gives a home precision of 0.28, a human sample is next | P1 | A hand-labeled sample, for the precision and recall of each judgment category |
 | CA6 | later | P3 | Near copies: functions with one shape after small edits (type-3 clones) |
 
