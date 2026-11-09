@@ -66,7 +66,7 @@ describe("codeIndex", () => {
       const summaries = dimensionSummaries(index);
       expect(summaries.find((s) => s.id === "length")).toMatchObject({ count: 3, max: 7, top: "app:src/load.ts:4", counts: true });
       const markdown = dimensionsMarkdown(summaries);
-      expect(markdown).toContain(`The catalog has ${DIMENSIONS.length} dimensions. 7 passed a check of their precision, so only they count.`);
+      expect(markdown).toContain(`The catalog has ${DIMENSIONS.length} dimensions. 8 passed a check of their precision, so only they count.`);
       expect(markdown).toContain("| Length | lines | parser | 200 of 200 | 3 |");
     } finally {
       catalog.close();

@@ -90,7 +90,7 @@ export const DIMENSIONS: readonly Dimension[] = [
     extractor: "parser",
     source: "symbol.cyclomatic",
     higherIsWorse: true,
-    precision: { method: "the rule complexity of ESLint", agree: 200, checked: 200, at: "2026-11-09" },
+    precision: { method: "the rule complexity of ESLint", agree: 198, checked: 200, at: "2026-11-09" },
   },
   {
     id: "depth",
@@ -101,7 +101,7 @@ export const DIMENSIONS: readonly Dimension[] = [
     extractor: "parser",
     source: "symbol.depth",
     higherIsWorse: true,
-    precision: { method: "the rule max-depth of ESLint", agree: 197, checked: 200, at: "2026-11-09" },
+    precision: { method: "the rule max-depth of ESLint", agree: 198, checked: 200, at: "2026-11-09" },
   },
   {
     id: "cognitive",
@@ -112,7 +112,7 @@ export const DIMENSIONS: readonly Dimension[] = [
     extractor: "parser",
     source: "symbol.cognitive",
     higherIsWorse: true,
-    precision: null,
+    precision: { method: "the rule cognitive-complexity of SonarJS", agree: 198, checked: 200, at: "2026-11-09" },
   },
   {
     id: "fan_out",
@@ -145,7 +145,7 @@ export const DIMENSIONS: readonly Dimension[] = [
     extractor: "parser",
     source: "marker.kind, marker.line",
     higherIsWorse: true,
-    precision: { method: "the rules no-explicit-any, no-non-null-assertion and ban-ts-comment of typescript-eslint", agree: 199, checked: 200, at: "2026-11-09" },
+    precision: { method: "the rules no-explicit-any, no-non-null-assertion and ban-ts-comment of typescript-eslint", agree: 200, checked: 200, at: "2026-11-09" },
   },
   {
     id: "churn",
