@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { factsOfRepo, type BlobFacts } from "./blobs.ts";
-import { Catalog } from "./store.ts";
+import { Catalog, CATALOG_SCHEMA } from "./store.ts";
 import { factsSummary, gateVerdict } from "./summary.ts";
 import { GitRepos } from "./testing/git-repo.ts";
 
@@ -117,6 +117,27 @@ describe("Catalog", () => {
     const columns = again.db.prepare("PRAGMA table_info(symbol)").all() as { name: string }[];
     again.close();
     expect(columns.map((c) => c.name)).toContain("cognitive");
+  });
+
+  it("drops a database of another schema with the option rebuild, and starts from empty", () => {
+    const folder = mkdtempSync(join(tmpdir(), "atlas-db-"));
+    folders.push(folder);
+    const path = join(folder, "old.sqlite");
+    const old = new Catalog(path);
+    scan(old);
+    old.db.prepare("UPDATE meta SET value = 'codeatlas/0' WHERE key = 'schema'").run();
+    old.db.exec("CREATE TABLE gone (x INTEGER)");
+    old.close();
+    const catalog = new Catalog(path, { rebuild: true });
+    const one = (sql: string): unknown => Object.values(catalog.db.prepare(sql).get() ?? {})[0];
+    expect(one("SELECT value FROM meta WHERE key = 'schema'")).toBe(CATALOG_SCHEMA);
+    expect(one("SELECT count(*) FROM snapshot")).toBe(0);
+    expect(one("SELECT count(*) FROM blob")).toBe(0);
+    expect(one("SELECT count(*) FROM sqlite_master WHERE name = 'gone'")).toBe(0);
+    // The scan then fills the new tables, and the views work again
+    scan(catalog);
+    expect(one("SELECT count(*) FROM current_snapshot")).toBe(2);
+    catalog.close();
   });
 });
 
