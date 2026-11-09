@@ -337,7 +337,7 @@ export async function coverageGaps(q: CatalogQuery, template: string = TEMPLATE_
 /** The step that closes each cause, for the report. */
 const NEXT_STEP: Readonly<Record<CoverageCause, string>> = {
   "no-tests": "Write tests.",
-  "no-coverage-v8": "Add `@vitest/coverage-v8` at the range of Vitest. The sync of the template adds it.",
+  "no-coverage-v8": "Add `@vitest/coverage-v8` at the range of Vitest to each package with tests. Only `pnpm package add` adds it.",
   "summary-only": "Add the reporter `json` to the coverage of Vitest.",
   "no-shared-ci": "Use the shared CI of the template, or upload an artifact `coverage` on `main`.",
   "old-ci": "Merge the sync of the template. It moves the pin of the shared CI.",
