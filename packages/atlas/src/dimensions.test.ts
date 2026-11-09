@@ -1,5 +1,6 @@
+import { readFileSync } from "node:fs";
 import { afterAll, describe, expect, it } from "vitest";
-import { codeIndex, DIMENSIONS, dimensionCounts, dimensionSummaries, dimensionsMarkdown, type Dimension } from "./dimensions.ts";
+import { codeIndex, DIMENSIONS, dimensionCatalog, dimensionCounts, dimensionSummaries, dimensionsMarkdown, type Dimension } from "./dimensions.ts";
 import { queryOf } from "./query.ts";
 import { scanRepoInto } from "./rescan.ts";
 import { Catalog } from "./store.ts";
@@ -36,6 +37,25 @@ describe("DIMENSIONS", () => {
     }
   });
 
+  it("gives each dimension that does not count a gap, with a cause, a next step and an item of the roadmap", () => {
+    const roadmap = readFileSync(new URL("../../../docs/ROADMAP.md", import.meta.url), "utf8");
+    for (const d of DIMENSIONS) {
+      if (dimensionCounts(d)) {
+        expect(d.gap, d.id).toBeUndefined();
+        continue;
+      }
+      expect(d.gap?.cause.length, d.id).toBeGreaterThan(20);
+      expect(d.gap?.next.length, d.id).toBeGreaterThan(20);
+      expect(roadmap, d.id).toContain(`| ${d.gap?.item} |`);
+    }
+    const markdown = dimensionsMarkdown([], DIMENSIONS);
+    expect(markdown).toContain("### The gaps");
+    expect(markdown).toContain("| Hotspot | not checked | The hotspot is the product");
+    const catalog = dimensionCatalog([]);
+    expect(catalog.dimensions.map((d) => d.id)).toEqual(DIMENSIONS.map((d) => d.id));
+    expect(catalog.dimensions.find((d) => d.id === "length")).toMatchObject({ counts: true, summary: null });
+  });
+
   it("counts a dimension only after a check with a lower bound at the gate", () => {
     const base = DIMENSIONS[0] as Dimension;
     expect(dimensionCounts({ ...base, precision: null })).toBe(false);
@@ -66,7 +86,7 @@ describe("codeIndex", () => {
       const summaries = dimensionSummaries(index);
       expect(summaries.find((s) => s.id === "length")).toMatchObject({ count: 3, max: 7, top: "app:src/load.ts:4", counts: true });
       const markdown = dimensionsMarkdown(summaries);
-      expect(markdown).toContain(`The catalog has ${DIMENSIONS.length} dimensions. 8 passed a check of their precision, so only they count.`);
+      expect(markdown).toContain(`The catalog has ${DIMENSIONS.length} dimensions. 10 passed a check of their precision, so only they count.`);
       expect(markdown).toContain("| Length | lines | parser | 200 of 200 | 3 |");
     } finally {
       catalog.close();

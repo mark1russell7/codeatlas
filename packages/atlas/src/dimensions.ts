@@ -28,6 +28,16 @@ export interface DimensionPrecision {
   readonly at: string;
 }
 
+/** The reason that a dimension does not count at this time, and the step that closes the gap. */
+export interface DimensionGap {
+  /** The cause of the misses of the check, or the reason that no check exists. */
+  readonly cause: string;
+  /** The next step. */
+  readonly next: string;
+  /** The item of `docs/ROADMAP.md` that closes the gap. */
+  readonly item: string;
+}
+
 /** One attribute of the code. */
 export interface Dimension {
   /** The stable name of the dimension, in snake case. */
@@ -44,6 +54,8 @@ export interface Dimension {
   readonly higherIsWorse: boolean;
   /** The last check of the precision, or null before the first check. */
   readonly precision: DimensionPrecision | null;
+  /** Only for a dimension that does not count: the cause and the next step. */
+  readonly gap?: DimensionGap;
 }
 
 /** The dimensions of `dimensions/3`. Each one comes from the parser, the git history or the CI, with no model tokens. */
@@ -79,7 +91,7 @@ export const DIMENSIONS: readonly Dimension[] = [
     extractor: "parser",
     source: "symbol.tokens",
     higherIsWorse: true,
-    precision: null,
+    precision: { method: "the leaves of the syntax tree of the TypeScript compiler, in the lines of the function", agree: 200, checked: 200, at: "2026-11-09" },
   },
   {
     id: "nodes",
@@ -91,6 +103,11 @@ export const DIMENSIONS: readonly Dimension[] = [
     source: "symbol.nodes",
     higherIsWorse: true,
     precision: null,
+    gap: {
+      cause: "No independent tool gives the same count. The count of nodes depends on the syntax tree of each parser.",
+      next: "Use the dimension `tokens` as the size. The count of nodes stays as a second measure, with no check.",
+      item: "CA20",
+    },
   },
   {
     id: "cyclomatic",
@@ -134,7 +151,7 @@ export const DIMENSIONS: readonly Dimension[] = [
     extractor: "parser",
     source: "call_site.caller, call_site.callee",
     higherIsWorse: true,
-    precision: null,
+    precision: { method: "the different callees of the calls in the syntax tree of typescript-eslint", agree: 194, checked: 200, at: "2026-11-09" },
   },
   {
     id: "fan_in",
@@ -146,6 +163,11 @@ export const DIMENSIONS: readonly Dimension[] = [
     source: "call_site.callee",
     higherIsWorse: false,
     precision: null,
+    gap: {
+      cause: "The count is by name. Two functions with one name share their calls, and a call of a method of another type counts too. A check by name from the TypeScript compiler agrees on 200 of 200, so the extraction is exact, but the check cannot find this error.",
+      next: "Find the declaration of each call with the TypeScript compiler, and count only the calls of the function.",
+      item: "CA25",
+    },
   },
   {
     id: "unsafe_types",
@@ -179,6 +201,11 @@ export const DIMENSIONS: readonly Dimension[] = [
     source: "coverage_function.hits, coverage_file.lines_covered",
     higherIsWorse: false,
     precision: null,
+    gap: {
+      cause: "Few repositories put a function report of their coverage on `main`. No second tool measures the coverage of a function.",
+      next: "Run the tests of a sample again with coverage, and compare the hits of each function with the report.",
+      item: "CA26",
+    },
   },
   {
     id: "hotspot",
@@ -190,6 +217,11 @@ export const DIMENSIONS: readonly Dimension[] = [
     source: "cognitive, churn, coverage",
     higherIsWorse: true,
     precision: null,
+    gap: {
+      cause: "The hotspot is the product of the cognitive complexity, the churn and the coverage. The coverage has no check.",
+      next: "The hotspot counts when each of its three parts counts. The ratchet uses it after that.",
+      item: "CA27",
+    },
   },
   {
     id: "imports",
@@ -405,13 +437,55 @@ export function dimensionsMarkdown(summaries: readonly DimensionSummary[], dimen
     "| --- | --- | --- | --- | --- | --- | --- | --- |",
     ...summaries.map((s) => {
       const d = byId.get(s.id);
-      const precision = d?.precision === null || d?.precision === undefined ? "not checked" : `${d.precision.agree} of ${d.precision.checked}`;
+      const precision = d === undefined ? "not checked" : precisionText(d);
       const place = s.top === "" ? "" : `\`${s.top}\``;
       return `| ${d?.title ?? s.id} | ${d?.unit ?? ""} | ${d?.extractor ?? ""} | ${precision} | ${round(s.median)} | ${round(s.p95)} | ${s.max === 0 && s.count === 0 ? "" : round(s.max)} | ${place} |`;
     }),
     "",
   ];
+  const gaps = dimensions.filter((d) => !dimensionCounts(d) && d.gap !== undefined);
+  if (gaps.length > 0) {
+    lines.push(
+      "### The gaps",
+      "",
+      "| Dimension | Precision | Cause | Next step | Item |",
+      "| --- | --- | --- | --- | --- |",
+      ...gaps.map((d) => `| ${d.title} | ${precisionText(d)} | ${d.gap?.cause ?? ""} | ${d.gap?.next ?? ""} | ${d.gap?.item ?? ""} |`),
+      "",
+    );
+  }
   return `${lines.join("\n")}\n`;
+}
+
+/** This function gives the precision of a dimension as text: "198 of 200", or "not checked". */
+function precisionText(d: Dimension): string {
+  return d.precision === null ? "not checked" : `${d.precision.agree} of ${d.precision.checked}`;
+}
+
+/** One row of the file `dimensions.json` of the site: a dimension with its summary over the index. */
+export interface DimensionRow extends Dimension {
+  readonly counts: boolean;
+  readonly summary: DimensionSummary | null;
+}
+
+/** The file `dimensions.json` of the site. */
+export interface DimensionCatalog {
+  readonly version: string;
+  readonly gate: number;
+  readonly dimensions: readonly DimensionRow[];
+}
+
+/** This function gives the dimension catalog with the summary of each dimension, for the site. */
+export function dimensionCatalog(summaries: readonly DimensionSummary[], dimensions: readonly Dimension[] = DIMENSIONS): DimensionCatalog {
+  const byId = new Map(summaries.map((s) => [s.id, s]));
+  return {
+    version: DIMENSIONS_VERSION,
+    gate: DIMENSION_PRECISION_GATE,
+    dimensions: dimensions.map((d) => {
+      const summary = byId.get(d.id);
+      return { ...d, counts: dimensionCounts(d), summary: summary ?? null };
+    }),
+  };
 }
 
 const round = (value: number): string => String(Math.round(value * 10) / 10);

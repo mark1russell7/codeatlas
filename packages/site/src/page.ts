@@ -2,7 +2,7 @@
  * The page of the codeatlas site. The build compiles this file with swc and puts it into index.html
  * as a module. The functions above `start` are pure, so the tests run them without a browser.
  */
-import type { Atlas, CloneClass, CloneLevel, ComplexFunction, FunctionPlace, HomeCandidate, Member, QuerySet, RepoRow, Trend } from "@mark1russell7/codeatlas";
+import type { Atlas, CloneClass, CloneLevel, ComplexFunction, DimensionCatalog, FunctionPlace, HomeCandidate, Member, QuerySet, RepoRow, Trend } from "@mark1russell7/codeatlas";
 
 /** The choices of the filter row of the clone classes. An empty string is "all". */
 export interface Filter {
@@ -105,6 +105,36 @@ const LEVEL_TITLES: Readonly<Record<CloneLevel, string>> = {
 export function levelRows(set: QuerySet): LevelRow[] {
   const levels: readonly CloneLevel[] = ["exact", "renamed", "shape"];
   return levels.map((level) => ({ level, title: LEVEL_TITLES[level], ...set.duplication.levels[level], ratio: set.duplication.ratio[level] }));
+}
+
+/** One dimension of the catalog, as the page shows it. */
+export interface DimensionLine {
+  readonly id: string;
+  readonly title: string;
+  readonly definition: string;
+  readonly unit: string;
+  readonly counts: boolean;
+  /** The agreement of the check as text, or "not checked". */
+  readonly precision: string;
+  readonly median: number | null;
+  readonly p95: number | null;
+  readonly gap: { readonly cause: string; readonly next: string; readonly item: string } | null;
+}
+
+/** This function gives the lines of the dimension catalog: the dimensions that count first, then the gaps. */
+export function dimensionLines(catalog: DimensionCatalog): DimensionLine[] {
+  const lines = catalog.dimensions.map((d): DimensionLine => ({
+    id: d.id,
+    title: d.title,
+    definition: d.definition,
+    unit: d.unit,
+    counts: d.counts,
+    precision: d.precision === null ? "not checked" : `${d.precision.agree} of ${d.precision.checked}`,
+    median: d.summary === null || d.summary.count === 0 ? null : d.summary.median,
+    p95: d.summary === null || d.summary.count === 0 ? null : d.summary.p95,
+    gap: d.counts ? null : (d.gap ?? null),
+  }));
+  return [...lines.filter((d) => d.counts), ...lines.filter((d) => !d.counts)];
 }
 
 /** The markers of each repository: one count for each kind. */
@@ -356,6 +386,9 @@ export async function start(): Promise<void> {
   const homesBox = h("div", { class: "classes" }, homed);
   void loadQueries();
 
+  const dimensionsBox = h("div", {}, h("p", { class: "empty" }, "Loading the dimensions."));
+  void loadDimensions();
+
   root.replaceChildren(
     kpis,
     section("homes", "Copies that have a home", "Functions whose name is a signature of a home package of the map of homes, outside that home. The size is the nodes that the imports remove. The fix is an import from the home, or a pull request that adds the function to the home.", homesBox),
@@ -369,6 +402,7 @@ export async function start(): Promise<void> {
     section("names", "Names that two or more repositories export", "The number is the count of repositories.", names),
     section("purposes", "Packages by purpose", "Two packages for one purpose show a split. No package shows code that each repository writes again.", purposes),
     section("complex", "Complex functions", "Functions outside tests with many paths. The complexity is the count of paths, and the depth is the deepest nesting. Click a column to sort.", complexBox),
+    section("dimensions", "Dimensions", "Each dimension is an attribute of each function. A dimension counts only when an independent tool agrees with its values. Each gap has its cause and its next step.", dimensionsBox),
     section("markers", "Markers", "The count of each kind of marker in each repository, test files included. A marker is a comment such as TODO, or a code form such as a non-null assertion.", markersBox),
   );
   renderClasses();
@@ -460,6 +494,54 @@ export async function start(): Promise<void> {
           ),
         )),
       ),
+    );
+  }
+
+  async function loadDimensions(): Promise<void> {
+    let catalog: DimensionCatalog;
+    try {
+      const res = await fetch("data/dimensions.json");
+      if (!res.ok) throw new Error(String(res.status));
+      catalog = (await res.json()) as DimensionCatalog;
+    } catch {
+      dimensionsBox.replaceChildren(h("p", { class: "empty" }, "The dimensions did not load."));
+      return;
+    }
+    const lines = dimensionLines(catalog);
+    const counted = lines.filter((d) => d.counts).length;
+    const value = (n: number | null): string => (n === null ? "" : String(Math.round(n * 10) / 10));
+    const gaps = lines.filter((d) => d.gap !== null);
+    dimensionsBox.replaceChildren(
+      h("p", { class: "count" }, `${counted} of ${lines.length} dimensions count. The gate is a Wilson lower bound of ${catalog.gate} on a sample of 200.`),
+      h("div", { class: "scroll scroll-cue" },
+        h("table", { class: "table" },
+          h("thead", {}, h("tr", {}, h("th", {}, "Dimension"), h("th", {}, "State"), h("th", { class: "num" }, "Agreement"), h("th", { class: "num" }, "Median"), h("th", { class: "num" }, "95th percentile"))),
+          h("tbody", {}, ...lines.map((d) =>
+            h("tr", {},
+              h("td", {}, h("strong", {}, d.title), h("div", { class: "cell-sub" }, `${d.definition} Unit: ${d.unit}.`)),
+              h("td", {}, h("span", { class: d.counts ? "chip state-ok" : "chip state-gap" }, d.counts ? "✓ counts" : "○ gap")),
+              h("td", { class: "num" }, d.precision),
+              h("td", { class: "num" }, value(d.median)),
+              h("td", { class: "num" }, value(d.p95)),
+            ),
+          )),
+        ),
+      ),
+      ...(gaps.length === 0
+        ? []
+        : [
+            h("h3", {}, "The gaps"),
+            ...gaps.map((d) =>
+              h("details", { class: "card" },
+                h("summary", {},
+                  h("span", { class: "card-title" }, d.title),
+                  h("span", { class: "card-meta" }, `${d.precision} · ${d.gap?.item ?? ""}`),
+                ),
+                h("p", {}, h("strong", {}, "Cause: "), d.gap?.cause ?? ""),
+                h("p", {}, h("strong", {}, "Next step: "), d.gap?.next ?? ""),
+              ),
+            ),
+          ]),
     );
   }
 
