@@ -155,8 +155,9 @@ export interface TrendRow {
 /** This function gives the totals of each point of the trend, in the order of time. */
 export function trendRows(trend: Trend, level: CloneLevel = "renamed"): TrendRow[] {
   return trend.points.map((point) => {
-    const nodes = point.repos.reduce((sum, repo) => sum + repo.nodes, 0);
-    const duplicated = point.repos.reduce((sum, repo) => sum + repo.duplicated[level], 0);
+    // A filtered point keeps the totals from before the filter. Each other point has its totals in its rows.
+    const nodes = point.totals?.nodes ?? point.repos.reduce((sum, repo) => sum + repo.nodes, 0);
+    const duplicated = point.totals?.duplicated[level] ?? point.repos.reduce((sum, repo) => sum + repo.duplicated[level], 0);
     return { at: point.at, nodes, duplicated, ratio: nodes === 0 ? 0 : duplicated / nodes };
   });
 }

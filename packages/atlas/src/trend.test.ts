@@ -4,7 +4,7 @@ import { CLONE_LEVELS, duplication } from "./queries.ts";
 import { queryOf } from "./query.ts";
 import { Catalog } from "./store.ts";
 import { GitRepos } from "./testing/git-repo.ts";
-import { addPoint, trendPoint, TREND_VERSION, type TrendPoint } from "./trend.ts";
+import { addPoint, filterTrend, pointTotals, trendPoint, TREND_VERSION, type RepoPoint, type Trend, type TrendPoint } from "./trend.ts";
 
 const repos = new GitRepos();
 afterAll(() => repos.removeAll());
@@ -74,5 +74,38 @@ describe("addPoint", () => {
     expect(() => addPoint({ version: "trend/0", points: [] }, point("2026-11-09T06:40:00Z"))).toThrow(/not a trend/);
     expect(() => addPoint(null, point("2026-11-09T06:40:00Z"))).toThrow(/not a trend/);
     expect(() => addPoint({ version: TREND_VERSION }, point("2026-11-09T06:40:00Z"))).toThrow(/not a trend/);
+  });
+});
+
+describe("filterTrend", () => {
+  const row = (repo: string, nodes: number): RepoPoint => ({ repo, commit: `${repo}-c`, files: 1, functions: 2, nodes, duplicated: { exact: 1, renamed: 2, shape: 3 } });
+  const trend: Trend = {
+    version: TREND_VERSION,
+    points: [
+      { at: "2026-11-02T06:40:00Z", scanner: "facts/1", repos: [row("a", 10), row("secret", 30)] },
+      { at: "2026-11-09T06:40:00Z", scanner: "facts/1", repos: [row("a", 20)] },
+    ],
+  };
+
+  it("leaves no name of a repository that turns private in the trend file, and keeps the totals of each point", () => {
+    const before = trend.points.map(pointTotals);
+    const filtered = filterTrend(trend, ["a", "b"]);
+    expect(JSON.stringify(filtered)).not.toContain("secret");
+    expect(filtered.points.map(pointTotals)).toEqual(before);
+    expect(filtered.points[0]).toMatchObject({ filtered: true, totals: { files: 2, functions: 4, nodes: 40, duplicated: { exact: 2, renamed: 4, shape: 6 } } });
+    expect(filtered.points[0]?.repos.map((each) => each.repo)).toEqual(["a"]);
+    // A point that loses no row stays as it is
+    expect(filtered.points[1]).toBe(trend.points[1]);
+  });
+
+  it("keeps the totals of the first filter when a second filter removes more rows", () => {
+    const once = filterTrend(trend, ["a"]);
+    const twice = filterTrend(JSON.parse(JSON.stringify(once)) as Trend, ["b"]);
+    expect(twice.points.map((point) => point.repos.length)).toEqual([0, 0]);
+    expect(twice.points.map((point) => pointTotals(point).nodes)).toEqual([40, 20]);
+  });
+
+  it("refuses an empty list of names, so a failed list does not empty the history", () => {
+    expect(() => filterTrend(trend, [])).toThrow(/empty/);
   });
 });

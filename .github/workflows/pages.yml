@@ -48,12 +48,13 @@ jobs:
         # Layer 1a: the catalog of the facts of each blob. The command fails when a hash breaks the law of the chain.
         node packages/atlas/src/cli.ts catalog --repos-dir "$RUNNER_TEMP/repos" --out "$RUNNER_TEMP/catalog.sqlite" --markdown "$RUNNER_TEMP/facts.md"
         # The trend: the file of the last deploy, with the point of this build. Only a first deploy has no file (404).
-        # Each other failure stops the build, so a build does not lose the history.
+        # Each other failure stops the build, so a build does not lose the history. The option --owner removes the
+        # rows of each repository that is not public at this time from each old point. The totals of a point stay.
         code=$(curl -sS -o "$RUNNER_TEMP/trend.json" -w '%{http_code}' https://mark1russell7.github.io/codeatlas/data/trend.json) || code=000
         case "$code" in
-          200) node packages/atlas/src/cli.ts trend --db "$RUNNER_TEMP/catalog.sqlite" --previous "$RUNNER_TEMP/trend.json" --out packages/site/dist/data/trend.json ;;
+          200) node packages/atlas/src/cli.ts trend --db "$RUNNER_TEMP/catalog.sqlite" --previous "$RUNNER_TEMP/trend.json" --owner "$GITHUB_REPOSITORY_OWNER" --out packages/site/dist/data/trend.json ;;
           404) echo "::warning::The site has no trend: the trend starts with this build."
-               node packages/atlas/src/cli.ts trend --db "$RUNNER_TEMP/catalog.sqlite" --out packages/site/dist/data/trend.json ;;
+               node packages/atlas/src/cli.ts trend --db "$RUNNER_TEMP/catalog.sqlite" --owner "$GITHUB_REPOSITORY_OWNER" --out packages/site/dist/data/trend.json ;;
           *) echo "::error::The trend of the site gave HTTP $code."; exit 1 ;;
         esac
         # The query set: the duplication of each level, the exact copies, the complex functions and the markers.
