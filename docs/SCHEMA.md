@@ -119,7 +119,7 @@ A declaration of a file: a function, a method, a class, a variable, a type, an i
 | `hash_exact` | text | Refer to [Clone levels](#clone-levels). |
 | `hash_renamed` | text | |
 | `hash_shape` | text | The hash of the atlas of today (`codeatlas/1`). |
-| `cyclomatic` | integer | The decision points plus one. |
+| `cyclomatic` | integer | The decision points plus one, as the rule `complexity` of ESLint counts them. Default values and optional chains count. |
 | `depth` | integer | The deepest nesting of control statements: `if`, the loops, `switch` and `try`. |
 | `type_hash` | text | Only for a type or an interface: the hash of its members, sorted by name. |
 | `cognitive` | integer | The cognitive complexity of the body, after the specification of SonarSource. A nested function counts for itself. Since `facts/3`. |
@@ -436,6 +436,25 @@ A dimension is an attribute of each function or each file, as data in `DIMENSION
 - The hotspot is the cognitive complexity times the churn times one minus the coverage. A function with no coverage value counts as not covered.
 - A column that a later facts version adds goes into `ADDED_COLUMNS` (`store.ts`). An older database of the same schema gets the column when it opens.
 - The fan-in is by name. Two functions with one name share their calls, so its check is necessary before it counts.
+
+The package `@codeatlas/precision` checks the dimensions. It draws a seeded sample of 200 functions and 200 files from the index (`checkIndex`).
+
+| Dimension | Independent tool |
+| --- | --- |
+| `length` | The lines of the function in the syntax tree of `typescript-eslint` |
+| `params` | The ESLint rule `max-params` |
+| `cyclomatic` | The ESLint rule `complexity` |
+| `depth` | The ESLint rule `max-depth` |
+| `cognitive` | The SonarJS rule `cognitive-complexity` |
+| `unsafe_types` | The `typescript-eslint` rules `no-explicit-any`, `no-non-null-assertion` and `ban-ts-comment` |
+| `churn` | `git log` of each file alone, in the window of `churn_run` |
+| `imports` | `ts.preProcessFile` of the TypeScript compiler |
+
+- The check finds the function of the tool by its last line, and by its first line or the line before it.
+- A function that the tool does not find is not in the count. The report gives these functions as "not found".
+- A comment in the file cannot turn off a rule of the check.
+- The report gives the first 10 values that do not agree, for each dimension.
+- The measured precision goes into `DIMENSIONS` with the date and the seed of the check.
 
 The algebra is the relational algebra over these relations: selection, projection, join, union, difference, grouping, and the transitive closure for `calls`, `imports` and `depends_on`. The typed query layer builds each query from the declared columns, so a query of a column that does not exist does not compile.
 
