@@ -231,6 +231,8 @@ describe("helpers", () => {
     expect(complexityOf(body("function f(a) { switch (a) { case 1: break; case 2: break; default: } return a ?? (a || 1); }")).cyclomatic).toBe(5);
     // A nested function counts for itself
     expect(complexityOf(body("function f() { const g = () => { if (x) {} }; }")).cyclomatic).toBe(1);
+    // A default value and an optional chain count, as in the rule complexity of ESLint
+    expect(complexityOf(body("function f(a) { const { b = 1, c } = a; return a?.b?.c() ?? b; }")).cyclomatic).toBe(5);
   });
 
   it("gives the cognitive complexity of the examples of the specification", () => {
@@ -248,6 +250,8 @@ describe("helpers", () => {
     // Each run of one boolean operator adds 1, and parentheses do not start a run
     expect(cognitiveOf(body("function f(a, b, c, d) { return a && b && c || d; }"))).toBe(2);
     expect(cognitiveOf(body("function f(a, b, c) { return a && (b && c); }"))).toBe(1);
+    // SonarJS does not count ??
+    expect(cognitiveOf(body("function f(a) { return a ?? 1; }"))).toBe(0);
     // A conditional in an if, and a catch with an if in it
     expect(cognitiveOf(body("function f(a, b) { let x; if (a) { x = b ? 1 : 2; } return x; }"))).toBe(3);
     expect(cognitiveOf(body("function f(a, b) { try { if (a) {} } catch (e) { if (b) {} } }"))).toBe(4);

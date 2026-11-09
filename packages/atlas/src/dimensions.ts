@@ -84,7 +84,7 @@ export const DIMENSIONS: readonly Dimension[] = [
   {
     id: "cyclomatic",
     title: "Cyclomatic complexity",
-    definition: "The decision points plus one. A nested function counts for itself, not for the function that holds it.",
+    definition: "The decision points plus one, as the rule complexity of ESLint counts them. A nested function counts for itself, not for the function that holds it.",
     unit: "paths",
     scope: "function",
     extractor: "parser",

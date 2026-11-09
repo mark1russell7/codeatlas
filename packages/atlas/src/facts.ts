@@ -40,7 +40,10 @@ export interface FunctionFact {
   readonly hashExact: string;
   readonly hashRenamed: string;
   readonly hashShape: string;
-  /** The decision points plus one. A nested function counts for itself, not for this one. */
+  /**
+   * The decision points plus one, as the rule `complexity` of ESLint counts them: default values and optional chains
+   * count. A nested function counts for itself, not for this one.
+   */
   readonly cyclomatic: number;
   /** The deepest nesting of control statements (`if`, loops, `switch`, `try`) in the body. */
   readonly depth: number;
@@ -315,7 +318,7 @@ export function factsOf(file: string, text: string): FileFacts {
     const span = node["span"] as { start: number; end: number };
     const bodySpan = isNode(body) ? (body["span"] as { start: number } | undefined) : undefined;
     const signature = sliceText(span.start, bodySpan?.start ?? span.end).replace(/\s+/g, " ").trim().slice(0, 300);
-    const { cyclomatic, depth } = complexityOf(body);
+    const { cyclomatic, depth } = complexityOf([params, body]);
     return {
       async: fn["async"] === true,
       generator: fn["generator"] === true,
@@ -480,6 +483,7 @@ export function typeShapeOf(node: AstNode): string {
 
 /** The decision points and the deepest nesting of control statements of a function body, without its nested functions. */
 export function complexityOf(body: unknown): { readonly cyclomatic: number; readonly depth: number } {
+  // The caller gives the parameters with the body, so a default value of a parameter counts
   let decisions = 0;
   let deepest = 0;
   const walk = (node: unknown, depth: number): void => {
@@ -495,6 +499,9 @@ export function complexityOf(body: unknown): { readonly cyclomatic: number; read
     if (DECISIONS.has(node.type)) decisions++;
     else if (node.type === "SwitchCase" && node["test"] !== null && node["test"] !== undefined) decisions++;
     else if ((node.type === "BinaryExpression" || node.type === "AssignmentExpression") && LOGICAL.has(String(node["operator"]))) decisions++;
+    // A default value and an optional chain are decisions too, as the rule `complexity` of ESLint counts them
+    else if (node.type === "AssignmentPattern" || (node.type === "AssignmentPatternProperty" && isNode(node["value"]))) decisions++;
+    else if (node.type === "OptionalChainingExpression" && node["optional"] === true) decisions++;
     const next = NESTING.has(node.type) ? depth + 1 : depth;
     deepest = Math.max(deepest, next);
     for (const [field, value] of Object.entries(node)) if (field !== "span" && typeof value === "object" && value !== null) walk(value, next);
@@ -508,7 +515,8 @@ export function complexityOf(body: unknown): { readonly cyclomatic: number; read
 const LOOPS: ReadonlySet<string> = new Set(["ForStatement", "ForInStatement", "ForOfStatement", "WhileStatement", "DoWhileStatement"]);
 /** The fields of a structure that are one level deeper than the structure. */
 const NESTED_FIELDS: ReadonlySet<string> = new Set(["body", "consequent", "alternate", "cases"]);
-const BOOLEAN: ReadonlySet<string> = new Set(["&&", "||", "??"]);
+/** The boolean operators of the specification. SonarJS does not count `??`, so the atlas does not count it. */
+const BOOLEAN: ReadonlySet<string> = new Set(["&&", "||"]);
 const SAME_LEVEL: ReadonlySet<string> = new Set();
 
 /**
