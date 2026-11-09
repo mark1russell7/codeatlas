@@ -198,7 +198,7 @@ export class Catalog {
    * This constructor opens the file at `path`, or a database in memory for `:memory:`, and makes the tables. A database
    * of another `CATALOG_SCHEMA` throws. With `rebuild`, the constructor drops its tables and starts from empty.
    *
-   * The scan uses `rebuild`, because CI restores the database of the last run, and a new schema must not stop it.
+   * The scan and the prune use `rebuild`, because CI restores the database of the last run. A new schema must not stop them.
    */
   constructor(path: string, options: { readonly rebuild?: boolean } = {}) {
     this.db = new DatabaseSync(path);
@@ -489,6 +489,48 @@ export class Catalog {
         .prepare("SELECT f.repo AS repo, f.path AS path, b.parse_error AS error FROM current_file f JOIN blob b ON b.key = f.blob WHERE b.parse_error IS NOT NULL ORDER BY f.repo, f.path")
         .all() as unknown as Unread[]
     ).map((row) => ({ repo: row.repo, path: row.path, error: row.error }));
+  }
+
+  /**
+   * This method removes each repository that is not in `keep`, with its snapshots and each row that refers to them.
+   * It also removes the facts of each blob that no file holds. It gives the names that it removed.
+   *
+   * The cache keeps the catalog from one scan to the next. A repository that becomes private, archived or deleted thus leaves the
+   * catalog at the next run. The method then vacuums the file, so the removed rows are not in its free pages. An empty
+   * `keep` removes nothing, because an empty list is more likely an error of the list.
+   */
+  pruneRepos(keep: readonly string[]): string[] {
+    if (keep.length === 0) return [];
+    const kept = new Set(keep);
+    const names = (this.db.prepare("SELECT name FROM repo UNION SELECT repo AS name FROM snapshot ORDER BY name").all() as { name: string }[])
+      .map((row) => row.name)
+      .filter((name) => !kept.has(name));
+    if (names.length === 0) return [];
+    this.#transaction(() => {
+      for (const name of names) {
+        const ids = (this.db.prepare("SELECT id FROM snapshot WHERE repo = ?").all(name) as { id: string }[]).map((row) => row.id);
+        for (const id of ids) for (const table of this.#snapshotTables()) this.db.prepare(`DELETE FROM ${table} WHERE snapshot = ?`).run(id);
+        this.db.prepare("DELETE FROM snapshot WHERE repo = ?").run(name);
+        this.db.prepare("DELETE FROM repo WHERE name = ?").run(name);
+      }
+      // The facts of a blob that no file holds now, and the rows of a manifest, lockfile or roadmap that no snapshot has
+      for (const table of this.#blobTables()) this.db.prepare(`DELETE FROM ${table} WHERE blob NOT IN (SELECT blob FROM file)`).run();
+      this.db.prepare("DELETE FROM blob WHERE key NOT IN (SELECT blob FROM file)").run();
+      this.db.prepare("DELETE FROM dependency WHERE oid NOT IN (SELECT oid FROM manifest)").run();
+      this.db.prepare("DELETE FROM resolution WHERE oid NOT IN (SELECT oid FROM lockfile)").run();
+      this.db.prepare("DELETE FROM roadmap_item WHERE oid NOT IN (SELECT oid FROM roadmap)").run();
+    });
+    // A deleted row stays in the free pages of the file until a vacuum. The catalog file is an artifact, so it goes now
+    this.db.exec("VACUUM");
+    return names;
+  }
+
+  /** This method gives each table with a foreign key to `blob`, from the schema. */
+  #blobTables(): readonly string[] {
+    return this.db
+      .prepare(`SELECT m.name AS name FROM sqlite_master m, pragma_foreign_key_list(m.name) f WHERE m.type = 'table' AND f."table" = 'blob' ORDER BY m.name`)
+      .all()
+      .map((row) => String(row["name"]));
   }
 
   close(): void {

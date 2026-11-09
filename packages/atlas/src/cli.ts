@@ -14,6 +14,7 @@
  * - `codeatlas drift --db <catalog.sqlite> [--out drift.json] [--markdown drift.md]`
  * - `codeatlas coverage --db <catalog.sqlite> --owner <owner> --dir <folder> [--out coverage.json] [--markdown coverage.md]`
  * - `codeatlas clone --owner <owner> --into <folder>`
+ * - `codeatlas prune --db <catalog.sqlite> --owner <owner>`
  * - `codeatlas mcp --db <catalog.sqlite>`
  * - `codeatlas tool <name> [<json input>] --db <catalog.sqlite>`
  *
@@ -58,7 +59,7 @@ import { Catalog, readOnlyCatalog } from "./store.ts";
 import { addPoint, trendPoint } from "./trend.ts";
 import { querySet } from "./query-set.ts";
 import { factsMarkdown, factsSummary, gateVerdict, type GateVerdict } from "./summary.ts";
-import { clonePublic } from "./clone.ts";
+import { clonePublic, publicNames } from "./clone.ts";
 import { coverageMarkdown, coverageOfRepo, coverageReport, ghArtifacts } from "./coverage.ts";
 import { buildCorpus, corpusMarkdown, corpusOfRepo } from "./corpus.ts";
 import { atlasMarkdown } from "./report.ts";
@@ -129,6 +130,7 @@ const USAGE = `Usage:
   codeatlas formulas --db <catalog.sqlite> --finds <finds.jsonl> [--verdicts <verdicts.jsonl>] [--out formulas.json] [--markdown formulas.md] [--top 30]
   codeatlas coverage --db <catalog.sqlite> --owner <owner> --dir <folder> [--out coverage.json] [--markdown coverage.md]
   codeatlas clone --owner <owner> --into <folder>
+  codeatlas prune --db <catalog.sqlite> --owner <owner>
   codeatlas mcp --db <catalog.sqlite> [--write]
   codeatlas tool <name> [<json input>] --db <catalog.sqlite>`;
 
@@ -157,6 +159,7 @@ function main(argv: readonly string[]): number | Promise<number> {
   if (command === "drift") return drift(rest);
   if (command === "breaks") return breaks(rest);
   if (command === "coverage") return coverage(rest);
+  if (command === "prune") return prune(rest);
   if (command === "planned") return planned(rest);
   if (command === "formulas") return formulas(rest);
   if (command === "dimensions") return dimensions(rest);
@@ -315,6 +318,34 @@ function catalog(argv: readonly string[]): number {
   if (args.markdown !== undefined) writeFileSync(args.markdown, factsMarkdown(summary));
   console.error(`catalog: ${summary.repos} repositories, ${summary.files} files, ${summary.parsed} parsed, ${summary.reused} from the cache (${known} blobs known), ${summary.errors} errors, ${Math.round(ms)} ms`);
   return report(gateVerdict(summary, unread));
+}
+
+/**
+ * This function removes from the catalog `--db` each repository that is not a public source repository of `--owner`
+ * at this time. A repository that becomes private thus leaves the catalog, and the artifacts of the next run do not have it.
+ */
+function prune(argv: readonly string[]): number {
+  const arg = (name: string): string | undefined => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined);
+  const [path, owner] = [arg("--db"), arg("--owner")];
+  if (path === undefined || owner === undefined) {
+    console.error(USAGE);
+    return 2;
+  }
+  const names = publicNames(owner);
+  if (names.length === 0) {
+    console.error(`prune: the list of the public repositories of ${owner} is empty, so nothing is removed`);
+    return 1;
+  }
+  // The prune comes before the scan, so a restored database of another schema must not stop it
+  const catalog = new Catalog(path, { rebuild: true });
+  try {
+    const removed = catalog.pruneRepos(names);
+    catalog.db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
+    console.error(`prune: ${names.length} public repositories, ${removed.length} removed from the catalog`);
+    return 0;
+  } finally {
+    catalog.close();
+  }
 }
 
 /** This function draws the sample of `SAMPLE_PLAN` from the catalog `--db`, and writes the sample file `--out`. */
