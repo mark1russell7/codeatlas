@@ -168,6 +168,12 @@ describe("the trend", () => {
     expect(trendRows(trend, "exact").map((row) => row.ratio)).toEqual([0, 0]);
   });
 
+  it("takes the totals that a filtered point keeps, and not the sum of its rows", () => {
+    const totals = { files: 3, functions: 3, nodes: 300, duplicated: { exact: 0, renamed: 60, shape: 60 } };
+    const point = { at: "2026-11-09T06:40:00Z", scanner: "facts/1", repos: [repo("a", 100, 10)], totals, filtered: true };
+    expect(trendRows({ version: "trend/1", points: [point] }).map((row) => [row.nodes, row.duplicated, row.ratio])).toEqual([[300, 60, 0.2]]);
+  });
+
   it("gives the change of each repository since its first point, the largest growth first", () => {
     expect(repoChanges(trend).map((row) => [row.repo, row.first, row.last])).toEqual([
       ["b", 0.3, 0.4],

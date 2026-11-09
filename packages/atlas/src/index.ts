@@ -32,8 +32,8 @@ export { homeFacts, labelsOfLine, precisionOf, raterOfText, REFERENCE_NOTE, REFE
 export type { FactLabel, LabelPrecision, MoveCaller, MoveKind, PrecisionFile, Rater, RaterLabel, ReferenceFile, ReferenceLabel, ReferenceTask } from "./reference.ts";
 export { AUDIT_EXPECTED, SAMPLE_PLAN, SAMPLE_VERSION, auditOf, drawSample, populationOf, sampleFile, sizedTasks } from "./sample.ts";
 export type { SampleFile, SampleItem, SizedTask, TaskTarget } from "./sample.ts";
-export { TREND_VERSION, addPoint, trendPoint } from "./trend.ts";
-export type { RepoPoint, Trend, TrendPoint } from "./trend.ts";
+export { TREND_VERSION, addPoint, filterTrend, pointTotals, trendPoint } from "./trend.ts";
+export type { PointTotals, RepoPoint, Trend, TrendPoint } from "./trend.ts";
 export { homeCandidates } from "./candidates.ts";
 export type { HomeCandidate, HomeCopy } from "./candidates.ts";
 export { CATALOG_READ_EFFECTS, CATALOG_WRITE_EFFECTS, NAME_MATCHES, TOOL_ROW_LIMIT, atlasTools, catalogRepos, findFunctions } from "./tools.ts";

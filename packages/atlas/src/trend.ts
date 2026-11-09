@@ -27,11 +27,26 @@ export interface RepoPoint {
   readonly duplicated: Readonly<Record<CloneLevel, number>>;
 }
 
+/** The totals of all repositories at one point. A total names no repository. */
+export interface PointTotals {
+  readonly files: number;
+  readonly functions: number;
+  readonly nodes: number;
+  readonly duplicated: Readonly<Record<CloneLevel, number>>;
+}
+
 /** One point of the trend: the current snapshot of each repository at one build. */
 export interface TrendPoint {
   readonly at: string;
   readonly scanner: string;
   readonly repos: readonly RepoPoint[];
+  /**
+   * The totals of the point before the filter removed rows. A point without this field has its totals in the
+   * sum of its rows.
+   */
+  readonly totals?: PointTotals;
+  /** The value `true` tells that the filter removed the rows of repositories that are not public. */
+  readonly filtered?: boolean;
 }
 
 /** The trend file: the points in the order of time, one for each day. */
@@ -115,4 +130,32 @@ export function addPoint(previous: unknown, point: TrendPoint): Trend {
   points.push(point);
   points.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
   return { version: TREND_VERSION, points };
+}
+
+/** This function gives the totals of a point: the totals that it keeps, or else the sum of its rows. */
+export function pointTotals(point: TrendPoint): PointTotals {
+  if (point.totals !== undefined) return point.totals;
+  const sum = (measure: (repo: RepoPoint) => number): number => point.repos.reduce((total, repo) => total + measure(repo), 0);
+  return {
+    files: sum((repo) => repo.files),
+    functions: sum((repo) => repo.functions),
+    nodes: sum((repo) => repo.nodes),
+    duplicated: { exact: sum((repo) => repo.duplicated.exact), renamed: sum((repo) => repo.duplicated.renamed), shape: sum((repo) => repo.duplicated.shape) },
+  };
+}
+
+/**
+ * This function removes the row of each repository that is not in `keep` from each point. A point that loses a
+ * row keeps its totals from before the filter, and gets `filtered: true`. An empty `keep` is an error, because a
+ * failed list of names does not empty the history.
+ */
+export function filterTrend(trend: Trend, keep: readonly string[]): Trend {
+  if (keep.length === 0) throw new Error("The list of the public repositories is empty.");
+  const names = new Set(keep);
+  const points = trend.points.map((point): TrendPoint => {
+    const repos = point.repos.filter((repo) => names.has(repo.repo));
+    if (repos.length === point.repos.length) return point;
+    return { ...point, repos, totals: pointTotals(point), filtered: true };
+  });
+  return { version: trend.version, points };
 }

@@ -10,7 +10,7 @@
  * - `codeatlas agreement --sample <sample.json> --a <a.jsonl> --b <b.jsonl> --out <agreement.json>`
  * - `codeatlas reference --sample <sample.json> --rater <name>=<labels.jsonl> ... [--labeler <name>=<labels.jsonl> ...] [--db <catalog.sqlite>] --out <reference.json> [--markdown <reference.md>]`
  * - `codeatlas verdict --sample <sample.json> --a <a.jsonl> --agreement <agreement.json> --answers <answers.jsonl> --out <verdict.json>`
- * - `codeatlas trend --db <catalog.sqlite> [--previous <trend.json>] --out <trend.json>`
+ * - `codeatlas trend --db <catalog.sqlite> [--previous <trend.json>] [--owner <owner>] --out <trend.json>`
  * - `codeatlas drift --db <catalog.sqlite> [--out drift.json] [--markdown drift.md]`
  * - `codeatlas coverage --db <catalog.sqlite> --owner <owner> --dir <folder> [--out coverage.json] [--markdown coverage.md]`
  * - `codeatlas clone --owner <owner> --into <folder>`
@@ -28,6 +28,7 @@
  * The command agreement compares two drafts of labels of the sample, and writes the kappa, the confusion and the audit.
  * The command verdict compares the answers of the person with the audit, and writes the verdict and the labels of the truth.
  * The command trend adds the point of a catalog to the trend file of the last build.
+ * With `--owner`, it removes the rows of each repository that is not public at this time from each point.
  * The command queries writes the answers of the query set of a catalog as JSON, for the site.
  * The command coverage reads the coverage artifacts of the CI of each repository into the catalog, and writes the report.
  * The command drift writes the drift of each repository from the template, and the share of the current repositories.
@@ -56,7 +57,7 @@ import { verdictOf, type PersonAnswer } from "./verdict.ts";
 import { homeFacts, precisionOf, raterOfText, referenceMarkdown, referenceOf, type Rater } from "./reference.ts";
 import { populationOf, sampleFile, SAMPLE_PLAN, type SampleFile } from "./sample.ts";
 import { Catalog, readOnlyCatalog } from "./store.ts";
-import { addPoint, trendPoint } from "./trend.ts";
+import { addPoint, filterTrend, trendPoint } from "./trend.ts";
 import { querySet } from "./query-set.ts";
 import { factsMarkdown, factsSummary, gateVerdict, type GateVerdict } from "./summary.ts";
 import { clonePublic, publicNames } from "./clone.ts";
@@ -120,7 +121,7 @@ const USAGE = `Usage:
   codeatlas agreement --sample <sample.json> --a <a.jsonl> --b <b.jsonl> --out <agreement.json>
   codeatlas verdict --sample <sample.json> --a <a.jsonl> --agreement <agreement.json> --answers <answers.jsonl> --out <verdict.json>
   codeatlas reference --sample <sample.json> --rater <name>=<labels.jsonl> ... [--labeler <name>=<labels.jsonl> ...] [--db <catalog.sqlite>] --out <reference.json> [--markdown <reference.md>]
-  codeatlas trend --db <catalog.sqlite> [--previous <trend.json>] --out <trend.json>
+  codeatlas trend --db <catalog.sqlite> [--previous <trend.json>] [--owner <owner>] --out <trend.json>
   codeatlas queries --db <catalog.sqlite> --out <queries.json>
   codeatlas facts [--out facts.jsonl] [--markdown facts.md] [--cache <facts.jsonl>] [--repos-dir <folder>] [<name>=<path> ...]
   codeatlas drift --db <catalog.sqlite> [--out drift.json] [--markdown drift.md]
@@ -465,20 +466,27 @@ async function reference(argv: readonly string[]): Promise<number> {
   return 0;
 }
 
-/** This function adds the point of the catalog `--db` to the trend `--previous`, and writes the trend `--out`. */
+/**
+ * This function adds the point of the catalog `--db` to the trend `--previous`, and writes the trend `--out`. With
+ * `--owner`, each point keeps only the rows of the public repositories of the owner.
+ */
 async function trend(argv: readonly string[]): Promise<number> {
   const option = (name: string): string | undefined => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined);
   const db = option("--db");
   const out = option("--out");
   const previous = option("--previous");
+  const owner = option("--owner");
   if (db === undefined || out === undefined) {
     console.error(USAGE);
     return 2;
   }
+  const keep = owner === undefined ? undefined : publicNames(owner);
   const catalog = new Catalog(db);
   try {
     const point = await trendPoint(queryOf(catalog.db), new Date().toISOString(), FACTS_VERSION);
-    const file = addPoint(previous === undefined ? undefined : JSON.parse(readFileSync(previous, "utf8")), point);
+    const added = addPoint(previous === undefined ? undefined : JSON.parse(readFileSync(previous, "utf8")), point);
+    const file = keep === undefined ? added : filterTrend(added, keep);
+    if (keep !== undefined) console.error(`trend: ${file.points.filter((each) => each.filtered === true).length} points have filtered rows`);
     writeFileSync(out, `${JSON.stringify(file)}
 `);
     console.error(`trend: ${file.points.length} points, ${point.repos.length} repositories in the new point`);
