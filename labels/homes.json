@@ -507,7 +507,7 @@
       "textWidth",
       "stringWidth"
     ],
-    "note": "Plain string helpers (case, padding, templates) have no home yet: ask the strategist."
+    "note": "Plain string helpers (case, padding, templates) have no home yet: ask the maintainer."
   },
   {
     "area": "language-kernel",
