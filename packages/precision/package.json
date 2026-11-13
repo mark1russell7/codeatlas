@@ -20,7 +20,7 @@
     "@mark1russell7/rigor-statistics": "^0.1.17",
     "eslint": "^10.14.0",
     "eslint-plugin-sonarjs": "^4.2.2",
-    "typescript": "~5.9.3",
+    "typescript": "~7.0.0",
     "typescript-eslint": "^8.72.1"
   },
   "devDependencies": {
