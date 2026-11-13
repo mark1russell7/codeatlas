@@ -9,8 +9,11 @@ import type { CatalogQuery } from "./query.ts";
 /** The version of `@mark1russell7/conventions` that the scan uses. */
 export const CONVENTIONS_VERSION: string = (createRequire(import.meta.url)("@mark1russell7/conventions/package.json") as { version: string }).version;
 
-/** The status of a rule: `pass`, `break`, `off`, `skipped` or `error`, as `conventions check` gives it. */
-export type RuleStatus = "pass" | "break" | "off" | "skipped" | "error";
+/**
+ * The status of a rule: `pass`, `break`, `warn`, `off`, `skipped` or `error`, as `conventions check` gives it. A rule with the
+ * status `warn` has breaks before the day that the rule starts to fail. The catalog counts these breaks as breaks.
+ */
+export type RuleStatus = "pass" | "break" | "warn" | "off" | "skipped" | "error";
 
 /** One break of a rule. */
 export interface ConventionsBreak {
