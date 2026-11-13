@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@babel/parser": "^7.29.13",
-    "@mark1russell7/conventions": "^0.38.4",
+    "@mark1russell7/conventions": "^0.41.2",
     "@mark1russell7/rigor-generators": "^0.1.6",
     "@mark1russell7/rigor-statistics": "^0.1.17",
     "@mark1russell7/site-pages": "^0.4.1",
@@ -30,7 +30,7 @@
   "devDependencies": {
     "@mark1russell7/cue": "^2.1.1",
     "@types/node": "^26.6.5",
-    "@vitest/coverage-v8": "~5.1.0",
+    "@vitest/coverage-v8": "^5.0.3",
     "typescript": "^7.0.2",
     "vitest": "^5.0.3"
   }
