@@ -75,6 +75,22 @@ describe("conventionsBreaks", () => {
     expect(markdown).toContain("| one | 2 | 1 |");
   });
 
+  it("keeps the status warn, and counts the breaks of a rule that warns", async () => {
+    const catalog = new Catalog(":memory:");
+    afterAll(() => catalog.close());
+    const root = repos.with({ "README.md": "# warns\n" });
+    const facts = factsOfRepo("warns", root, catalog);
+    const snapshot = catalog.putSnapshot("warns", "c0", "2026-11-08T00:00:00Z", "test", facts.files, facts.counts);
+    const early = { file: ".github/workflows/ci.yml", line: null, message: "The CI runs its own steps.", fixable: false };
+    catalog.putConventionsCheck(snapshot, check([{ rule: "shared-ci", ...pass, status: "warn", note: "The rule fails from 2026-12-01.", breaks: [early] }]));
+    const q = queryOf(catalog.db);
+    expect(await q.selectFrom("conventions_rule").select(["rule", "status"]).where("snapshot", "=", snapshot).execute()).toEqual([{ rule: "shared-ci", status: "warn" }]);
+    const result = await conventionsBreaks(q);
+    expect(result.clean).toEqual([]);
+    expect(result.broken).toEqual([{ repo: "warns", breaks: 1, rules: 1 }]);
+    expect(result.rules).toEqual([{ rule: "shared-ci", repos: ["warns"], breaks: 1, fixable: 0, errors: [] }]);
+  });
+
   it("drops the check of a snapshot when the snapshot is scanned again", async () => {
     const catalog = new Catalog(":memory:");
     const root = repos.with({ "README.md": "# again\n" });
