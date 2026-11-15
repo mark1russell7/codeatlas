@@ -224,8 +224,8 @@ importers:
         specifier: ^0.4.1
         version: 0.4.8
       '@mark1russell7/sqlite':
-        specifier: ^0.3.3
-        version: 0.3.3
+        specifier: ^0.3.4
+        version: 0.3.4
       '@procedures/client':
         specifier: ^0.55.2
         version: 0.55.2(express@5.3.0(supports-color@7.2.0))
@@ -273,8 +273,8 @@ importers:
         specifier: ^0.1.17
         version: 0.1.29
       '@mark1russell7/sqlite':
-        specifier: ^0.3.3
-        version: 0.3.3
+        specifier: ^0.3.4
+        version: 0.3.4
       eslint:
         specifier: ^10.14.0
         version: 10.14.0(supports-color@7.2.0)
@@ -735,9 +735,9 @@ packages:
     engines: {node: '>=22'}
     hasBin: true
 
-  '@mark1russell7/sqlite@0.3.3':
-    resolution: {integrity: sha512-FQmvcDymVQtT/atS1Yv7khd05GF3rc5D62YXRsDG2ICJP96leTNnpAwSNDbaKwKBbQyBbgQ9rux7MQOd3sefUg==}
-    engines: {node: '>=22.16'}
+  '@mark1russell7/sqlite@0.3.4':
+    resolution: {integrity: sha512-IVmkdnP5WawL1ChEVkmnJAf75UJ7GOursZRsOrcKpeWFriw9ydkxKyApDlJwpO0oFeQIxsprKMqapWE0UqR8fg==}
+    engines: {node: '>=22.13'}
 
   '@mark1russell7/ste-lint@0.3.2':
     resolution: {integrity: sha512-0WRNon1oYKX1mmTP/AhrPnpoGAGolmpkJWHaTkHXc4SKe1tQhUvPrY/0TQ4gvu7aN+TEPpypiZDIkOjYZG8qBA==}
@@ -2595,7 +2595,7 @@ snapshots:
     dependencies:
       '@mark1russell7/rigor-statistics': 0.1.29
 
-  '@mark1russell7/sqlite@0.3.3': {}
+  '@mark1russell7/sqlite@0.3.4': {}
 
   '@mark1russell7/ste-lint@0.3.2':
     dependencies:
