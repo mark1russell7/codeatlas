@@ -1,9 +1,10 @@
 /**
  * The catalog database: the Layer 1a tables, and the manifests, lockfiles, roadmaps and template records of Layer 1c. It
- * is one SQLite file through `node:sqlite`. `docs/SCHEMA.md` tells the layers.
+ * is one SQLite file through `@mark1russell7/sqlite`. `docs/SCHEMA.md` tells the layers.
  * The blob tables are also the cache of the scan. A rescan with the database of the last run parses only new blobs.
  */
-import { DatabaseSync, type StatementSync } from "node:sqlite";
+import type { DatabaseSync, StatementSync } from "node:sqlite";
+import { addMissingColumns, clearDatabase, openDatabase, transaction, type ColumnDefinitions } from "@mark1russell7/sqlite";
 import { factsKey, type BlobFacts, type FileRecord, type ScanCounts } from "./blobs.ts";
 import type { FileChurn } from "./churn.ts";
 import { CLASS_MIN_NODES, type FactsSummary, type Unread } from "./summary.ts";
@@ -205,18 +206,18 @@ export class Catalog {
    * The scan and the prune use `rebuild`, because CI restores the database of the last run. A new schema must not stop them.
    */
   constructor(path: string, options: { readonly rebuild?: boolean } = {}) {
-    this.db = new DatabaseSync(path);
-    this.db.exec("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA foreign_keys = ON;");
+    // WAL, and foreign keys on: node:sqlite turns them on for each connection
+    this.db = openDatabase(path, { synchronous: "NORMAL" });
     const version = schemaOf(this.db);
     if (version !== undefined && version !== CATALOG_SCHEMA) {
       if (options.rebuild !== true) {
         this.db.close();
         throw new Error(`The database has the schema ${version}, not ${CATALOG_SCHEMA}.`);
       }
-      dropAll(this.db);
+      clearDatabase(this.db);
     }
     this.db.exec(DDL);
-    addColumns(this.db);
+    for (const [table, columns] of Object.entries(ADDED_COLUMNS)) addMissingColumns(this.db, table, columns);
     this.db.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema', ?)").run(CATALOG_SCHEMA);
     this.#has = this.db.prepare("SELECT 1 AS found FROM blob WHERE key = ?");
     this.#blob = this.db.prepare("INSERT INTO blob (key, oid, syntax, version, parse_error) VALUES (?, ?, ?, ?, ?)");
@@ -238,7 +239,7 @@ export class Catalog {
   /** This method writes the facts of one blob. The key is `<oid>:<syntax>:<version>` (`factsKey`). */
   set(key: string, value: BlobFacts): this {
     const [oid = "", syntax = "", version = ""] = key.split(":");
-    this.#transaction(() => {
+    transaction(this.db, () => {
       this.#blob.run(key, oid, syntax, version, value.ok ? null : value.error);
       if (value.ok) this.#facts(key, value.facts);
     });
@@ -273,24 +274,13 @@ export class Catalog {
     return this.#snapshotRefs;
   }
 
-  #transaction(work: () => void): void {
-    this.db.exec("BEGIN");
-    try {
-      work();
-      this.db.exec("COMMIT");
-    } catch (error) {
-      this.db.exec("ROLLBACK");
-      throw error;
-    }
-  }
-
   /**
    * This method writes a snapshot of one repository and its files. Each blob of the files must be in the database.
    * A second scan of one commit replaces the rows of the first.
    */
   putSnapshot(repo: string, commit: string | null, scannedAt: string, scanner: string, files: readonly FileRecord[], counts: ScanCounts, committedAt: string | null = null): string {
     const id = `${repo}@${commit ?? "worktree"}`;
-    this.#transaction(() => {
+    transaction(this.db, () => {
       // The first scan of the commit stays: the delay from the commit to the index is a measure (CA21)
       const before = this.db.prepare("SELECT indexed_at, scanned_at FROM snapshot WHERE id = ?").get(id) as { indexed_at: string | null; scanned_at: string } | undefined;
       const indexedAt = before === undefined ? scannedAt : (before.indexed_at ?? before.scanned_at);
@@ -353,7 +343,7 @@ export class Catalog {
    */
   putLabels(labels: readonly Label[]): void {
     const insert = this.db.prepare('INSERT OR REPLACE INTO label (subject, task, "by", label, at) VALUES (?, ?, ?, ?, ?)');
-    this.#transaction(() => {
+    transaction(this.db, () => {
       for (const label of labels) insert.run(label.subject, label.task, label.by, JSON.stringify(label.label), label.at);
     });
   }
@@ -364,7 +354,7 @@ export class Catalog {
    * manifest blob that the catalog knows stay as they are: they depend on the blob only.
    */
   putManifests(snapshot: string, manifests: readonly ManifestRecord[]): void {
-    this.#transaction(() => {
+    transaction(this.db, () => {
       this.db.prepare("DELETE FROM manifest WHERE snapshot = ?").run(snapshot);
       const manifest = this.db.prepare("INSERT INTO manifest (snapshot, path, oid, name, version, private, parse_error) VALUES (?, ?, ?, ?, ?, ?, ?)");
       const dependency = this.db.prepare('INSERT OR IGNORE INTO dependency (oid, field, name, "range", kind) VALUES (?, ?, ?, ?, ?)');
@@ -377,7 +367,7 @@ export class Catalog {
 
 /** This method puts the lockfiles of the snapshot `snapshot` in place of its old ones, as `putManifests` does. */
   putLockfiles(snapshot: string, lockfiles: readonly LockfileRecord[]): void {
-    this.#transaction(() => {
+    transaction(this.db, () => {
       this.db.prepare("DELETE FROM lockfile WHERE snapshot = ?").run(snapshot);
       const lockfile = this.db.prepare("INSERT INTO lockfile (snapshot, path, oid, version, parse_error) VALUES (?, ?, ?, ?, ?)");
       const resolution = this.db.prepare("INSERT OR IGNORE INTO resolution (oid, manifest, field, name, specifier, version) VALUES (?, ?, ?, ?, ?, ?)");
@@ -393,7 +383,7 @@ export class Catalog {
    * roadmap blob again, so a new version of the parser corrects them.
    */
   putRoadmaps(snapshot: string, roadmaps: readonly RoadmapRecord[]): void {
-    this.#transaction(() => {
+    transaction(this.db, () => {
       this.db.prepare("DELETE FROM roadmap WHERE snapshot = ?").run(snapshot);
       const roadmap = this.db.prepare("INSERT INTO roadmap (snapshot, path, oid, parse_error) VALUES (?, ?, ?, ?)");
       const clear = this.db.prepare("DELETE FROM roadmap_item WHERE oid = ?");
@@ -409,7 +399,7 @@ export class Catalog {
 
   /** This method puts the template records of the snapshot `snapshot` in place of its old ones, as `putManifests` does. */
   putTemplateRecords(snapshot: string, records: TemplateRecords): void {
-    this.#transaction(() => {
+    transaction(this.db, () => {
       this.db.prepare("DELETE FROM template_pin WHERE snapshot = ?").run(snapshot);
       this.db.prepare("DELETE FROM template_file WHERE snapshot = ?").run(snapshot);
       const pin = this.db.prepare("INSERT INTO template_pin (snapshot, path, line, target, ref) VALUES (?, ?, ?, ?, ?)");
@@ -421,7 +411,7 @@ export class Catalog {
 
   /** This method replaces the content of the pins of the template snapshot `snapshot`. */
   putTemplateVersions(snapshot: string, records: TemplateVersions): void {
-    this.#transaction(() => {
+    transaction(this.db, () => {
       this.db.prepare("DELETE FROM template_version WHERE snapshot = ?").run(snapshot);
       this.db.prepare("DELETE FROM template_use WHERE snapshot = ?").run(snapshot);
       this.db.prepare("DELETE FROM template_ref WHERE snapshot = ?").run(snapshot);
@@ -439,7 +429,7 @@ export class Catalog {
 
   /** This method replaces the result of `stamp --check` for the snapshot `snapshot`. */
   putStampCheck(snapshot: string, check: StampCheck): void {
-    this.#transaction(() => {
+    transaction(this.db, () => {
       this.db.prepare("DELETE FROM stamp_check WHERE snapshot = ?").run(snapshot);
       this.db.prepare("DELETE FROM stamp_check_file WHERE snapshot = ?").run(snapshot);
       this.db.prepare("INSERT INTO stamp_check (snapshot, template) VALUES (?, ?)").run(snapshot, check.template);
@@ -450,7 +440,7 @@ export class Catalog {
 
   /** This method replaces the result of the conventions check for the snapshot `snapshot`. */
   putConventionsCheck(snapshot: string, check: ConventionsCheck): void {
-    this.#transaction(() => {
+    transaction(this.db, () => {
       for (const table of ["conventions_check", "conventions_rule", "conventions_break"]) this.db.prepare(`DELETE FROM ${table} WHERE snapshot = ?`).run(snapshot);
       this.db.prepare("INSERT INTO conventions_check (snapshot, version) VALUES (?, ?)").run(snapshot, check.version);
       const rule = this.db.prepare("INSERT INTO conventions_rule (snapshot, rule, status, ignored, note) VALUES (?, ?, ?, ?, ?)");
@@ -468,7 +458,7 @@ export class Catalog {
    * no row in a snapshot with a `churn_run` row has no commit in the window.
    */
   putChurn(snapshot: string, days: number, until: string, churn: readonly FileChurn[]): void {
-    this.#transaction(() => {
+    transaction(this.db, () => {
       for (const table of ["churn_run", "churn"]) this.db.prepare(`DELETE FROM ${table} WHERE snapshot = ?`).run(snapshot);
       this.db.prepare('INSERT INTO churn_run (snapshot, days, "until") VALUES (?, ?, ?)').run(snapshot, days, until);
       const insert = this.db.prepare("INSERT INTO churn (snapshot, path, commits, authors, last_at) VALUES (?, ?, ?, ?, ?)");
@@ -477,7 +467,7 @@ export class Catalog {
   }
 
   putCoverage(snapshot: string, run: CoverageRun): void {
-    this.#transaction(() => {
+    transaction(this.db, () => {
       for (const table of ["coverage_run", "coverage_file", "coverage_function"]) this.db.prepare(`DELETE FROM ${table} WHERE snapshot = ?`).run(snapshot);
       this.db
         .prepare('INSERT INTO coverage_run (snapshot, run_id, "commit", created_at, artifacts, unmatched) VALUES (?, ?, ?, ?, ?, ?)')
@@ -516,7 +506,7 @@ export class Catalog {
       .map((row) => row.name)
       .filter((name) => !kept.has(name));
     if (names.length === 0) return [];
-    this.#transaction(() => {
+    transaction(this.db, () => {
       for (const name of names) {
         const ids = (this.db.prepare("SELECT id FROM snapshot WHERE repo = ?").all(name) as { id: string }[]).map((row) => row.id);
         for (const id of ids) for (const table of this.#snapshotTables()) this.db.prepare(`DELETE FROM ${table} WHERE snapshot = ?`).run(id);
@@ -548,33 +538,16 @@ export class Catalog {
   }
 }
 
-/** The columns that came after the first release of a schema, by table. A new facts version fills them. */
-const ADDED_COLUMNS: readonly { readonly table: string; readonly column: string; readonly type: string }[] = [
-  { table: "symbol", column: "cognitive", type: "INTEGER" },
-  { table: "symbol", column: "tokens", type: "INTEGER" },
-  { table: "snapshot", column: "committed_at", type: "TEXT" },
-  { table: "snapshot", column: "indexed_at", type: "TEXT" },
-];
-
-/** This function adds each column of `ADDED_COLUMNS` that an older database of the same schema does not have. */
-function addColumns(db: DatabaseSync): void {
-  for (const { table, column, type } of ADDED_COLUMNS) {
-    const columns = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
-    if (!columns.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
-  }
-}
+/**
+ * The columns that came after the first release of a schema, by table. A new facts version fills them. The constructor
+ * adds each column that an older database of the same schema does not have.
+ */
+const ADDED_COLUMNS: Readonly<Record<string, ColumnDefinitions>> = {
+  symbol: { cognitive: "INTEGER", tokens: "INTEGER" },
+  snapshot: { committed_at: "TEXT", indexed_at: "TEXT" },
+};
 
 /** This function gives the schema of the catalog in `db`, or undefined for a database without the table `meta`. */
-/** This function drops each view, table and index of the database, then vacuums the file. */
-function dropAll(db: DatabaseSync): void {
-  db.exec("PRAGMA foreign_keys = OFF");
-  const objects = db.prepare("SELECT type, name FROM sqlite_master WHERE type IN ('view', 'table') AND name NOT LIKE 'sqlite_%'").all() as { type: string; name: string }[];
-  // The views go first, because a view can refer to a table. An index goes with its table
-  for (const type of ["view", "table"]) for (const o of objects.filter((x) => x.type === type)) db.exec(`DROP ${type.toUpperCase()} IF EXISTS "${o.name.replaceAll('"', '""')}"`);
-  db.exec("VACUUM");
-  db.exec("PRAGMA foreign_keys = ON");
-}
-
 function schemaOf(db: DatabaseSync): string | undefined {
   const table = db.prepare("SELECT 1 AS found FROM sqlite_master WHERE type = 'table' AND name = 'meta'").get();
   if (table === undefined) return undefined;
@@ -587,7 +560,7 @@ function schemaOf(db: DatabaseSync): string | undefined {
  * no catalog or a catalog of another schema. A read-only connection cannot change the file.
  */
 export function readOnlyCatalog(path: string): DatabaseSync {
-  const db = new DatabaseSync(path, { readOnly: true });
+  const db = openDatabase(path, { readOnly: true });
   const version = schemaOf(db);
   if (version !== CATALOG_SCHEMA) {
     db.close();
