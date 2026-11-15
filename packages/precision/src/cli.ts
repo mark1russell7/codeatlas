@@ -4,7 +4,7 @@
  * writes the precision of each dimension that has an independent tool.
  */
 import { readFileSync, writeFileSync } from "node:fs";
-import { DatabaseSync } from "node:sqlite";
+import { openDatabase } from "@mark1russell7/sqlite";
 import { parseArgs } from "node:util";
 import { checkIndex, PRECISION_VERSION, precisionMarkdown, SAMPLE_SIZE, type CodeIndexFile } from "./check.ts";
 
@@ -12,7 +12,7 @@ const USAGE = `codeatlas-precision --index <dimensions.json> --repos-dir <folder
 
 /** This function reads the end of the churn window of each repository from the table `churn_run` of the catalog. */
 export function churnWindows(db: string): Map<string, { until: string; days: number }> {
-  const sqlite = new DatabaseSync(db, { readOnly: true });
+  const sqlite = openDatabase(db, { readOnly: true });
   try {
     const rows = sqlite.prepare('SELECT DISTINCT f.repo AS repo, r."until" AS "until", r.days AS days FROM current_file f JOIN churn_run r ON r.snapshot = f.snapshot').all() as { repo: string; until: string; days: number }[];
     return new Map(rows.map((row) => [row.repo, { until: row.until, days: Number(row.days) }]));

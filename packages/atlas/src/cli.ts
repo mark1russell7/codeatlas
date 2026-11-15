@@ -37,6 +37,7 @@
 import { execFileSync } from "node:child_process";
 import { closeSync, existsSync, openSync, readFileSync, readdirSync, statSync, writeFileSync, writeSync } from "node:fs";
 import { join } from "node:path";
+import { checkpoint } from "@mark1russell7/sqlite";
 import { buildAtlas } from "./atlas.ts";
 import { cacheOf, factsKey, factsOfRepo, type BlobFacts, type FactsLine } from "./blobs.ts";
 import {
@@ -327,7 +328,8 @@ function catalog(argv: readonly string[]): number {
   const ms = performance.now() - started;
   const summary = db.summary({ ...totals, ms });
   const unread = db.unread();
-  db.db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
+  // CI keeps only the file, so the log must be empty
+  if (checkpoint(db.db, "TRUNCATE").busy) console.error("catalog: a different connection had the file, so the file can lack the last commits");
   db.close();
   if (args.markdown !== undefined) writeFileSync(args.markdown, factsMarkdown(summary));
   console.error(`catalog: ${summary.repos} repositories, ${summary.files} files, ${summary.parsed} parsed, ${summary.reused} from the cache (${known} blobs known), ${summary.errors} errors, ${Math.round(ms)} ms`);
@@ -354,7 +356,7 @@ function prune(argv: readonly string[]): number {
   const catalog = new Catalog(path, { rebuild: true });
   try {
     const removed = catalog.pruneRepos(names);
-    catalog.db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
+    if (checkpoint(catalog.db, "TRUNCATE").busy) console.error("prune: a different connection had the file, so the file can lack the last commits");
     console.error(`prune: ${names.length} public repositories, ${removed.length} removed from the catalog`);
     return 0;
   } finally {
