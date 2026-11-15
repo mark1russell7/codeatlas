@@ -301,8 +301,8 @@ importers:
         specifier: ^0.4.7
         version: 0.4.8
       '@mark1russell7/text':
-        specifier: ^0.0.5
-        version: 0.0.5
+        specifier: ^0.0.6
+        version: 0.0.6
       '@swc/core':
         specifier: ^1.15.0
         version: 1.16.22
@@ -745,6 +745,10 @@ packages:
 
   '@mark1russell7/text@0.0.5':
     resolution: {integrity: sha512-Ql1eBET3PgEBL5DWZHZ20GRZmorkq6mWdnfj21cqXfLvZdikO+GlvSAfbv1ld7YCnEqxOa7eg6ESfl+jzPGe9w==}
+    engines: {node: '>=22.12'}
+
+  '@mark1russell7/text@0.0.6':
+    resolution: {integrity: sha512-IwKQHx9U+k5AbEzZ8q4CxImQCuYXSFhvzMOSgy5UGYrZRIBO9RES7SYrXDrKqQFtMl5qD2QbibffevUPsrUW+A==}
     engines: {node: '>=22.12'}
 
   '@modelcontextprotocol/sdk@1.32.2':
@@ -2592,6 +2596,8 @@ snapshots:
   '@mark1russell7/text@0.0.2': {}
 
   '@mark1russell7/text@0.0.5': {}
+
+  '@mark1russell7/text@0.0.6': {}
 
   '@modelcontextprotocol/sdk@1.32.2(supports-color@7.2.0)(zod@4.6.7)':
     dependencies:
