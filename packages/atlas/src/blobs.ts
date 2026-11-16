@@ -6,7 +6,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { factsOf, syntaxOf, FACTS_VERSION, type FileFacts } from "./facts.ts";
-import { headOf, isSource, MAX_BYTES, TEST } from "./scan.ts";
+import { headOf, isChosen, maxBytesOf, TEST, type FileChoice } from "./scan.ts";
 
 /** One file of the tree of a commit. */
 export interface TreeEntry {
@@ -46,6 +46,8 @@ export interface ScanCounts {
   readonly reused: number;
   readonly errors: number;
   readonly bytesParsed: number;
+  /** The sources over the size limit of the choice. The scan does not read them. */
+  readonly tooLarge: number;
 }
 
 /**
@@ -70,16 +72,23 @@ export function treeOf(root: string): TreeEntry[] {
 
 /**
  * This function gives the file records of the sources of one repository, and puts the facts of each new blob in
- * `cache`. The text of a blob comes from the worktree, which must be a clean checkout of HEAD.
+ * `cache`. The text of a blob comes from the worktree, which must be a clean checkout of HEAD. `choice` tells which
+ * files are sources: the default `sources` is the source of a repository, and `published` is the code of a package.
  */
-export function factsOfRepo(repo: string, root: string, cache: FactsCache, tree: readonly TreeEntry[] = treeOf(root)): { readonly files: FileRecord[]; readonly counts: ScanCounts } {
+export function factsOfRepo(repo: string, root: string, cache: FactsCache, tree: readonly TreeEntry[] = treeOf(root), choice: FileChoice = "sources"): { readonly files: FileRecord[]; readonly counts: ScanCounts } {
   const files: FileRecord[] = [];
+  const maxBytes = maxBytesOf(choice);
   let parsed = 0;
   let reused = 0;
   let errors = 0;
   let bytesParsed = 0;
+  let tooLarge = 0;
   for (const entry of tree) {
-    if (!isSource(entry.path) || entry.bytes > MAX_BYTES) continue;
+    if (!isChosen(choice, entry.path)) continue;
+    if (entry.bytes > maxBytes) {
+      tooLarge++;
+      continue;
+    }
     files.push({ repo, path: entry.path, blob: entry.blob, bytes: entry.bytes, test: TEST.test(entry.path) });
     const key = factsKey(entry.blob, entry.path);
     if (cache.has(key)) {
@@ -97,7 +106,7 @@ export function factsOfRepo(repo: string, root: string, cache: FactsCache, tree:
     parsed++;
     bytesParsed += entry.bytes;
   }
-  return { files, counts: { files: files.length, parsed, reused, errors, bytesParsed } };
+  return { files, counts: { files: files.length, parsed, reused, errors, bytesParsed, tooLarge } };
 }
 
 /** One line of the JSON Lines output of the `facts` command. */

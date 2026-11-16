@@ -21,8 +21,8 @@ export {
   type BehindRepo,
 } from "./fresh.ts";
 export { atlasMarkdown } from "./report.ts";
-export { commitTimeOf, gitFiles, headOf, isSource, lineOf, lineStarts, packageOf, scanRepo, scanSource, GENERATED, MAX_BYTES, SKIP, SOURCE, TEST } from "./scan.ts";
-export type { Export, FileScan, RepoScan, Unit } from "./scan.ts";
+export { commitTimeOf, gitFiles, headOf, isChosen, isFileChoice, isSource, lineOf, lineStarts, maxBytesOf, packageOf, scanRepo, scanSource, FILE_CHOICES, GENERATED, MAX_BYTES, PUBLISHED_MAX_BYTES, SKIP, SOURCE, TEST } from "./scan.ts";
+export type { Export, FileChoice, FileScan, RepoScan, Unit } from "./scan.ts";
 export { shapeOf, shapeTokens } from "./shape.ts";
 export type { AstNode, Shape } from "./shape.ts";
 export { buildCorpus, corpusMarkdown, corpusOfRepo, countRepo, kindOf, lineCounts, FILE_KINDS } from "./corpus.ts";
