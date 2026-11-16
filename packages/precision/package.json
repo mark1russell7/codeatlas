@@ -18,7 +18,7 @@
     "@mark1russell7/codeatlas": "workspace:*",
     "@mark1russell7/rigor-generators": "^0.1.6",
     "@mark1russell7/rigor-statistics": "^0.1.17",
-    "@mark1russell7/sqlite": "^0.3.3",
+    "@mark1russell7/sqlite": "^0.3.4",
     "eslint": "^10.14.0",
     "eslint-plugin-sonarjs": "^4.2.2",
     "typescript": "~5.9.3",
