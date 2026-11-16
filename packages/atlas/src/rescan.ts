@@ -2,9 +2,9 @@
  * The scan of one repository into the catalog. The command `catalog` scans each repository with it, and the tool
  * `atlas.rescan` scans one repository again (CA16). The facts are keyed by the blob, so a rescan parses only new blobs.
  */
-import { execFileSync } from "node:child_process";
 import { factsOfRepo, treeOf, type ScanCounts } from "./blobs.ts";
 import { CHURN_DAYS, churnOfRepo } from "./churn.ts";
+import { originOf, ownerOfCheckout } from "./clone.ts";
 import { FACTS_VERSION } from "./facts.ts";
 import { lockfilesOfRepo } from "./lockfiles.ts";
 import { manifestsOfRepo } from "./manifests.ts";
@@ -27,12 +27,13 @@ export interface RepoScanResult {
 /**
  * This function scans the repository `name` at the clean checkout `root` into the catalog. It writes its snapshot,
  * its manifests, its lockfiles, its roadmaps, its template records and its conventions check. `keep` is the list of the files that the stamp copies.
+ * The owner of the repository comes from the remote `origin` of the checkout.
  */
 export function scanRepoInto(db: Catalog, name: string, root: string, keep: readonly string[], scannedAt: string): RepoScanResult {
   const tree = treeOf(root);
   const scan = factsOfRepo(name, root, db, tree);
   const commit = headOf(root);
-  const snapshot = db.putSnapshot(name, commit, scannedAt, FACTS_VERSION, scan.files, scan.counts, commitTimeOf(root));
+  const snapshot = db.putSnapshot(name, commit, scannedAt, FACTS_VERSION, scan.files, scan.counts, commitTimeOf(root), ownerOfCheckout(root));
   db.putManifests(snapshot, manifestsOfRepo(root, tree));
   db.putLockfiles(snapshot, lockfilesOfRepo(root, tree));
   db.putRoadmaps(snapshot, roadmapsOfRepo(root, tree));
@@ -68,14 +69,6 @@ export function repoOfRemote(url: string): string | undefined {
   const bare = name.endsWith(".git") ? name.slice(0, -4) : name;
   return bare === "" ? undefined : bare;
 }
-
-const originOf = (root: string): string | undefined => {
-  try {
-    return execFileSync("git", ["-C", root, "remote", "get-url", "origin"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
-  } catch {
-    return undefined;
-  }
-};
 
 /**
  * This function scans the repository `repo` again from the clean checkout `root`. The repository must be in the

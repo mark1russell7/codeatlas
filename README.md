@@ -24,19 +24,24 @@ node packages/atlas/src/cli.ts build --repos-dir <folder> --out atlas.json --mar
 node packages/atlas/src/cli.ts build template=../template packing=../packing --min-nodes 60
 node packages/atlas/src/cli.ts corpus --repos-dir <folder> --out corpus.json --markdown corpus.md
 node packages/atlas/src/cli.ts catalog --repos-dir <folder> --out catalog.sqlite --markdown catalog.md
-node packages/atlas/src/cli.ts trend --db catalog.sqlite [--previous trend.json] [--owner <owner>] --out trend.json
+node packages/atlas/src/cli.ts trend --db catalog.sqlite [--previous trend.json] [--owner <owners> | --owners] --out trend.json
+node packages/atlas/src/cli.ts previous-trend --owners --repo codeatlas --out trend.json
 node packages/atlas/src/cli.ts queries --db catalog.sqlite --out queries.json
 node packages/atlas/src/cli.ts dimensions --db catalog.sqlite --out dimensions.json --markdown dimensions.md
 node packages/precision/src/cli.ts --index dimensions.json --repos-dir <folder> --db catalog.sqlite --markdown precision.md
 node packages/atlas/src/cli.ts formulas --db catalog.sqlite --finds labels/finds-1.jsonl --verdicts labels/formulas-1.jsonl --markdown formulas.md
 node packages/atlas/src/cli.ts facts --repos-dir <folder> --out facts.jsonl --markdown facts.md [--cache <facts.jsonl>]
-node packages/atlas/src/cli.ts clone --owner <owner> --into <folder> [--only <names.txt>]
-node packages/atlas/src/cli.ts prune --db catalog.sqlite --owner <owner>
-node packages/atlas/src/cli.ts fresh --owner <owner> --db catalog.sqlite [--changed <names.txt>] [--markdown fresh.md] [--gate]
+node packages/atlas/src/cli.ts clone --owners --into <folder> [--only <names.txt>]
+node packages/atlas/src/cli.ts prune --db catalog.sqlite --owners
+node packages/atlas/src/cli.ts fresh --owners --db catalog.sqlite [--changed <names.txt>] [--markdown fresh.md] [--gate]
 node packages/site/src/build.ts --atlas atlas.json --out site
 ```
 
 The scan reads the files that git keeps, so build output and `node_modules` stay out.
+
+The atlas reads each owner of `packages/atlas/src/owners.ts`: `mark1russell7` and `metrograph-labs`. The flag `--owners` gives each owner of that list. The option `--owner` takes one login, or a list of logins with commas. A repository name that two owners have stops the command, because the catalog keys each repository by its name. The owner of each repository comes from the remote `origin` of its clone, and each link of the site goes to that owner.
+
+The command `previous-trend` reads the trend of the last deploy. It reads the Pages site of each owner, the current owner first. When each site gives 404, it reads the Pages artifact of the last deploy. Its exit code is 3 only for a repository with no deploy.
 
 ## Tools for agents
 
@@ -71,4 +76,4 @@ The site also shows the answers of the query set of the catalog. These are the c
 
 ## CI
 
-The workflow `Pages` (`.github/workflows/pages.yml`) clones each public repository of the owner every Monday, on each push to main and on a manual start. It builds the atlas and the site, and publishes them to GitHub Pages.
+The workflow `Pages` (`.github/workflows/pages.yml`) clones each public repository of each owner every Monday, on each push to main and on a manual start. It builds the atlas and the site, and publishes them to GitHub Pages.

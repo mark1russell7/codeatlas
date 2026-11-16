@@ -3,7 +3,7 @@ import { buildAtlas, homeOf, topicsOf, wordsOf } from "./atlas.ts";
 import { atlasMarkdown } from "./report.ts";
 import { isSource, packageOf, scanSource, type RepoScan } from "./scan.ts";
 import { parseBuildArgs } from "./cli.ts";
-import { listArgs, repoNames } from "./clone.ts";
+import { cloneUrl, listArgs, ownedRepos, ownerMap, ownerOfRemote, ownersOption, repoNames } from "./clone.ts";
 
 const MEAN = `
 export function mean(values: readonly number[]): number {
@@ -38,6 +38,7 @@ function repo(name: string, files: Readonly<Record<string, string>>): RepoScan {
   return {
     repo: name,
     commit: null,
+    owner: name === "beta" ? "other" : "o",
     files: scans.length,
     nodes: units.reduce((sum, u) => (u.parent === null ? sum + u.nodes : sum), 0),
     units,
@@ -126,6 +127,40 @@ describe("clone", () => {
     expect(listArgs("o")).toEqual(["repo", "list", "o", "--visibility", "public", "--no-archived", "--source", "--limit", "1000", "--json", "name", "--jq", ".[].name"]);
     expect(repoNames("vex\r\npacking\n\n")).toEqual(["packing", "vex"]);
     expect(repoNames("--upload-pack=x\n.git\n..\na b\nmark1russell7.github.io\n_x\n")).toEqual(["_x", "mark1russell7.github.io"]);
+  });
+
+  it("reads the owners of a command: --owners gives each owner, and --owner takes one login or a list", () => {
+    expect(ownersOption(["--owners", "--into", "x"])).toEqual({ owners: ["mark1russell7", "metrograph-labs"] });
+    expect(ownersOption(["--owner", "o"])).toEqual({ owners: ["o"] });
+    expect(ownersOption(["--owner", "a, b,a,"])).toEqual({ owners: ["a", "b"] });
+    expect(ownersOption(["--into", "x"])).toBeUndefined();
+    expect(ownersOption(["--owner", "a", "--owners"])).toEqual({ error: "Give --owner or --owners, not the two." });
+    expect(ownersOption(["--owner"])).toEqual({ error: "--owner takes a login, or a list of logins with commas." });
+    expect(ownersOption(["--owner", "a,--upload-pack=x"])).toEqual({ error: 'The owner "--upload-pack=x" is not a GitHub name.' });
+  });
+
+  it("lists the repositories of each owner by name, and stops on a name that two owners have", () => {
+    const lists: Record<string, string[]> = { a: ["vex", "codeatlas"], b: ["packing"], c: ["CodeAtlas"] };
+    const list = (owner: string): string[] => lists[owner] ?? [];
+    const repos = ownedRepos(["a", "b"], list);
+    expect(repos).toEqual([
+      { owner: "a", name: "codeatlas" },
+      { owner: "b", name: "packing" },
+      { owner: "a", name: "vex" },
+    ]);
+    expect(ownerMap(repos).get("packing")).toBe("b");
+    expect(cloneUrl({ owner: "metrograph-labs", name: "codeatlas" })).toBe("https://github.com/metrograph-labs/codeatlas.git");
+    expect(() => ownedRepos(["a", "b", "c"], list)).toThrow("More than one owner has a repository with the name codeatlas (a/codeatlas, c/CodeAtlas)");
+  });
+
+  it("gives the owner of each form of a GitHub remote, and nothing for another host", () => {
+    expect(ownerOfRemote("https://github.com/metrograph-labs/codeatlas.git")).toBe("metrograph-labs");
+    expect(ownerOfRemote("https://x-access-token:t@github.com/mark1russell7/vex")).toBe("mark1russell7");
+    expect(ownerOfRemote("git@github.com:mark1russell7/vex.git\n")).toBe("mark1russell7");
+    expect(ownerOfRemote("ssh://git@github.com/metrograph-labs/codeatlas/")).toBe("metrograph-labs");
+    expect(ownerOfRemote("https://gitlab.com/mark1russell7/vex.git")).toBeUndefined();
+    expect(ownerOfRemote("D:/git/vex")).toBeUndefined();
+    expect(ownerOfRemote("https://github.com/-x/vex.git")).toBeUndefined();
   });
 });
 

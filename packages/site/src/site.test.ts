@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { dimensionCatalog } from "@mark1russell7/codeatlas";
 import type { Atlas, CloneClass, Member, QuerySet, RepoPoint, Trend } from "@mark1russell7/codeatlas";
-import { ATLAS_LIMIT, atlasStamps, compilePage, dataLine, pageHtml, parseSiteArgs, readAtlas, scrollCueCss } from "./build.ts";
-import { dimensionLines, levelRows, markerTable, matches, NO_FILTER, NO_TOPIC, pairShares, placeOf, repoChanges, sourceUrl, stepOf, titleOf, topicRows, trendRows } from "./page.ts";
+import { ATLAS_LIMIT, atlasStamps, compilePage, dataLine, ownersOfAtlas, pageHtml, parseSiteArgs, readAtlas, scrollCueCss } from "./build.ts";
+import { dimensionLines, levelRows, markerTable, matches, NO_FILTER, NO_TOPIC, ownerLookup, pairShares, placeOf, repoChanges, sourceUrl, stepOf, titleOf, topicRows, trendRows } from "./page.ts";
 
 const member = (repo: string, name: string, test = false): Member => ({ repo, file: `src/${name}.ts`, line: 3, name, exported: true, test });
 
@@ -16,8 +16,9 @@ const klass = (hash: string, nodes: number, members: Member[], topics: string[] 
   homes: [],
 });
 
+// The repository b moved to the organization. The others stay with the personal account
 const repoRow = (repo: string, crossRepoClasses: number) => ({
-  repo, commit: null, files: 1, functions: 1, nodes: 100, duplicatedNodes: 0, ratio: 0, crossRepoClasses, parseErrors: 0,
+  repo, owner: repo === "b" ? "metrograph-labs" : "mark1russell7", commit: null, files: 1, functions: 1, nodes: 100, duplicatedNodes: 0, ratio: 0, crossRepoClasses, parseErrors: 0,
 });
 
 const ATLAS: Atlas = {
@@ -94,6 +95,15 @@ describe("sourceUrl", () => {
     expect(sourceUrl("o", "abc", { ...member("r", "f"), file: "a b/c.ts" })).toBe("https://github.com/o/r/blob/abc/a%20b/c.ts#L3");
     expect(sourceUrl("o", null, member("r", "f"))).toBe("https://github.com/o/r/blob/HEAD/src/f.ts#L3");
   });
+
+  it("links each repository to its own owner, with the owner of the site for a repository with no owner", () => {
+    const ownerOf = ownerLookup([...ATLAS.repos, { repo: "e", owner: null }, { repo: "f" }], "site");
+    expect(["a", "b", "e", "f", "g"].map(ownerOf)).toEqual(["mark1russell7", "metrograph-labs", "site", "site", "site"]);
+    // A later row with an owner replaces an earlier row, and a row with no owner keeps it
+    const later = ownerLookup([{ repo: "a", owner: "x" }, { repo: "a", owner: "y" }, { repo: "a", owner: null }], "site");
+    expect(later("a")).toBe("y");
+    expect(sourceUrl(ownerOf("b"), "abc", member("b", "f"))).toBe("https://github.com/metrograph-labs/b/blob/abc/src/f.ts#L3");
+  });
 });
 
 describe("the build", () => {
@@ -117,6 +127,12 @@ describe("the build", () => {
     expect(html).toContain("o&lt;x&gt;");
     expect(html).not.toContain("console.log('</script>')");
     expect(html).toContain("50.0% of the code is a copy");
+  });
+  it("names each owner of the atlas in the page, and the owner of the site for an atlas with no owners", () => {
+    expect(ownersOfAtlas(ATLAS, "o")).toEqual(["mark1russell7", "metrograph-labs"]);
+    const old = { repos: ATLAS.repos.map((r) => ({ ...r, owner: null })) };
+    expect(ownersOfAtlas(old, "o")).toEqual(["o"]);
+    expect(pageHtml("", ATLAS, "o", dataLine(undefined, "2026-10-29"))).toContain("The code that the repositories of mark1russell7 and metrograph-labs write again and again.");
   });
   it("inlines the scroll cue of site-pages before the CSS of the page", () => {
     const html = pageHtml("", ATLAS, "o", dataLine(undefined, "2026-10-29"));
@@ -192,7 +208,7 @@ describe("the query set", () => {
     at: "2026-11-09T06:40:00Z",
     scanner: "facts/1",
     limits: { exactClasses: 25, complexMin: 15, complexLimit: 100 },
-    repos: [{ repo: "a", commit: "c1" }],
+    repos: [{ repo: "a", commit: "c1", owner: "mark1russell7" }],
     duplication: { levels: { exact: level(1, 50), renamed: level(3, 150), shape: level(4, 200) }, topNodes: 1000, ratio: { exact: 0.05, renamed: 0.15, shape: 0.2 } },
     exact: [],
     homes: [],

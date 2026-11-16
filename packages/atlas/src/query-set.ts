@@ -1,8 +1,8 @@
 /**
  * The answers of the query set, as one file for the site. The file has the duplication of each level, the exact
  * copies with their functions, the complex functions and the markers of each repository. It also has the copies
- * outside their homes. Each function has its repository and path, and the file has the commit of each repository, so
- * each finding links to its code.
+ * outside their homes. Each function has its repository and path. The file has the owner and the commit of each
+ * repository, so each finding links to its code.
  */
 import { cloneClasses, complexFunctions, duplication, markerCounts, membersOf, type ComplexFunction, type Duplication, type FunctionPlace, type HashClass, type MarkerCount } from "./queries.ts";
 import type { CatalogQuery } from "./query.ts";
@@ -29,10 +29,12 @@ export interface ExactClass extends HashClass {
   readonly members: readonly FunctionPlace[];
 }
 
-/** The repository and the commit that the scan read. */
+/** The repository, its owner and the commit that the scan read. */
 export interface RepoCommit {
   readonly repo: string;
   readonly commit: string | null;
+  /** The owner of the repository on GitHub, or null when the catalog does not know it. */
+  readonly owner: string | null;
 }
 
 /** The query-set file. */
@@ -53,7 +55,12 @@ export interface QuerySet {
 
 /** This function gives the answers of the query set over the current snapshots. */
 export async function querySet(q: CatalogQuery, at: string, scanner: string, limits: QuerySetLimits = QUERY_SET_LIMITS): Promise<QuerySet> {
-  const repos = await q.selectFrom("current_snapshot").select(["repo", "commit"]).orderBy("repo").execute();
+  const repos: RepoCommit[] = await q
+    .selectFrom("current_snapshot as s")
+    .leftJoin("repo as r", "r.name", "s.repo")
+    .select(["s.repo as repo", "s.commit as commit", "r.owner as owner"])
+    .orderBy("s.repo")
+    .execute();
   const classes = await cloneClasses(q, "exact", { limit: limits.exactClasses });
   const exact: ExactClass[] = [];
   for (const c of classes) exact.push({ ...c, members: await membersOf(q, "exact", c.hash) });

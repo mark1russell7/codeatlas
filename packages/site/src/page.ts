@@ -160,7 +160,17 @@ export function markerTable(set: QuerySet): MarkerTable {
 /** The place of a function of the catalog as a member of the page, for its link. */
 export const placeOf = (f: FunctionPlace): Pick<Member, "repo" | "file" | "line"> => ({ repo: f.repo, file: f.path, line: f.line });
 
-/** The link to a member at the commit that the scan read. */
+/**
+ * This function gives the owner of each repository of `rows` by its name. A repository with no known owner gets
+ * `fallback`, the owner of the site. A later row with an owner replaces an earlier row.
+ */
+export function ownerLookup(rows: readonly { readonly repo: string; readonly owner?: string | null }[], fallback: string): (repo: string) => string {
+  const owners = new Map<string, string>();
+  for (const row of rows) if (typeof row.owner === "string" && row.owner !== "") owners.set(row.repo, row.owner);
+  return (repo) => owners.get(repo) ?? fallback;
+}
+
+/** The link to a member at the commit that the scan read, in the repository of its owner. */
 export function sourceUrl(owner: string, commit: string | null, m: Pick<Member, "repo" | "file" | "line">): string {
   const path = m.file.split("/").map(encodeURIComponent).join("/");
   return `https://github.com/${owner}/${encodeURIComponent(m.repo)}/blob/${commit ?? "HEAD"}/${path}#L${m.line}`;
@@ -275,6 +285,8 @@ export async function start(): Promise<void> {
     return;
   }
   const commits = new Map(atlas.repos.map((r) => [r.repo, r.commit]));
+  // Each repository links to its own owner. The owner of the site is the fallback for an atlas with no owners
+  const ownerOf = ownerLookup(atlas.repos, owner);
   const tip = tooltip();
   let filter: Filter = NO_FILTER;
   let shown = PAGE_SIZE;
@@ -556,8 +568,9 @@ export async function start(): Promise<void> {
       return;
     }
     const commitOf = new Map(set.repos.map((r) => [r.repo, r.commit]));
+    const ownerOfSet = ownerLookup([...atlas.repos, ...set.repos], owner);
     const link = (f: FunctionPlace): HTMLElement =>
-      h("a", { href: sourceUrl(owner, commitOf.get(f.repo) ?? null, placeOf(f)), target: "_blank", rel: "noopener" }, `${f.repo}/${f.path}:${f.line}`);
+      h("a", { href: sourceUrl(ownerOfSet(f.repo), commitOf.get(f.repo) ?? null, placeOf(f)), target: "_blank", rel: "noopener" }, `${f.repo}/${f.path}:${f.line}`);
     levelsBox.replaceChildren(
       levelTable(levelRows(set)),
       h("p", { class: "count" }, `The base is ${int(set.duplication.topNodes)} nodes: the functions outside tests of ${atlas.minNodes} nodes or more. The features of each package need Layer 2 of the catalog. The site shows them when that layer exists.`),
@@ -845,7 +858,7 @@ export async function start(): Promise<void> {
         ...c.topics.map((topic) => h("span", { class: "tag" }, topic)),
       ),
       h("ul", {}, ...c.members.map((m) =>
-        h("li", {}, h("a", { href: sourceUrl(owner, commits.get(m.repo) ?? null, m), target: "_blank", rel: "noopener" }, `${m.repo}/${m.file}:${m.line}`), " ", h("code", {}, m.name), m.test ? h("span", { class: "tag quiet" }, "test") : null),
+        h("li", {}, h("a", { href: sourceUrl(ownerOf(m.repo), commits.get(m.repo) ?? null, m), target: "_blank", rel: "noopener" }, `${m.repo}/${m.file}:${m.line}`), " ", h("code", {}, m.name), m.test ? h("span", { class: "tag quiet" }, "test") : null),
       )),
     );
   }
