@@ -53,6 +53,30 @@ describe("Catalog", () => {
     catalog.close();
   });
 
+  it("reads the rows of the current snapshots from the snapshots first, not from each row of the history", () => {
+    const catalog = new Catalog(":memory:");
+    scan(catalog);
+    const plan = (sql: string): string =>
+      (catalog.db.prepare(`EXPLAIN QUERY PLAN ${sql}`).all() as { detail: string }[]).map((row) => row.detail).join(" | ");
+    const cases: [string, string][] = [
+      ["SELECT count(*) FROM current_file", "file"],
+      ["SELECT count(*) FROM current_file f JOIN symbol s ON s.blob = f.blob WHERE s.hash_exact IS NOT NULL AND f.test = 0 GROUP BY s.hash_exact", "file"],
+      ["SELECT count(*) FROM current_manifest", "manifest"],
+      ["SELECT count(*) FROM current_lockfile", "lockfile"],
+      ["SELECT count(*) FROM current_roadmap_item", "roadmap"],
+      ["SELECT count(*) FROM current_template_pin", "template_pin"],
+      ["SELECT count(*) FROM current_template_file", "template_file"],
+    ];
+    for (const [sql, table] of cases) {
+      const detail = plan(sql);
+      // The last scan of a repository comes from the index, and the rows of a snapshot from the key of their table
+      expect(detail, sql).toMatch(/^SCAN s \|/);
+      expect(detail, sql).toContain("snapshot_repo_scanned");
+      expect(detail, sql).toContain(`sqlite_autoindex_${table}_1 (snapshot=?)`);
+    }
+    catalog.close();
+  });
+
   it("keeps the blobs as the cache of the next run, in a file", () => {
     const folder = mkdtempSync(join(tmpdir(), "atlas-db-"));
     folders.push(folder);
