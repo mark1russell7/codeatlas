@@ -92,7 +92,12 @@ export function cloneUrl(repo: OwnedRepo): string {
  */
 const GITHUB_REMOTE = /^(?:https:\/\/(?:[^@/]+@)?github\.com\/|ssh:\/\/git@github\.com\/|git@github\.com:)([^/]+)\/[^/]+?(?:\.git)?\/*$/;
 
-/** This function gives the owner of the URL of a GitHub remote, or undefined for a URL of another form. */
+/**
+ * This function gives the owner of the URL of a GitHub remote, or undefined for a URL of another form.
+ *
+ * The home of a parser of GitHub URLs is `@procedures/gh`, and the home has no such parser yet. This copy exists so that
+ * the catalog reads each owner before the first move to the organization. The copy ends when the home has the parser.
+ */
 export function ownerOfRemote(url: string): string | undefined {
   const owner = GITHUB_REMOTE.exec(url.trim())?.[1];
   return owner !== undefined && isSafeName(owner) ? owner : undefined;
