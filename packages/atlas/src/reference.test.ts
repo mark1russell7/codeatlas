@@ -104,7 +104,10 @@ describe("moveOf", () => {
   it("gives a pull request, a gap list, a block by the dependency rules or no move", () => {
     const general = { repo: "ste-lint", app: false };
     expect(moveOf(general, "random")).toBe("pr");
-    expect(moveOf(general, "text")).toBe("planned");
+    // The area of a planned home comes from the map, so the test still holds when that home ships.
+    const planned = HOMES.find((home) => home.state === "planned" && !home.repo.endsWith(`/${general.repo}`));
+    expect(planned, "the map of homes has a planned home").toBeDefined();
+    expect(moveOf(general, planned?.area ?? "")).toBe("planned");
     expect(moveOf(general, "system-io")).toBe("blocked by the rule");
     expect(moveOf({ repo: "shop-app", app: true }, "system-io")).toBe("pr");
     expect(moveOf({ repo: "client", app: false }, "system-io")).toBe("none");
