@@ -203,6 +203,131 @@ const old = require("old-pkg"); /* FIXME later */
   });
 });
 
+describe("globals", () => {
+  /** The globals of a text as `name use line count`. */
+  const globals = (text: string, file = "src/g.ts"): string[] => factsOf(file, text).globals.map((g) => `${g.name} ${g.use} ${g.line} ${g.count}`);
+  const names = (text: string, file = "src/g.ts"): string[] => factsOf(file, text).globals.map((g) => `${g.name} ${g.use}`);
+
+  it("gives each name and use, with an alias of a member of globalThis", () => {
+    const text = [
+      "const WS = globalThis.WebSocket || globalThis.MozWebSocket;",
+      'if (typeof EventSource !== "undefined") new WS(url);',
+      "fetch(u);",
+    ].join("\n");
+    expect(globals(text)).toEqual([
+      "EventSource typeof 2 1",
+      "MozWebSocket read 1 1",
+      "WebSocket read 1 1",
+      "fetch call 3 1",
+      "globalThis read 1 2",
+      "u read 3 1",
+      "url read 2 1",
+    ]);
+  });
+
+  it("gives the line of the first use and the count of the uses", () => {
+    expect(globals("x = 1;\nfetch(1);\nfetch(2); new fetch(3);\n")).toEqual(["fetch call 2 2", "fetch new 3 1", "x read 1 1"]);
+  });
+
+  it("gives the use of a callee in brackets, behind `!`, in an optional chain and in a sequence", () => {
+    expect(names("(fetch)(1); WebSocket!(2); EventSource?.(3); (0, Worker)(4); new (Blob as any)(); typeof (Response);")).toEqual([
+      "Blob new",
+      "EventSource call",
+      "Response typeof",
+      "WebSocket call",
+      "Worker call",
+      "fetch call",
+    ]);
+  });
+
+  it("counts a member of an unbound global object as a use of the member name", () => {
+    const text = 'new globalThis.WebSocket(a); window["fetch"](b); typeof self.EventSource; global.process.env; globalThis?.Worker(c); globalThis[key];';
+    expect(names(text)).toEqual([
+      "EventSource typeof",
+      "WebSocket new",
+      "Worker call",
+      "a read",
+      "b read",
+      "c read",
+      "fetch call",
+      "global read",
+      "globalThis read",
+      "key read",
+      "process read",
+      "self read",
+      "window read",
+    ]);
+    // A bound object is not a global object
+    expect(names("function post(self) { self.postMessage(1); } const window = {}; new window.WebSocket();")).toEqual([]);
+  });
+
+  it("does not give a name that a parameter, a pattern or a catch clause binds", () => {
+    const text = `
+function load(fetch: (u: string) => unknown) { return fetch("a"); }
+const open = (WebSocket) => new WebSocket("b");
+function pick({ fetch = globalThis.fetch, rest: [Blob] = [] } = {}, ...more) { return fetch(Blob, more); }
+try { run(); } catch (Error) { Error; }
+for (const URL of list) URL;
+class Box { constructor(private Headers = 1) { Headers; } }
+`;
+    expect(names(text)).toEqual(["fetch read", "globalThis read", "list read", "run call"]);
+  });
+
+  it("binds a var and a function before their declarations, in the scope of the function", () => {
+    const text = `
+first(); later; inner;
+var later = 1;
+function first() { if (a) { var inner = 2; } return inner + hidden; }
+{ var block = 3; }
+block;
+`;
+    expect(names(text)).toEqual(["a read", "hidden read", "inner read"]);
+  });
+
+  it("binds let, const and class only in their block", () => {
+    const text = `
+{ let inner = 1; inner++; const K = 2; class Shape {} }
+inner; K; new Shape();
+for (let i = 0; i < 2; i++) {}
+i;
+switch (s) { case 1: let c = 1; c; }
+c;
+`;
+    expect(globals(text)).toEqual(["K read 3 1", "Shape new 3 1", "c read 7 1", "i read 5 1", "inner read 3 1", "s read 6 1"]);
+  });
+
+  it("does not count the type positions, the keys, the members, the labels and the names that the file binds", () => {
+    const text = `
+import { readFile } from "node:fs";
+import type { Shape } from "./shape.ts";
+interface Box extends Base { ws: WebSocket }
+type T = typeof fetch;
+class C implements Iface<Gen> { x: Foo = 1 as unknown as Bar; m<P extends Q>(a: R): S { return a as Z; } }
+const v: Array<Map<K, V>> = [] satisfies W[];
+function f<P>(this: Window, p: P): asserts p is Q {}
+enum E { A = 1, B = A * 2 }
+namespace N { export const z = 1; }
+const o = { key: 1, nested: { deep: 2 }, method() { return arguments; } };
+o.key.deep; o.method(); readFile; E.B; N.z;
+outer: for (;;) break outer;
+export default function main() {}
+main();
+JSON.stringify(o);
+`;
+    expect(names(text)).toEqual(["JSON read"]);
+  });
+
+  it("gives a name of JSX with a capital letter, and not a tag of HTML", () => {
+    const text = "export const App = () => <div onClick={handler}><Widget.Item /><Comp x={y} /><my-el /></div>;";
+    expect(names(text, "src/app.tsx")).toEqual(["Comp read", "Widget read", "handler read", "y read"]);
+  });
+
+  it("reads JavaScript and a destructuring assignment", () => {
+    const text = "let a; [a, b] = pair; ({ c, d: e = f } = obj);";
+    expect(names(text, "lib/x.js")).toEqual(["b read", "c read", "e read", "f read", "obj read", "pair read"]);
+  });
+});
+
 describe("helpers", () => {
   it("writes the callee as it is written", () => {
     const callee = (code: string) => {
