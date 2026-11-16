@@ -90,7 +90,7 @@ jobs:
       - name: Scan into the catalog
         run: |
           set -euo pipefail
-          node packages/atlas/src/cli.ts catalog --repos-dir "$RUNNER_TEMP/repos" --out "$RUNNER_TEMP/catalog.sqlite" --markdown "$RUNNER_TEMP/catalog.md"
+          node packages/atlas/src/cli.ts catalog --repos-dir "$RUNNER_TEMP/repos" --out "$RUNNER_TEMP/catalog.sqlite" --markdown "$RUNNER_TEMP/catalog.md" 2>&1 | tee "$RUNNER_TEMP/first.log"
           ls -l "$RUNNER_TEMP/catalog.sqlite" | awk '{ printf "Database: %.1f MB\n\n", $5 / 1000000 }' | tee -a "$GITHUB_STEP_SUMMARY"
           # The log has the summary too, so that gh run view --log reads it
           tee -a "$GITHUB_STEP_SUMMARY" < "$RUNNER_TEMP/catalog.md"
@@ -100,7 +100,12 @@ jobs:
           set -euo pipefail
           node packages/atlas/src/cli.ts catalog --repos-dir "$RUNNER_TEMP/repos" --out "$RUNNER_TEMP/catalog.sqlite" --markdown "$RUNNER_TEMP/again.md" 2>&1 | tee "$RUNNER_TEMP/again.log"
           grep -q " 0 parsed," "$RUNNER_TEMP/again.log" || { echo "::error::The second scan parsed blobs again."; exit 1; }
-          grep -qE "stamp --check on [0-9]+ repositories, 0 started," "$RUNNER_TEMP/again.log" || { echo "::error::The second scan started stamp checks again."; exit 1; }
+          # The started checks and the checks with no result of a scan
+          stamp() { sed -nE 's/.*stamp --check on [0-9]+ repositories, ([0-9]+) started, [0-9]+ from the cache, ([0-9]+) with no result.*/\1 \2/p' "$1"; }
+          first=$(stamp "$RUNNER_TEMP/first.log")
+          again=$(stamp "$RUNNER_TEMP/again.log")
+          # Only a repository with no result in the first scan starts its check again. A missing line is no read, not a pass.
+          [ -n "$first" ] && [ -n "$again" ] && [ "${again% *}" = "${first#* }" ] || { echo "::error::The second scan started stamp checks again (started and no result: first ${first:-no line}, again ${again:-no line})."; exit 1; }
       # The pin age and its gate, with the pin freshness, the stamp freshness and the pin lag as readings
       - name: Drift from the template
         run: |
