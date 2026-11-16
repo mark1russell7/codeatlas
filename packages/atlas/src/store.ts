@@ -30,6 +30,9 @@ CREATE TABLE IF NOT EXISTS snapshot (
   scanner TEXT NOT NULL, files INTEGER NOT NULL, parsed INTEGER NOT NULL, reused INTEGER NOT NULL, errors INTEGER NOT NULL,
   committed_at TEXT, indexed_at TEXT
 );
+-- current_snapshot finds the last scan of each repository with this index. Without it, SQLite reads each snapshot
+-- again for each snapshot or each row (21 s for each part of the summary in CI on 2026-11-16).
+CREATE INDEX IF NOT EXISTS snapshot_repo_scanned ON snapshot(repo, scanned_at);
 CREATE TABLE IF NOT EXISTS blob (key TEXT PRIMARY KEY, oid TEXT NOT NULL, syntax TEXT NOT NULL, version TEXT NOT NULL, parse_error TEXT);
 CREATE INDEX IF NOT EXISTS blob_oid ON blob(oid);
 CREATE TABLE IF NOT EXISTS file (
@@ -156,23 +159,34 @@ CREATE TABLE IF NOT EXISTS churn (
 CREATE TABLE IF NOT EXISTS label (
   subject TEXT NOT NULL, task TEXT NOT NULL, "by" TEXT NOT NULL, label TEXT NOT NULL, at TEXT NOT NULL, PRIMARY KEY (subject, task, "by")
 );
--- The newest snapshot of each repository, and its files
+-- The newest snapshot of each repository, and its files.
+-- Each view of the rows of the current snapshots reads the snapshots first (CROSS JOIN fixes the order in SQLite), and
+-- then the rows of each snapshot by the key of its table. In the other order, SQLite reads each row of each snapshot
+-- of the history: on a synthetic history of 3,000 snapshots and 360,000 file rows, a count of current_file took 32 s in
+-- that order and 1 ms in this order. A view holds no data, so each open makes the views again in this form.
+DROP VIEW IF EXISTS current_file;
+DROP VIEW IF EXISTS current_manifest;
+DROP VIEW IF EXISTS current_lockfile;
+DROP VIEW IF EXISTS current_roadmap_item;
+DROP VIEW IF EXISTS current_roadmap;
+DROP VIEW IF EXISTS current_template_pin;
+DROP VIEW IF EXISTS current_template_file;
 CREATE VIEW IF NOT EXISTS current_snapshot AS
   SELECT s.* FROM snapshot s WHERE s.scanned_at = (SELECT max(t.scanned_at) FROM snapshot t WHERE t.repo = s.repo);
-CREATE VIEW IF NOT EXISTS current_file AS
-  SELECT s.repo, f.* FROM file f JOIN current_snapshot s ON s.id = f.snapshot;
-CREATE VIEW IF NOT EXISTS current_manifest AS
-  SELECT s.repo, m.* FROM manifest m JOIN current_snapshot s ON s.id = m.snapshot;
-CREATE VIEW IF NOT EXISTS current_lockfile AS
-  SELECT s.repo, l.* FROM lockfile l JOIN current_snapshot s ON s.id = l.snapshot;
-CREATE VIEW IF NOT EXISTS current_roadmap AS
-  SELECT s.repo, r.* FROM roadmap r JOIN current_snapshot s ON s.id = r.snapshot;
-CREATE VIEW IF NOT EXISTS current_roadmap_item AS
+CREATE VIEW current_file AS
+  SELECT s.repo, f.* FROM current_snapshot s CROSS JOIN file f ON f.snapshot = s.id;
+CREATE VIEW current_manifest AS
+  SELECT s.repo, m.* FROM current_snapshot s CROSS JOIN manifest m ON m.snapshot = s.id;
+CREATE VIEW current_lockfile AS
+  SELECT s.repo, l.* FROM current_snapshot s CROSS JOIN lockfile l ON l.snapshot = s.id;
+CREATE VIEW current_roadmap AS
+  SELECT s.repo, r.* FROM current_snapshot s CROSS JOIN roadmap r ON r.snapshot = s.id;
+CREATE VIEW current_roadmap_item AS
   SELECT r.repo, r.path, i.* FROM current_roadmap r JOIN roadmap_item i ON i.oid = r.oid;
-CREATE VIEW IF NOT EXISTS current_template_pin AS
-  SELECT s.repo, p.* FROM template_pin p JOIN current_snapshot s ON s.id = p.snapshot;
-CREATE VIEW IF NOT EXISTS current_template_file AS
-  SELECT s.repo, t.* FROM template_file t JOIN current_snapshot s ON s.id = t.snapshot;
+CREATE VIEW current_template_pin AS
+  SELECT s.repo, p.* FROM current_snapshot s CROSS JOIN template_pin p ON p.snapshot = s.id;
+CREATE VIEW current_template_file AS
+  SELECT s.repo, t.* FROM current_snapshot s CROSS JOIN template_file t ON t.snapshot = s.id;
 `;
 
 /** The catalog database, with the statements of the scan. */
@@ -299,14 +313,21 @@ export class Catalog {
 
   /**
    * The summary of the current snapshots, from SQL. It has the fields of `factsSummary`, so the two agree.
-   * The time and the parse counts come from the caller.
+   * The time and the parse counts come from the caller. The optional `time` gets the time of each part, so the log of
+   * the catalog job can show which query takes the time.
    */
-  summary(counts: Pick<FactsSummary, "parsed" | "reused" | "errors" | "bytesParsed" | "ms">): FactsSummary {
+  summary(counts: Pick<FactsSummary, "parsed" | "reused" | "errors" | "bytesParsed" | "ms">, time?: (part: string, ms: number) => void): FactsSummary {
+    const timed = <T>(part: string, f: () => T): T => {
+      const start = performance.now();
+      const value = f();
+      time?.(part, performance.now() - start);
+      return value;
+    };
     const one = (sql: string): number => Number((this.db.prepare(sql).get() as { n?: number } | undefined)?.n ?? 0);
     // Each fact counts once for each file that holds its blob, as factsSummary counts it
     const perFile = (table: string): number => one(`SELECT count(*) AS n FROM current_file f JOIN ${table} t ON t.blob = f.blob`);
     const markers: Partial<Record<MarkerKind, number>> = {};
-    for (const row of this.db.prepare("SELECT m.kind AS kind, count(*) AS n FROM current_file f JOIN marker m ON m.blob = f.blob GROUP BY m.kind ORDER BY m.kind").all() as { kind: MarkerKind; n: number }[]) {
+    for (const row of timed("markers", () => this.db.prepare("SELECT m.kind AS kind, count(*) AS n FROM current_file f JOIN marker m ON m.blob = f.blob GROUP BY m.kind ORDER BY m.kind").all()) as { kind: MarkerKind; n: number }[]) {
       markers[row.kind] = Number(row.n);
     }
     const classes = (column: string) => {
@@ -323,17 +344,21 @@ export class Catalog {
     const breaks = (from: string, to: string): number =>
       one(`SELECT count(*) AS n FROM (SELECT ${from} FROM symbol WHERE ${from} IS NOT NULL GROUP BY ${from} HAVING count(DISTINCT ${to}) > 1)`);
     return {
-      repos: one("SELECT count(*) AS n FROM current_snapshot"),
-      files: one("SELECT count(*) AS n FROM current_file"),
+      repos: timed("repos", () => one("SELECT count(*) AS n FROM current_snapshot")),
+      files: timed("files", () => one("SELECT count(*) AS n FROM current_file")),
       ...counts,
-      symbols: perFile("symbol"),
-      functions: one("SELECT count(*) AS n FROM current_file f JOIN symbol s ON s.blob = f.blob WHERE s.hash_shape IS NOT NULL"),
-      callSites: perFile("call_site"),
-      imports: perFile('"import"'),
-      exports: perFile('"export"'),
+      symbols: timed("symbols", () => perFile("symbol")),
+      functions: timed("functions", () => one("SELECT count(*) AS n FROM current_file f JOIN symbol s ON s.blob = f.blob WHERE s.hash_shape IS NOT NULL")),
+      callSites: timed("call sites", () => perFile("call_site")),
+      imports: timed("imports", () => perFile('"import"')),
+      exports: timed("exports", () => perFile('"export"')),
       markers,
-      classes: { exact: classes("hash_exact"), renamed: classes("hash_renamed"), shape: classes("hash_shape") },
-      lawBreaks: breaks("hash_exact", "hash_renamed") + breaks("hash_renamed", "hash_shape"),
+      classes: {
+        exact: timed("classes exact", () => classes("hash_exact")),
+        renamed: timed("classes renamed", () => classes("hash_renamed")),
+        shape: timed("classes shape", () => classes("hash_shape")),
+      },
+      lawBreaks: timed("law breaks", () => breaks("hash_exact", "hash_renamed") + breaks("hash_renamed", "hash_shape")),
     };
   }
 
