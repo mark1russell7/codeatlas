@@ -69,6 +69,12 @@ CREATE INDEX IF NOT EXISTS marker_blob ON marker(blob);
 CREATE TABLE IF NOT EXISTS formula (blob TEXT NOT NULL REFERENCES blob(key), line INTEGER NOT NULL, hash TEXT NOT NULL, skeleton TEXT NOT NULL, arith INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS formula_blob ON formula(blob);
 CREATE INDEX IF NOT EXISTS formula_hash ON formula(hash);
+-- Since facts/5: each name of the global scope that a blob uses, with one row for each use
+CREATE TABLE IF NOT EXISTS global_use (
+  blob TEXT NOT NULL REFERENCES blob(key), name TEXT NOT NULL, use TEXT NOT NULL, line INTEGER NOT NULL, count INTEGER NOT NULL,
+  PRIMARY KEY (blob, name, use)
+);
+CREATE INDEX IF NOT EXISTS global_use_name ON global_use(name);
 -- Layer 1c: the manifests of each snapshot, and the dependencies of each manifest blob
 CREATE TABLE IF NOT EXISTS manifest (
   snapshot TEXT NOT NULL REFERENCES snapshot(id), path TEXT NOT NULL, oid TEXT NOT NULL, name TEXT, version TEXT,
@@ -212,6 +218,7 @@ export class Catalog {
   readonly #call: StatementSync;
   readonly #marker: StatementSync;
   readonly #formula: StatementSync;
+  readonly #global: StatementSync;
 
   /**
    * This constructor opens the file at `path`, or a database in memory for `:memory:`, and makes the tables. A database
@@ -243,6 +250,7 @@ export class Catalog {
     this.#call = this.db.prepare("INSERT INTO call_site (blob, ordinal, caller, callee, is_new, line) VALUES (?, ?, ?, ?, ?, ?)");
     this.#marker = this.db.prepare("INSERT INTO marker (blob, kind, line, text) VALUES (?, ?, ?, ?)");
     this.#formula = this.db.prepare("INSERT INTO formula (blob, line, hash, skeleton, arith) VALUES (?, ?, ?, ?, ?)");
+    this.#global = this.db.prepare("INSERT INTO global_use (blob, name, use, line, count) VALUES (?, ?, ?, ?, ?)");
   }
 
   /** The cache of the scan (`factsOfRepo`): a key is known when the database has its blob. */
@@ -275,6 +283,7 @@ export class Catalog {
     for (const c of facts.callSites) this.#call.run(key, c.ordinal, c.caller, c.callee, bool(c.isNew), c.line);
     for (const m of facts.markers) this.#marker.run(key, m.kind, m.line, m.text);
     for (const f of facts.formulas) this.#formula.run(key, f.line, f.hash, f.skeleton, f.arith);
+    for (const g of facts.globals) this.#global.run(key, g.name, g.use, g.line, g.count);
   }
 
   #snapshotRefs: readonly string[] | undefined;

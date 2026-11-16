@@ -98,7 +98,7 @@ describe("Catalog", () => {
     second.close();
   });
 
-  it("answers the queries of the schema: who imports a package, and where a function has copies", () => {
+  it("answers the queries of the schema: who imports a package, where a function has copies, and who uses a global", () => {
     const catalog = new Catalog(":memory:");
     scan(catalog);
     const importers = catalog.db
@@ -117,6 +117,14 @@ describe("Catalog", () => {
     ]);
     const markers = catalog.db.prepare("SELECT m.kind AS kind FROM current_file f JOIN marker m ON m.blob = f.blob ORDER BY m.kind").all();
     expect(markers).toEqual([{ kind: "non-null" }, { kind: "todo" }]);
+    const users = catalog.db
+      .prepare("SELECT f.repo, f.path, g.use, g.line, g.count FROM current_file f JOIN global_use g ON g.blob = f.blob WHERE g.name = ? AND f.test = 0 ORDER BY f.repo, f.path")
+      .all("Math");
+    expect(users).toEqual([
+      { repo: "a", path: "src/a.ts", use: "read", line: 1, count: 1 },
+      { repo: "b", path: "lib/same.ts", use: "read", line: 1, count: 1 },
+      { repo: "b", path: "src/b.ts", use: "read", line: 1, count: 1 },
+    ]);
     catalog.close();
   });
 
