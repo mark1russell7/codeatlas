@@ -50,7 +50,9 @@ jobs:
     needs: changes
     if: needs.changes.outputs.match == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # The limit from runs: the worst of the runs of 11-15 and 11-16 is 30 min (a stop) and their spread is 11 min, so 45.
+    # It ends when the summary of each scan is fast: the two scan steps take 6 min each, of which the scan is 18 s.
+    timeout-minutes: 45
     permissions:
       contents: read
       # The coverage step reads the CI artifacts of the public repositories

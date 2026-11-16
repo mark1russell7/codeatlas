@@ -299,14 +299,21 @@ export class Catalog {
 
   /**
    * The summary of the current snapshots, from SQL. It has the fields of `factsSummary`, so the two agree.
-   * The time and the parse counts come from the caller.
+   * The time and the parse counts come from the caller. The optional `time` gets the time of each part, so the log of
+   * the catalog job can show which query takes the time.
    */
-  summary(counts: Pick<FactsSummary, "parsed" | "reused" | "errors" | "bytesParsed" | "ms">): FactsSummary {
+  summary(counts: Pick<FactsSummary, "parsed" | "reused" | "errors" | "bytesParsed" | "ms">, time?: (part: string, ms: number) => void): FactsSummary {
+    const timed = <T>(part: string, f: () => T): T => {
+      const start = performance.now();
+      const value = f();
+      time?.(part, performance.now() - start);
+      return value;
+    };
     const one = (sql: string): number => Number((this.db.prepare(sql).get() as { n?: number } | undefined)?.n ?? 0);
     // Each fact counts once for each file that holds its blob, as factsSummary counts it
     const perFile = (table: string): number => one(`SELECT count(*) AS n FROM current_file f JOIN ${table} t ON t.blob = f.blob`);
     const markers: Partial<Record<MarkerKind, number>> = {};
-    for (const row of this.db.prepare("SELECT m.kind AS kind, count(*) AS n FROM current_file f JOIN marker m ON m.blob = f.blob GROUP BY m.kind ORDER BY m.kind").all() as { kind: MarkerKind; n: number }[]) {
+    for (const row of timed("markers", () => this.db.prepare("SELECT m.kind AS kind, count(*) AS n FROM current_file f JOIN marker m ON m.blob = f.blob GROUP BY m.kind ORDER BY m.kind").all()) as { kind: MarkerKind; n: number }[]) {
       markers[row.kind] = Number(row.n);
     }
     const classes = (column: string) => {
@@ -323,17 +330,21 @@ export class Catalog {
     const breaks = (from: string, to: string): number =>
       one(`SELECT count(*) AS n FROM (SELECT ${from} FROM symbol WHERE ${from} IS NOT NULL GROUP BY ${from} HAVING count(DISTINCT ${to}) > 1)`);
     return {
-      repos: one("SELECT count(*) AS n FROM current_snapshot"),
-      files: one("SELECT count(*) AS n FROM current_file"),
+      repos: timed("repos", () => one("SELECT count(*) AS n FROM current_snapshot")),
+      files: timed("files", () => one("SELECT count(*) AS n FROM current_file")),
       ...counts,
-      symbols: perFile("symbol"),
-      functions: one("SELECT count(*) AS n FROM current_file f JOIN symbol s ON s.blob = f.blob WHERE s.hash_shape IS NOT NULL"),
-      callSites: perFile("call_site"),
-      imports: perFile('"import"'),
-      exports: perFile('"export"'),
+      symbols: timed("symbols", () => perFile("symbol")),
+      functions: timed("functions", () => one("SELECT count(*) AS n FROM current_file f JOIN symbol s ON s.blob = f.blob WHERE s.hash_shape IS NOT NULL")),
+      callSites: timed("call sites", () => perFile("call_site")),
+      imports: timed("imports", () => perFile('"import"')),
+      exports: timed("exports", () => perFile('"export"')),
       markers,
-      classes: { exact: classes("hash_exact"), renamed: classes("hash_renamed"), shape: classes("hash_shape") },
-      lawBreaks: breaks("hash_exact", "hash_renamed") + breaks("hash_renamed", "hash_shape"),
+      classes: {
+        exact: timed("classes exact", () => classes("hash_exact")),
+        renamed: timed("classes renamed", () => classes("hash_renamed")),
+        shape: timed("classes shape", () => classes("hash_shape")),
+      },
+      lawBreaks: timed("law breaks", () => breaks("hash_exact", "hash_renamed") + breaks("hash_renamed", "hash_shape")),
     };
   }
 

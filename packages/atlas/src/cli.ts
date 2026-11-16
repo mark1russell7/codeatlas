@@ -326,11 +326,20 @@ function catalog(argv: readonly string[]): number {
     stampChecks(db, templateRoot, pinning);
   }
   const ms = performance.now() - started;
-  const summary = db.summary({ ...totals, ms });
-  const unread = db.unread();
+  // The time of each part after the scan. The scan of a full cache takes about 18 s, but the step took 6 min (run 43824483658)
+  const parts: string[] = [];
+  const timed = <T>(part: string, f: () => T): T => {
+    const start = performance.now();
+    const value = f();
+    parts.push(`${part} ${Math.round(performance.now() - start)} ms`);
+    return value;
+  };
+  const summary = timed("summary", () => db.summary({ ...totals, ms }, (part, t) => parts.push(`summary ${part} ${Math.round(t)} ms`)));
+  const unread = timed("unread", () => db.unread());
   // CI keeps only the file, so the log must be empty
-  if (checkpoint(db.db, "TRUNCATE").busy) console.error("catalog: a different connection had the file, so the file can lack the last commits");
-  db.close();
+  if (timed("checkpoint", () => checkpoint(db.db, "TRUNCATE").busy)) console.error("catalog: a different connection had the file, so the file can lack the last commits");
+  timed("close", () => db.close());
+  console.error(`catalog: after the scan: ${parts.join(", ")}`);
   if (args.markdown !== undefined) writeFileSync(args.markdown, factsMarkdown(summary));
   console.error(`catalog: ${summary.repos} repositories, ${summary.files} files, ${summary.parsed} parsed, ${summary.reused} from the cache (${known} blobs known), ${summary.errors} errors, ${Math.round(ms)} ms`);
   return report(gateVerdict(summary, unread));

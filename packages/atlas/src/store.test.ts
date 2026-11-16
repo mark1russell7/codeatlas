@@ -168,6 +168,23 @@ describe("Catalog", () => {
   });
 });
 
+describe("the time of each part of the summary", () => {
+  it("gives each part once, with a time of 0 or more, and the same summary as with no callback", () => {
+    const catalog = new Catalog(":memory:");
+    scan(catalog);
+    const counts = { parsed: 0, reused: 0, errors: 0, bytesParsed: 0, ms: 1 };
+    const parts: [string, number][] = [];
+    const timed = catalog.summary(counts, (part, ms) => parts.push([part, ms]));
+    const plain = catalog.summary(counts);
+    catalog.close();
+    expect(timed).toEqual(plain);
+    expect(parts.map(([part]) => part).sort()).toEqual(
+      ["call sites", "classes exact", "classes renamed", "classes shape", "exports", "files", "functions", "imports", "law breaks", "markers", "repos", "symbols"].sort(),
+    );
+    expect(parts.every(([, ms]) => Number.isFinite(ms) && ms >= 0)).toBe(true);
+  });
+});
+
 describe("gateVerdict", () => {
   const catalog = new Catalog(":memory:");
   scan(catalog);
