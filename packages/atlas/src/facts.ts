@@ -10,7 +10,7 @@ import { isNode, type AstNode } from "./shape.ts";
 import { tokenLines, tokensInLines } from "./tokens.ts";
 
 /** The version of the facts. A new version makes the catalog read each blob again. */
-export const FACTS_VERSION: string = "facts/4";
+export const FACTS_VERSION: string = "facts/5";
 
 export type SymbolKind = "function" | "method" | "class" | "variable" | "type" | "interface" | "enum" | "namespace";
 
@@ -90,6 +90,19 @@ export interface CallSiteFact {
   readonly line: number;
 }
 
+/** The use of a name of the global scope: the callee of `new`, the callee of a call, the operand of `typeof`, or another use. */
+export type GlobalUse = "new" | "call" | "typeof" | "read";
+
+/** One name of the global scope that a file uses, with one use of it. */
+export interface GlobalFact {
+  readonly name: string;
+  readonly use: GlobalUse;
+  /** The line of the first use of the name with this use. */
+  readonly line: number;
+  /** The count of the uses of the name with this use in the file. */
+  readonly count: number;
+}
+
 export type MarkerKind = "todo" | "fixme" | "hack" | "xxx" | "ts-ignore" | "ts-expect-error" | "eslint-disable" | "any" | "as-unknown-as" | "non-null";
 
 export interface MarkerFact {
@@ -109,6 +122,8 @@ export interface FileFacts {
   readonly markers: readonly MarkerFact[];
   /** The expressions inside functions with 2 or more arithmetic operators (`formulas.ts`). */
   readonly formulas: readonly FormulaFact[];
+  /** The names of the global scope that the file uses, one for each name and use, sorted by name and then use (`globalsOf`). */
+  readonly globals: readonly GlobalFact[];
 }
 
 const FUNCTIONS: ReadonlySet<string> = new Set([
@@ -465,6 +480,7 @@ export function factsOf(file: string, text: string): FileFacts {
     callSites,
     markers: markers.sort((a, b) => byLine(a, b) || compare(a.kind, b.kind)),
     formulas: formulas.sort((a, b) => byLine(a, b) || compare(a.hash, b.hash)),
+    globals: globalsOf(module.body, at),
   };
 }
 
@@ -478,6 +494,309 @@ function memberText(node: unknown): string | undefined {
   if (!isNode(node)) return undefined;
   if (node.type === "MemberExpression") return identName(node["property"]);
   return identName(node);
+}
+
+/** The global objects. A member of one of them, as `globalThis.WebSocket`, is also a use of the member name. */
+const GLOBAL_OBJECTS: ReadonlySet<string> = new Set(["globalThis", "window", "self", "global"]);
+/** The fields of the type positions of TypeScript. The walk of the globals does not go into them. */
+const TYPE_FIELDS: ReadonlySet<string> = new Set(["typeAnnotation", "typeParameters", "typeParams", "typeArguments", "superTypeParams", "returnType", "implements"]);
+/** The nodes with no use of a name in them: types, labels, private names, the export lists and the text of JSX. */
+const NO_USES: ReadonlySet<string> = new Set([
+  "TsInterfaceDeclaration",
+  "TsTypeAliasDeclaration",
+  "TsTypeAnnotation",
+  "TsTypeParameterDeclaration",
+  "TsTypeParameterInstantiation",
+  "TsExpressionWithTypeArguments",
+  "TsIndexSignature",
+  "TsNamespaceExportDeclaration",
+  "ExportNamedDeclaration",
+  "ExportAllDeclaration",
+  "BreakStatement",
+  "ContinueStatement",
+  "PrivateName",
+  "JSXClosingElement",
+  "JSXText",
+  "JSXNamespacedName",
+]);
+/** The wrappers that keep the use of their expression: `(fetch)(u)` and `fetch!(u)` give the use `call` of `fetch`. */
+const WRAPPERS: ReadonlySet<string> = new Set(["ParenthesisExpression", "TsNonNullExpression", "TsAsExpression", "TsSatisfiesExpression", "TsTypeAssertion", "TsConstAssertion", "TsInstantiation"]);
+
+/** One scope of a file. A scope that hoists (a module, a function, a namespace or a static block) holds the `var` and function declarations. */
+interface Scope {
+  readonly parent: Scope | null;
+  readonly hoists: boolean;
+  readonly names: Set<string>;
+}
+
+/** One use of a name, before the walk knows all bindings. `via` is the global object of a member, as `globalThis`. */
+interface NameUse {
+  readonly name: string;
+  readonly use: GlobalUse;
+  readonly line: number;
+  readonly scope: Scope;
+  readonly via: string | undefined;
+}
+
+/**
+ * This function gives the names of the global scope that the items of a module use. The walk keeps the bindings of each
+ * scope and each use of a name. After the walk, a use is global when no scope that holds it binds the name. Thus a
+ * `var` or a function that the code uses before its declaration is bound.
+ */
+function globalsOf(body: unknown, at: (node: AstNode) => number): GlobalFact[] {
+  const uses: NameUse[] = [];
+  const scopeOf = (parent: Scope | null, hoists: boolean, names: readonly string[] = []): Scope => ({ parent, hoists, names: new Set(names) });
+  const hoisted = (scope: Scope): Scope => {
+    let current = scope;
+    while (!current.hoists && current.parent !== null) current = current.parent;
+    return current;
+  };
+  const refer = (name: string, use: GlobalUse, node: AstNode, scope: Scope, via?: string): void => {
+    uses.push({ name, use, line: at(node), scope, via });
+  };
+  const nameOf = (node: unknown): string | undefined => (isNode(node) && node.type === "Identifier" ? String(node["value"]) : undefined);
+  const nodes = (value: unknown): readonly AstNode[] => (Array.isArray(value) ? value.filter(isNode) : []);
+  const bind = (scope: Scope, name: string | undefined): void => {
+    if (name !== undefined) scope.names.add(name);
+  };
+  const key = (node: unknown, scope: Scope): void => {
+    if (isNode(node) && node.type === "Computed") walk(node["expression"], scope);
+  };
+  /** The name of a member: a name, or a string in brackets. */
+  const memberName = (property: unknown): string | undefined => {
+    if (!isNode(property)) return undefined;
+    if (property.type === "Identifier") return String(property["value"]);
+    const expression = property.type === "Computed" ? property["expression"] : undefined;
+    return isNode(expression) && expression.type === "StringLiteral" ? String(expression["value"]) : undefined;
+  };
+
+  /** A pattern binds its names in `into`. With no `into`, the pattern is the target of an assignment, and each name in it is a use. */
+  const pattern = (node: unknown, scope: Scope, into: Scope | null): void => {
+    if (!isNode(node)) return;
+    switch (node.type) {
+      case "Identifier":
+        if (into === null) refer(String(node["value"]), "read", node, scope);
+        else into.names.add(String(node["value"]));
+        return;
+      case "ArrayPattern":
+        for (const element of (node["elements"] as readonly unknown[] | undefined) ?? []) pattern(element, scope, into);
+        return;
+      case "ObjectPattern":
+        for (const property of nodes(node["properties"])) {
+          if (property.type === "KeyValuePatternProperty") {
+            key(property["key"], scope);
+            pattern(property["value"], scope, into);
+          } else if (property.type === "AssignmentPatternProperty") {
+            pattern(property["key"], scope, into);
+            walk(property["value"], scope);
+          } else pattern(property, scope, into);
+        }
+        return;
+      case "RestElement":
+        pattern(node["argument"], scope, into);
+        return;
+      case "AssignmentPattern":
+        pattern(node["left"], scope, into);
+        walk(node["right"], scope);
+        return;
+      case "Parameter":
+      case "TsParameterProperty":
+        walk(node["decorators"], scope);
+        pattern(node["pat"] ?? node["param"], scope, into);
+        return;
+      default:
+        // A member or another expression as the target of an assignment
+        walk(node, scope);
+    }
+  };
+
+  /** A function: its parameters and its body in a new scope. A function that is not an arrow also binds `arguments`. */
+  const fn = (node: AstNode, scope: Scope, name: string | undefined): void => {
+    const inner = scopeOf(scope, true, name === undefined ? [] : [name]);
+    if (node.type !== "ArrowFunctionExpression") inner.names.add("arguments");
+    walk(node["decorators"], scope);
+    for (const param of (node["params"] as readonly unknown[] | undefined) ?? []) pattern(param, inner, inner);
+    walk(node["body"], inner);
+  };
+
+  /** A class: its decorators and its base class in `scope`, and its members in a new scope that binds `name`. */
+  const klass = (node: AstNode, scope: Scope, name: string | undefined): void => {
+    walk(node["decorators"], scope);
+    walk(node["superClass"], scope);
+    const inner = scopeOf(scope, false, name === undefined ? [] : [name]);
+    for (const member of nodes(node["body"])) {
+      key(member["key"], inner);
+      walk(member["decorators"], inner);
+      if (member.type === "ClassMethod" || member.type === "PrivateMethod") fn(member["function"] as AstNode, inner, undefined);
+      else if (member.type === "Constructor") fn(member, inner, undefined);
+      else if (member.type === "StaticBlock") walk(member["body"], scopeOf(inner, true));
+      else walk(member["value"], inner);
+    }
+  };
+
+  /** A member: its object is a use. A member of a global object is also a use of the member name, if the file does not bind the object. */
+  const member = (node: AstNode, scope: Scope, use: GlobalUse): void => {
+    const via = nameOf(node["object"]);
+    const name = memberName(node["property"]);
+    if (via !== undefined && GLOBAL_OBJECTS.has(via) && name !== undefined) refer(name, use, node["property"] as AstNode, scope, via);
+    walk(node["object"], scope);
+    key(node["property"], scope);
+  };
+
+  /** The name of a JSX element. A name with a capital letter and the object of a member are uses. A name in lowercase is a tag of HTML. */
+  const jsxName = (node: unknown, scope: Scope): void => {
+    let root = node;
+    while (isNode(root) && root.type === "JSXMemberExpression") root = root["object"];
+    const name = nameOf(root);
+    if (name !== undefined && name !== "this" && (root !== node || !/^[a-z]|-/.test(name))) refer(name, "read", root as AstNode, scope);
+  };
+
+  const walk = (node: unknown, scope: Scope, use: GlobalUse = "read"): void => {
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item, scope);
+      return;
+    }
+    if (!isNode(node)) {
+      if (typeof node === "object" && node !== null) for (const value of Object.values(node)) walk(value, scope);
+      return;
+    }
+    if (NO_USES.has(node.type)) return;
+    if (WRAPPERS.has(node.type)) return walk(node["expression"], scope, use);
+    switch (node.type) {
+      case "Identifier":
+        return refer(String(node["value"]), use, node, scope);
+      case "MemberExpression":
+        return member(node, scope, use);
+      case "SuperPropExpression":
+        return key(node["property"], scope);
+      case "OptionalChainingExpression":
+        return walk(node["base"], scope, use);
+      case "SequenceExpression": {
+        // The callee `(0, fetch)` of compiled code is a call of `fetch`
+        const expressions = (node["expressions"] as readonly unknown[] | undefined) ?? [];
+        expressions.forEach((expression, i) => walk(expression, scope, i === expressions.length - 1 ? use : "read"));
+        return;
+      }
+      case "CallExpression":
+      case "NewExpression":
+        walk(node["callee"], scope, node.type === "NewExpression" ? "new" : "call");
+        return walk(node["arguments"], scope);
+      case "UnaryExpression":
+        return walk(node["argument"], scope, node["operator"] === "typeof" ? "typeof" : "read");
+      case "AssignmentExpression":
+        pattern(node["left"], scope, null);
+        return walk(node["right"], scope);
+      case "VariableDeclaration":
+      case "UsingDeclaration": {
+        const into = node["kind"] === "var" ? hoisted(scope) : scope;
+        for (const declarator of nodes(node["declarations"] ?? node["decls"])) {
+          pattern(declarator["id"], scope, into);
+          walk(declarator["init"], scope);
+        }
+        return;
+      }
+      case "FunctionDeclaration":
+        bind(hoisted(scope), nameOf(node["identifier"]));
+        return fn(node, scope, undefined);
+      case "FunctionExpression":
+        return fn(node, scope, nameOf(node["identifier"]));
+      case "ArrowFunctionExpression":
+        return fn(node, scope, undefined);
+      case "MethodProperty":
+        key(node["key"], scope);
+        return fn(node, scope, undefined);
+      case "GetterProperty":
+      case "SetterProperty":
+        key(node["key"], scope);
+        return fn((node["function"] as AstNode | undefined) ?? node, scope, undefined);
+      case "KeyValueProperty":
+        key(node["key"], scope);
+        return walk(node["value"], scope);
+      case "ClassDeclaration":
+        bind(scope, nameOf(node["identifier"]));
+        return klass(node, scope, nameOf(node["identifier"]));
+      case "ClassExpression":
+        return klass(node, scope, nameOf(node["identifier"]));
+      case "BlockStatement":
+      case "FunctionBody":
+        return walk(node["stmts"], scopeOf(scope, false));
+      case "ForStatement":
+      case "ForInStatement":
+      case "ForOfStatement": {
+        const inner = scopeOf(scope, false);
+        const left = node["left"];
+        if (isNode(left) && left.type !== "VariableDeclaration" && left.type !== "UsingDeclaration") pattern(left, inner, null);
+        else walk(left, inner);
+        for (const field of ["init", "test", "update", "right", "body"]) walk(node[field], inner);
+        return;
+      }
+      case "CatchClause": {
+        const inner = scopeOf(scope, false);
+        pattern(node["param"], inner, inner);
+        return walk(node["body"], inner);
+      }
+      case "SwitchStatement":
+        walk(node["discriminant"], scope);
+        return walk(node["cases"], scopeOf(scope, false));
+      case "LabeledStatement":
+        return walk(node["body"], scope);
+      case "ImportDeclaration":
+        for (const specifier of nodes(node["specifiers"])) bind(scope, nameOf(specifier["local"]));
+        return;
+      case "ExportDefaultDeclaration": {
+        // `export default function main() {}` binds `main` in the module
+        const decl = node["decl"];
+        bind(scope, isNode(decl) ? nameOf(decl["identifier"]) : undefined);
+        return walk(decl, scope);
+      }
+      case "TsEnumDeclaration": {
+        bind(scope, nameOf(node["id"]));
+        const members = nodes(node["members"]);
+        const inner = scopeOf(scope, false, members.map((m) => identName(m["id"]) ?? ""));
+        for (const m of members) walk(m["init"], inner);
+        return;
+      }
+      case "TsModuleDeclaration":
+      case "TsNamespaceDeclaration":
+        // `declare global` has the name `global`, but it binds nothing
+        if (node["global"] !== true) bind(scope, nameOf(node["id"]));
+        return walk(node["body"], scopeOf(scope, true));
+      case "TsImportEqualsDeclaration": {
+        bind(scope, nameOf(node["id"]));
+        let ref = node["moduleRef"];
+        while (isNode(ref) && ref.type === "TsQualifiedName") ref = ref["left"];
+        if (isNode(ref) && ref.type === "Identifier") refer(String(ref["value"]), "read", ref, scope);
+        return;
+      }
+      case "JSXOpeningElement":
+        jsxName(node["name"], scope);
+        return walk(node["attributes"], scope);
+      case "JSXAttribute":
+        return walk(node["value"], scope);
+    }
+    for (const [field, value] of Object.entries(node)) {
+      if (field !== "span" && field !== "ctxt" && !TYPE_FIELDS.has(field) && typeof value === "object" && value !== null) walk(value, scope);
+    }
+  };
+
+  walk(body, scopeOf(null, true));
+
+  const bound = (name: string, scope: Scope): boolean => {
+    for (let current: Scope | null = scope; current !== null; current = current.parent) if (current.names.has(name)) return true;
+    return false;
+  };
+  const entries = new Map<string, { name: string; use: GlobalUse; line: number; count: number }>();
+  for (const use of uses) {
+    if (bound(use.via ?? use.name, use.scope)) continue;
+    const id = `${use.name}\u0000${use.use}`;
+    const entry = entries.get(id);
+    if (entry === undefined) entries.set(id, { name: use.name, use: use.use, line: use.line, count: 1 });
+    else {
+      entry.count++;
+      entry.line = Math.min(entry.line, use.line);
+    }
+  }
+  return [...entries.values()].sort((a, b) => compare(a.name, b.name) || compare(a.use, b.use));
 }
 
 /**

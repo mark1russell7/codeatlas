@@ -19,7 +19,7 @@ This document gives the layers, the keys, the relations, the measures and their 
 
 | Layer | What it does | Cost | Key of its facts | When it starts again |
 | --- | --- | --- | --- | --- |
-| 1a, syntax | The TypeScript parser reads one file and writes its declarations, imports, exports, call sites, shapes, measures and markers. | CPU only. No install of dependencies. | `(blob, scanner version)` | For a new blob, or a new scanner version. |
+| 1a, syntax | The TypeScript parser reads one file and writes its declarations, imports, exports, call sites, global names, shapes, measures and markers. | CPU only. No install of dependencies. | `(blob, scanner version)` | For a new blob, or a new scanner version. |
 | 1b, program | The TypeScript type checker reads a package with its installed dependencies. It finds the target of each import and each method use, and it writes signatures with their types. | CPU and an install for each repository. | `(snapshot, scanner version)` | For a new commit of the repository. |
 | 1c, outside sources | CI artifacts, lockfiles, roadmaps, the git history and the template give coverage, dependency versions, plans, churn, template drift and conventions breaks. | Small. | `(snapshot, source)` | For a new commit or a new CI run. |
 | 2, judgment | An agent gives the purpose of a function, the features of a package, the home of a helper and findings that need judgment. | Model tokens. | `(subject, task, prompt version, model)` | For a new subject content or a new prompt version. |
@@ -153,6 +153,27 @@ A declaration of a file: a function, a method, a class, a variable, a type, an i
 | `caller` | text | The symbol that holds the call. |
 | `callee` | text | The callee as written, for example `fs.readFileSync` or `mean`. |
 | `line` | integer | |
+
+### `global_use`
+
+Each name of the global scope that the code of a blob uses, with one row for each name and use. Since `facts/5`.
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+| `blob`, `name`, `use` | key | |
+| `name` | text | The name, for example `fetch`, `WebSocket` or `process`. |
+| `use` | text | `new` for the callee of `new`, `call` for the callee of a call, `typeof` for the operand of `typeof`, `read` for each other use. |
+| `line` | integer | The line of the first use. |
+| `count` | integer | The count of the uses in the blob. |
+
+- A name is global when no scope of the file binds it. The imports, the declarations, the parameters and the catch parameters bind names, also in their patterns.
+- A `var` and a function declaration bind their name in the function that holds them, also before the declaration. A `let`, a `const` and a class bind it only in their block.
+- A label, a key of an object, the name of a member and a type position of TypeScript are not uses. A name of JSX in lowercase is a tag of HTML, not a use.
+- A member of `globalThis`, `window`, `self` or `global` is also a use of the member name, when the file does not bind the object.
+- Thus `const WS = globalThis.WebSocket; new WS(url)` gives a `read` of `globalThis` and a `read` of `WebSocket`. The callee `WS` is bound.
+- A write is a `read`. The object of a member is a `read`, so `JSON.parse(text)` gives a `read` of `JSON`.
+- The scan keeps no list of the names of a topic. A query of the catalog selects the names of its topic, as the transport classes of a browser.
+- The table does not change `CATALOG_SCHEMA`. A database of `codeatlas/2` gets it when it opens, and the new facts version fills it for each blob.
 
 ### `type_shape`
 
