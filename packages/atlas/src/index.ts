@@ -124,6 +124,8 @@ export {
   pinFreshness,
   pinLag,
   PIN_AGE_LIMIT,
+  STAMP_CHECK_FORMAT,
+  stampChecksOf,
   stampFreshness,
   stampCheckOfRepo,
   pinsOf,
@@ -132,7 +134,7 @@ export {
   templateVersionsOfRepo,
   workflowForm,
 } from "./templates.ts";
-export type { DriftState, PinAgeOptions, PinAges, PinDrift, PinFreshness, PinLag, PinLags, RepoPinAge, StaleRepo, StampCheck, StampFileCheck, StampFreshness, TemplateChange, TemplateVersion, TemplateVersions, RepoDrift, TemplateDrift, TemplateFileRecord, TemplatePin, TemplateRecords } from "./templates.ts";
+export type { DriftState, PinAgeOptions, PinAges, PinDrift, PinFreshness, PinLag, PinLags, RepoPinAge, StaleRepo, StampCheck, StampCheckCounts, StampFileCheck, StampFreshness, TemplateChange, TemplateVersion, TemplateVersions, RepoDrift, TemplateDrift, TemplateFileRecord, TemplatePin, TemplateRecords } from "./templates.ts";
 export { CONVENTIONS_VERSION, INSTALL_RULES, conventionsBreaks, conventionsCheckOfRepo, conventionsMarkdown } from "./conventions.ts";
 export type { ConventionsBreak, ConventionsBreaks, ConventionsCheck, ConventionsRule, RuleBreaks, RuleStatus } from "./conventions.ts";
 export { repoOfRemote, rescanRepo, scanRepoInto } from "./rescan.ts";

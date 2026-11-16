@@ -47,8 +47,10 @@ import {
   pinAge,
   pinLag,
   STAMP_MAIN,
-  stampCheckOfRepo,
+  STAMP_CHECK_FORMAT,
+  stampChecksOf,
   stampFreshness,
+  type StampCheck,
   TEMPLATE_CLONE,
   TEMPLATE_REPO,
   templateDrift,
@@ -260,10 +262,16 @@ function facts(argv: readonly string[]): number {
 }
 
 /**
- * This function starts `stamp --check` of the template on each repository that pins it, and keeps each result. A
- * repository with no result does not count in the stamp freshness.
+ * This function keeps the result of `stamp --check` of the template for each repository that pins it. A result of an
+ * earlier scan of the same commits comes from `prior`, and the check does not start again. A repository with no
+ * result does not count in the stamp freshness.
  */
-function stampChecks(db: Catalog, templateRoot: string, repos: readonly { readonly path: string; readonly snapshot: string }[]): void {
+function stampChecks(
+  db: Catalog,
+  templateRoot: string,
+  repos: readonly { readonly path: string; readonly snapshot: string }[],
+  prior: ReadonlyMap<string, StampCheck>,
+): void {
   if (!existsSync(join(templateRoot, STAMP_MAIN))) {
     console.error(`catalog: the template has no ${STAMP_MAIN}, so the stamp freshness is not known`);
     return;
@@ -273,14 +281,10 @@ function stampChecks(db: Catalog, templateRoot: string, repos: readonly { readon
     console.error("catalog: the template checkout has no commit, so the stamp freshness is not known");
     return;
   }
-  const errors: string[] = [];
-  for (const repo of repos) {
-    const check = stampCheckOfRepo(templateRoot, repo.path, sha);
-    if ("error" in check) errors.push(check.error);
-    else db.putStampCheck(repo.snapshot, check);
-  }
+  const { started, reused, errors } = stampChecksOf(templateRoot, sha, repos, prior, (snapshot, check) => db.putStampCheck(snapshot, check));
   const first = errors[0] === undefined ? "" : ` (first: ${errors[0]})`;
-  console.error(`catalog: stamp --check on ${repos.length} repositories, ${errors.length} with no result${first}`);
+  // CI reads "0 started" in the log of the second scan
+  console.error(`catalog: stamp --check on ${repos.length} repositories, ${started} started, ${reused} from the cache, ${errors.length} with no result${first}`);
 }
 
 function catalog(argv: readonly string[]): number {
@@ -292,6 +296,8 @@ function catalog(argv: readonly string[]): number {
   // A database of the last run with another schema starts again from empty
   const db = new Catalog(args.out, { rebuild: true });
   const known = Number((db.db.prepare("SELECT count(*) AS n FROM blob").get() as { n: number }).n);
+  // Before the scan: the scan of a repository writes its snapshot again, and that deletes its result of the stamp
+  const stampPrior = db.stampChecks(STAMP_CHECK_FORMAT);
   const scannedAt = new Date().toISOString();
   const started = performance.now();
   const totals = { parsed: 0, reused: 0, errors: 0, bytesParsed: 0 };
@@ -323,7 +329,7 @@ function catalog(argv: readonly string[]): number {
   if (templateRoot !== undefined && templateSnapshot !== undefined) {
     const refs = (db.db.prepare("SELECT DISTINCT ref FROM current_template_pin").all() as { ref: string }[]).map((row) => row.ref);
     db.putTemplateVersions(templateSnapshot, templateVersionsOfRepo(templateRoot, refs, keep));
-    stampChecks(db, templateRoot, pinning);
+    stampChecks(db, templateRoot, pinning, stampPrior);
   }
   const ms = performance.now() - started;
   const summary = db.summary({ ...totals, ms });

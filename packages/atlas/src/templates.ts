@@ -700,6 +700,52 @@ export function stampCheckOfRepo(templateRoot: string, repoRoot: string, sha: st
   }
 }
 
+/** The format of the results of `stamp --check` in the catalog. Raise it when `stampCheckOfRepo` reads the output in a new way. */
+export const STAMP_CHECK_FORMAT = "1";
+
+/** The counts of one round of `stamp --check`. */
+export interface StampCheckCounts {
+  /** The checks that started. */
+  readonly started: number;
+  /** The results of an earlier scan of the same snapshot at the same template commit. */
+  readonly reused: number;
+  /** The error of each check with no result. */
+  readonly errors: readonly string[];
+}
+
+/**
+ * This function gives the result of `stamp --check` at the template commit `sha` for each repository of `repos` to
+ * `put`. The check reads only the files of the repository and of the template, with no network and no clock. Thus
+ * a result of an earlier scan of the same snapshot (a repository at one commit) and template commit is used again. No
+ * check starts for it. `run` starts one check, and a test gives a fake.
+ */
+export function stampChecksOf(
+  templateRoot: string,
+  sha: string,
+  repos: readonly { readonly path: string; readonly snapshot: string }[],
+  prior: ReadonlyMap<string, StampCheck>,
+  put: (snapshot: string, check: StampCheck) => void,
+  run: (templateRoot: string, repoRoot: string, sha: string) => StampCheck | { readonly error: string } = stampCheckOfRepo,
+): StampCheckCounts {
+  let started = 0;
+  let reused = 0;
+  const errors: string[] = [];
+  for (const repo of repos) {
+    const kept = prior.get(repo.snapshot);
+    // A snapshot with no commit has no fixed files, so its result is not used again
+    if (kept !== undefined && kept.template === sha && !repo.snapshot.endsWith("@worktree")) {
+      put(repo.snapshot, kept);
+      reused += 1;
+      continue;
+    }
+    started += 1;
+    const check = run(templateRoot, repo.path, sha);
+    if ("error" in check) errors.push(check.error);
+    else put(repo.snapshot, check);
+  }
+  return { started, reused, errors };
+}
+
 /** The stamp freshness: the share of the repositories where `stamp --check` at the commit of the template changes no file. */
 export interface StampFreshness {
   /** The commit of the template of the checks, or `null` when no repository has a check. */

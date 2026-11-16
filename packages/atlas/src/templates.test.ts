@@ -14,9 +14,12 @@ import {
   pinAge,
   pinLag,
   pinsOf,
+  STAMP_CHECK_FORMAT,
   stampCheckOfRepo,
+  stampChecksOf,
   stampFreshness,
   templateDrift,
+  type StampCheck,
   templateRecordsOfRepo,
   templateVersionsOfRepo,
   workflowForm,
@@ -375,6 +378,50 @@ describe("stampCheckOfRepo and stampFreshness", () => {
     expect(markdown).toContain("- Stamp freshness: **1 of 2** repositories (50%). For each current repository, `stamp --check` at `aaaaaaa` of the template changes no file.");
     expect(markdown).toContain("- Not checked: `broken`.");
     expect(markdown).toContain("| edited | `CI.md` (differs), `package.json` (differs: `scripts.typecheck`) |");
+    catalog.close();
+  });
+
+  it("uses the result of an earlier scan of the same commits again, and starts the check for each other repository", () => {
+    const catalog = new Catalog(":memory:");
+    const started: string[] = [];
+    // A fake check with the results of the real one above, so the test counts the starts with no process
+    const run = (_template: string, root: string, sha: string): StampCheck | { readonly error: string } => {
+      started.push(root);
+      if (root === roots.broken) return { error: "Error [ERR_MODULE_NOT_FOUND]: Cannot find package" };
+      return { template: sha, files: root === roots.edited ? EDITED : [] };
+    };
+    // One scan as the command catalog does it: the kept results first, then the snapshots, then the checks
+    const scan = (commit: string | null, sha: string, format = STAMP_CHECK_FORMAT) => {
+      started.length = 0;
+      const prior = catalog.stampChecks(format);
+      const repos = Object.entries(roots).map(([name, path]) => {
+        const result = factsOfRepo(name, path, catalog);
+        return { path, snapshot: catalog.putSnapshot(name, commit, "2026-11-08T00:00:00Z", "test", result.files, result.counts) };
+      });
+      const counts = stampChecksOf(template, sha, repos, prior, (snapshot, check) => catalog.putStampCheck(snapshot, check), run);
+      return { ...counts, started: [...started] };
+    };
+    const ERROR = ["Error [ERR_MODULE_NOT_FOUND]: Cannot find package"];
+    const OTHER = "b".repeat(40);
+    expect(scan("c1", SHA)).toEqual({ started: [roots.fresh, roots.edited, roots.broken], reused: 0, errors: ERROR });
+    // The same commits: only the repository with no result starts again
+    expect(scan("c1", SHA)).toEqual({ started: [roots.broken], reused: 2, errors: ERROR });
+    expect(catalog.stampChecks(STAMP_CHECK_FORMAT)).toEqual(
+      new Map([
+        ["fresh@c1", { template: SHA, files: [] }],
+        ["edited@c1", { template: SHA, files: EDITED }],
+      ]),
+    );
+    // A new template commit, then a new commit of the repositories: each check starts again
+    expect(scan("c1", OTHER).started).toHaveLength(3);
+    expect(scan("c2", OTHER).started).toHaveLength(3);
+    // A snapshot with no commit is never used again
+    expect(scan(null, OTHER).started).toHaveLength(3);
+    expect(scan(null, OTHER).started).toHaveLength(3);
+    // A new format deletes each kept result, so no result of the old format is used again
+    expect(scan("c2", OTHER, "test-format").started).toHaveLength(3);
+    expect(scan("c2", OTHER, "test-format")).toMatchObject({ reused: 2 });
+    expect(scan("c2", OTHER).reused).toBe(0);
     catalog.close();
   });
 });

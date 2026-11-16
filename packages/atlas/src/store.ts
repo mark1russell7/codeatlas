@@ -12,7 +12,7 @@ import type { FileFacts, MarkerKind } from "./facts.ts";
 import type { ManifestRecord } from "./manifests.ts";
 import type { LockfileRecord } from "./lockfiles.ts";
 import type { RoadmapRecord } from "./roadmaps.ts";
-import type { StampCheck, TemplateRecords, TemplateVersions } from "./templates.ts";
+import type { StampCheck, StampFileCheck, TemplateRecords, TemplateVersions } from "./templates.ts";
 import type { ConventionsCheck } from "./conventions.ts";
 import type { CoverageRun } from "./coverage.ts";
 
@@ -436,6 +436,33 @@ export class Catalog {
       const file = this.db.prepare("INSERT OR REPLACE INTO stamp_check_file (snapshot, path, state, fields) VALUES (?, ?, ?, ?)");
       for (const f of check.files) file.run(snapshot, f.path, f.state, JSON.stringify(f.fields));
     });
+  }
+
+  /**
+   * This method gives each kept result of `stamp --check`, by its snapshot. First it deletes the results of a format
+   * that is not `format`, so each result in the database has the format `format`. A scan calls it before it writes
+   * its snapshots again, because a new snapshot deletes the result of the old snapshot.
+   */
+  stampChecks(format: string): Map<string, StampCheck> {
+    transaction(this.db, () => {
+      const kept = this.db.prepare("SELECT value FROM meta WHERE key = 'stamp_check'").get() as { value: string } | undefined;
+      if (kept?.value === format) return;
+      this.db.exec("DELETE FROM stamp_check_file; DELETE FROM stamp_check;");
+      this.db.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('stamp_check', ?)").run(format);
+    });
+    const files = new Map<string, StampFileCheck[]>();
+    for (const row of this.db.prepare("SELECT snapshot, path, state, fields FROM stamp_check_file").all() as unknown as readonly { snapshot: string; path: string; state: string; fields: string }[]) {
+      const list = files.get(row.snapshot) ?? [];
+      list.push({ path: row.path, state: row.state, fields: JSON.parse(row.fields) as string[] });
+      files.set(row.snapshot, list);
+    }
+    const checks = new Map<string, StampCheck>();
+    for (const row of this.db.prepare("SELECT snapshot, template FROM stamp_check").all() as unknown as readonly { snapshot: string; template: string }[]) {
+      // The order of `stampCheckOfRepo`: code-unit order of the paths
+      const list = (files.get(row.snapshot) ?? []).sort((x, y) => (x.path < y.path ? -1 : x.path > y.path ? 1 : 0));
+      checks.set(row.snapshot, { template: row.template, files: list });
+    }
+    return checks;
   }
 
   /** This method replaces the result of the conventions check for the snapshot `snapshot`. */
