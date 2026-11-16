@@ -279,7 +279,7 @@ function facts(argv: readonly string[]): number {
   );
   if (args.markdown !== undefined) writeFileSync(args.markdown, factsMarkdown(summary));
   const tooLarge = scans.reduce((total, scan) => total + scan.counts.tooLarge, 0);
-  console.error(`facts: ${summary.repos} repositories, ${summary.files} ${choice} files, ${tooLarge} over the size limit, ${summary.parsed} parsed, ${summary.reused} from the cache (${known.size} known), ${summary.errors} errors, ${Math.round(ms)} ms`);
+  console.error(`facts: ${summary.repos} repositories, ${summary.files} files (${choice}), ${tooLarge} over the size limit, ${summary.parsed} parsed, ${summary.reused} from the cache (${known.size} known), ${summary.errors} errors, ${Math.round(ms)} ms`);
   return report(gateVerdict(summary, unread));
 }
 

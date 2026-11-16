@@ -29,7 +29,7 @@ node packages/atlas/src/cli.ts queries --db catalog.sqlite --out queries.json
 node packages/atlas/src/cli.ts dimensions --db catalog.sqlite --out dimensions.json --markdown dimensions.md
 node packages/precision/src/cli.ts --index dimensions.json --repos-dir <folder> --db catalog.sqlite --markdown precision.md
 node packages/atlas/src/cli.ts formulas --db catalog.sqlite --finds labels/finds-1.jsonl --verdicts labels/formulas-1.jsonl --markdown formulas.md
-node packages/atlas/src/cli.ts facts --repos-dir <folder> --out facts.jsonl --markdown facts.md [--cache <facts.jsonl>]
+node packages/atlas/src/cli.ts facts --repos-dir <folder> --out facts.jsonl --markdown facts.md [--cache <facts.jsonl>] [--files sources|published]
 node packages/atlas/src/cli.ts clone --owner <owner> --into <folder> [--only <names.txt>]
 node packages/atlas/src/cli.ts prune --db catalog.sqlite --owner <owner>
 node packages/atlas/src/cli.ts fresh --owner <owner> --db catalog.sqlite [--changed <names.txt>] [--markdown fresh.md] [--gate]
@@ -37,6 +37,8 @@ node packages/site/src/build.ts --atlas atlas.json --out site
 ```
 
 The scan reads the files that git keeps, so build output and `node_modules` stay out.
+
+The option `--files published` of `facts` reads the code of a package as npm installs it. This code includes the build output, the bundles, the minified files and the generated files, up to 10 MB for each file. The users of a package run this code, so its facts are the facts of the package. Give the folder of the unpacked package as a git repository with one commit. The line of each repository gives `tooLarge`, the count of files over the size limit.
 
 ## Tools for agents
 

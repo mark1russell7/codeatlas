@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { buildAtlas, homeOf, topicsOf, wordsOf } from "./atlas.ts";
 import { atlasMarkdown } from "./report.ts";
-import { isSource, packageOf, scanSource, type RepoScan } from "./scan.ts";
-import { parseBuildArgs } from "./cli.ts";
+import { isChosen, isFileChoice, isSource, maxBytesOf, packageOf, scanSource, MAX_BYTES, PUBLISHED_MAX_BYTES, type RepoScan } from "./scan.ts";
+import { parseBuildArgs, takeOption } from "./cli.ts";
 import { listArgs, repoNames } from "./clone.ts";
 
 const MEAN = `
@@ -121,6 +121,38 @@ describe("isSource", () => {
   });
 });
 
+describe("isChosen", () => {
+  it("reads only the sources of a repository for the choice sources", () => {
+    for (const file of ["src/route.ts", "dist/index.js", "public/app.min.js", "src/generated/schema.ts", "src/types.d.ts"]) {
+      expect(isChosen("sources", file)).toBe(isSource(file));
+    }
+    expect(maxBytesOf("sources")).toBe(MAX_BYTES);
+  });
+
+  it("reads the code that a package installs for the choice published", () => {
+    expect(isChosen("published", "dist/index.js")).toBe(true);
+    expect(isChosen("published", "build/esm/socket.mjs")).toBe(true);
+    expect(isChosen("published", "lib/vendor/parser.cjs")).toBe(true);
+    expect(isChosen("published", "dist/client.min.js")).toBe(true);
+    expect(isChosen("published", "src/generated/schema.ts")).toBe(true);
+    expect(isChosen("published", "out/index.js")).toBe(true);
+    expect(isChosen("published", "dist/index.d.ts")).toBe(false);
+    expect(isChosen("published", "dist/index.d.mts")).toBe(false);
+    expect(isChosen("published", "node_modules/ws/index.js")).toBe(false);
+    expect(isChosen("published", "dist/node_modules/ws/index.js")).toBe(false);
+    expect(isChosen("published", "package.json")).toBe(false);
+    expect(isChosen("published", "dist/index.js.map")).toBe(false);
+    expect(maxBytesOf("published")).toBe(PUBLISHED_MAX_BYTES);
+  });
+
+  it("knows only the two choices", () => {
+    expect(isFileChoice("sources")).toBe(true);
+    expect(isFileChoice("published")).toBe(true);
+    expect(isFileChoice("all")).toBe(false);
+    expect(isFileChoice("")).toBe(false);
+  });
+});
+
 describe("clone", () => {
   it("lists the public sources that are not archived, and sorts the names", () => {
     expect(listArgs("o")).toEqual(["repo", "list", "o", "--visibility", "public", "--no-archived", "--source", "--limit", "1000", "--json", "name", "--jq", ".[].name"]);
@@ -228,5 +260,16 @@ describe("parseBuildArgs", () => {
     expect(parseBuildArgs(["--min-nodes", "0", "a=b"])).toEqual({ error: "--min-nodes takes a whole number of 1 or more." });
     expect(parseBuildArgs(["--nope"])).toEqual({ error: "Unknown argument: --nope" });
     expect(parseBuildArgs([])).toHaveProperty("error");
+  });
+});
+
+describe("takeOption", () => {
+  it("takes an option with its value, and keeps the other arguments in their order", () => {
+    expect(takeOption(["--out", "f.jsonl", "--files", "published", "a=b"], "--files", "a choice")).toEqual({ value: "published", rest: ["--out", "f.jsonl", "a=b"] });
+    expect(takeOption(["a=b"], "--files", "a choice")).toEqual({ value: undefined, rest: ["a=b"] });
+  });
+
+  it("gives an error for an option with no value", () => {
+    expect(takeOption(["a=b", "--cache"], "--cache", "a file")).toEqual({ error: "--cache takes a file." });
   });
 });
