@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { afterAll, describe, expect, it } from "vitest";
 import { cacheOf, factsKey, factsOfRepo, treeOf, type BlobFacts, type FactsLine } from "./blobs.ts";
+import { MAX_BYTES, PUBLISHED_MAX_BYTES } from "./scan.ts";
 import { factsMarkdown, factsSummary } from "./summary.ts";
 import { GitRepos } from "./testing/git-repo.ts";
 
@@ -52,6 +53,23 @@ describe("factsOfRepo", () => {
     const again = cacheOf(lines);
     expect(again.size).toBe(cache.size);
     expect(factsOfRepo("a", a, again).counts).toMatchObject({ parsed: 0, reused: 2 });
+  });
+
+  it("reads the build output too for the choice published", () => {
+    const published = factsOfRepo("a", a, new Map(), treeOf(a), "published");
+    expect(published.files.map((file) => file.path)).toEqual(["dist/out.js", "src/clamp.test.ts", "src/clamp.ts"]);
+    expect(published.counts).toMatchObject({ files: 3, parsed: 3, errors: 0, tooLarge: 0 });
+  });
+
+  it("counts each file over the size limit of the choice, and does not read it", () => {
+    const tree = treeOf(a).map((entry) => (entry.path === "src/clamp.ts" ? { ...entry, bytes: MAX_BYTES + 1 } : entry));
+    const sources = factsOfRepo("a", a, new Map(), tree);
+    expect(sources.files.map((file) => file.path)).toEqual(["src/clamp.test.ts"]);
+    expect(sources.counts).toMatchObject({ files: 1, parsed: 1, tooLarge: 1 });
+    // a bundle of the package can be larger than a source, so the limit of published is higher
+    expect(factsOfRepo("a", a, new Map(), tree, "published").counts).toMatchObject({ files: 3, tooLarge: 0 });
+    const huge = tree.map((entry) => (entry.path === "dist/out.js" ? { ...entry, bytes: PUBLISHED_MAX_BYTES + 1 } : entry));
+    expect(factsOfRepo("a", a, new Map(), huge, "published").counts).toMatchObject({ files: 2, tooLarge: 1 });
   });
 });
 

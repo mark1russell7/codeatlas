@@ -9,7 +9,7 @@ const C = "c".repeat(40);
 
 const catalog = new Catalog(":memory:");
 afterAll(() => catalog.close());
-const counts = { files: 0, parsed: 0, reused: 0, errors: 0, bytesParsed: 0 };
+const counts = { files: 0, parsed: 0, reused: 0, errors: 0, bytesParsed: 0, tooLarge: 0 };
 
 describe("headOfLsRemote", () => {
   it("reads the sha of HEAD, and gives null for no HEAD", () => {

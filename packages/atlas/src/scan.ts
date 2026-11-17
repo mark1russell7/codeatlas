@@ -73,6 +73,36 @@ export function isSource(file: string): boolean {
   return SOURCE.test(file) && !DECLARATION.test(file) && !SKIP.test(file) && !GENERATED.test(file) && !/\.min\.[cm]?js$/.test(file);
 }
 
+/**
+ * The files that a scan reads. `sources` is the source of a repository (`isSource`, up to `MAX_BYTES`).
+ * `published` is the code of a package as npm installs it: its build folders, its generated and minified files, and
+ * its bundles up to `PUBLISHED_MAX_BYTES`. Its users run this code, so its facts are the facts of the package.
+ */
+export const FILE_CHOICES = ["sources", "published"] as const;
+export type FileChoice = (typeof FILE_CHOICES)[number];
+
+/** This function tells if a text is a file choice. */
+export function isFileChoice(value: string): value is FileChoice {
+  return (FILE_CHOICES as readonly string[]).includes(value);
+}
+
+/** A published file over this size is data in the form of code, for example a WebAssembly module in base64. */
+export const PUBLISHED_MAX_BYTES: number = 10_000_000;
+
+/** A path in a folder of installed packages. */
+const INSTALLED = /(?:^|\/)node_modules\//;
+
+/** This function tells if a file is a source of the choice. It does not examine the size. */
+export function isChosen(choice: FileChoice, file: string): boolean {
+  if (choice === "sources") return isSource(file);
+  return SOURCE.test(file) && !DECLARATION.test(file) && !INSTALLED.test(file);
+}
+
+/** This function gives the largest file that a scan of the choice reads, in bytes. */
+export function maxBytesOf(choice: FileChoice): number {
+  return choice === "sources" ? MAX_BYTES : PUBLISHED_MAX_BYTES;
+}
+
 /** The files of a repository that git keeps, with forward slashes. */
 export function gitFiles(root: string): string[] {
   const out = execFileSync("git", ["-C", root, "ls-files", "-z"], { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 });

@@ -5,7 +5,7 @@
  * - `codeatlas build [--out atlas.json] [--markdown atlas.md] [--min-nodes 40] [--repos-dir <folder>] [<name>=<path> ...]`
  * - `codeatlas corpus [--out corpus.json] [--markdown corpus.md] [--repos-dir <folder>] [<name>=<path> ...]`
  * - `codeatlas catalog [--out catalog.sqlite] [--markdown catalog.md] [--repos-dir <folder>] [<name>=<path> ...]`
- * - `codeatlas facts [--out facts.jsonl] [--markdown facts.md] [--cache <facts.jsonl>] [--repos-dir <folder>] [<name>=<path> ...]`
+ * - `codeatlas facts [--out facts.jsonl] [--markdown facts.md] [--cache <facts.jsonl>] [--files sources|published] [--repos-dir <folder>] [<name>=<path> ...]`
  * - `codeatlas sample --db <catalog.sqlite> --out <sample.json>`
  * - `codeatlas agreement --sample <sample.json> --a <a.jsonl> --b <b.jsonl> --out <agreement.json>`
  * - `codeatlas reference --sample <sample.json> --rater <name>=<labels.jsonl> ... [--labeler <name>=<labels.jsonl> ...] [--db <catalog.sqlite>] --out <reference.json> [--markdown <reference.md>]`
@@ -48,7 +48,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { checkpoint } from "@mark1russell7/sqlite";
 import { buildAtlas } from "./atlas.ts";
-import { cacheOf, factsKey, factsOfRepo, type BlobFacts, type FactsLine } from "./blobs.ts";
+import { cacheOf, factsKey, factsOfRepo, treeOf, type BlobFacts, type FactsLine } from "./blobs.ts";
 import {
   driftMarkdown,
   keepListOfRepo,
@@ -85,7 +85,7 @@ import { codeIndex, dimensionCatalog, dimensionSummaries, dimensionsMarkdown } f
 import { formulaReport, formulasMarkdown, type FormulaVerdict, type OwnerFind } from "./formulas.ts";
 import { plannedDuplication, plannedMarkdown } from "./planned.ts";
 import { FACTS_VERSION } from "./facts.ts";
-import { headOf, scanRepo, type RepoScan } from "./scan.ts";
+import { FILE_CHOICES, headOf, isFileChoice, scanRepo, type RepoScan } from "./scan.ts";
 
 export interface BuildArgs {
   readonly out: string;
@@ -138,7 +138,7 @@ const USAGE = `Usage:
   codeatlas trend --db <catalog.sqlite> [--previous <trend.json>] [--owner <owners> | --owners] --out <trend.json>
   codeatlas previous-trend (--owner <owners> | --owners) --repo <name> --out <trend.json> [--workflow pages.yml]
   codeatlas queries --db <catalog.sqlite> --out <queries.json>
-  codeatlas facts [--out facts.jsonl] [--markdown facts.md] [--cache <facts.jsonl>] [--repos-dir <folder>] [<name>=<path> ...]
+  codeatlas facts [--out facts.jsonl] [--markdown facts.md] [--cache <facts.jsonl>] [--files sources|published] [--repos-dir <folder>] [<name>=<path> ...]
   codeatlas drift --db <catalog.sqlite> [--out drift.json] [--markdown drift.md] [--gate]
   codeatlas breaks --db <catalog.sqlite> [--out breaks.json] [--markdown breaks.md]
   codeatlas planned --db <catalog.sqlite> [--out planned.json] [--markdown planned.md] [--min 0.25]
@@ -260,14 +260,37 @@ function corpus(argv: readonly string[]): number {
   return 0;
 }
 
+/**
+ * This function takes one option with its value from the arguments, and gives the value and the other arguments. An
+ * option with no value gives an error that tells `what` the option takes.
+ */
+export function takeOption(argv: readonly string[], name: string, what: string): { readonly value: string | undefined; readonly rest: readonly string[] } | { readonly error: string } {
+  const at = argv.indexOf(name);
+  if (at === -1) return { value: undefined, rest: argv };
+  const value = argv[at + 1];
+  if (value === undefined) return { error: `${name} takes ${what}.` };
+  return { value, rest: [...argv.slice(0, at), ...argv.slice(at + 2)] };
+}
+
 function facts(argv: readonly string[]): number {
-  const at = argv.indexOf("--cache");
-  const cachePath = at === -1 ? undefined : argv[at + 1];
-  if (at !== -1 && cachePath === undefined) {
-    console.error("--cache takes a file.");
+  const cacheOption = takeOption(argv, "--cache", "a file");
+  if ("error" in cacheOption) {
+    console.error(cacheOption.error);
     return 2;
   }
-  const args = parseBuildArgs(at === -1 ? argv : [...argv.slice(0, at), ...argv.slice(at + 2)], subfolders, "facts.jsonl");
+  const choices = FILE_CHOICES.join(" or ");
+  const filesOption = takeOption(cacheOption.rest, "--files", choices);
+  if ("error" in filesOption) {
+    console.error(filesOption.error);
+    return 2;
+  }
+  const choice = filesOption.value ?? "sources";
+  if (!isFileChoice(choice)) {
+    console.error(`--files takes ${choices}, not ${choice}.`);
+    return 2;
+  }
+  const cachePath = cacheOption.value;
+  const args = parseBuildArgs(filesOption.rest, subfolders, "facts.jsonl");
   if ("error" in args) {
     console.error(args.error);
     return 2;
@@ -280,7 +303,7 @@ function facts(argv: readonly string[]): number {
     writeSync(fd, `${JSON.stringify(line)}\n`);
   };
   const scans = args.repos.map((repo) => {
-    const scan = factsOfRepo(repo.name, repo.path, cache);
+    const scan = factsOfRepo(repo.name, repo.path, cache, treeOf(repo.path), choice);
     write({ kind: "repo", repo: repo.name, commit: headOf(repo.path), counts: scan.counts });
     for (const file of scan.files) write({ kind: "file", ...file });
     return scan;
@@ -300,7 +323,8 @@ function facts(argv: readonly string[]): number {
     }),
   );
   if (args.markdown !== undefined) writeFileSync(args.markdown, factsMarkdown(summary));
-  console.error(`facts: ${summary.repos} repositories, ${summary.files} files, ${summary.parsed} parsed, ${summary.reused} from the cache (${known.size} known), ${summary.errors} errors, ${Math.round(ms)} ms`);
+  const tooLarge = scans.reduce((total, scan) => total + scan.counts.tooLarge, 0);
+  console.error(`facts: ${summary.repos} repositories, ${summary.files} files (${choice}), ${tooLarge} over the size limit, ${summary.parsed} parsed, ${summary.reused} from the cache (${known.size} known), ${summary.errors} errors, ${Math.round(ms)} ms`);
   return report(gateVerdict(summary, unread));
 }
 
