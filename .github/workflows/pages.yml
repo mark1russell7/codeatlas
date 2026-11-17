@@ -1,4 +1,4 @@
-# Builds the atlas and the site, and publishes them to GitHub Pages at https://mark1russell7.github.io/codeatlas/,
+# Builds the atlas and the site, and publishes them to GitHub Pages at https://metrograph-labs.github.io/codeatlas/,
 # with the shared Pages workflow of mark1russell7 (reusable-pages.yml of mark1russell7/template, its CI.md).
 # The build clones each public repository of each owner, scans it, and writes the atlas (data/atlas.json,
 # data/atlas.md) and the page that shows it. It also counts the corpus, builds the Layer 1a catalog, adds its point to the trend (data/trend.json), and writes the answers of the query set (data/queries.json). The schedule makes a new atlas each Monday. The stamps name the run
@@ -12,7 +12,7 @@ on:
   # A pull request builds the site and runs the site check, with no deploy.
   pull_request:
   schedule:
-    - cron: "40 6 * * 1"
+    - cron: "46 6 * * 1"
   workflow_dispatch:
 
 permissions: {}
