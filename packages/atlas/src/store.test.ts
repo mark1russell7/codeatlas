@@ -172,6 +172,21 @@ describe("Catalog", () => {
     catalog.close();
   });
 
+  it("keeps the owner of each repository: a new owner replaces the old one, and an unknown owner keeps it", () => {
+    const catalog = new Catalog(":memory:");
+    const files = factsOfRepo("a", a, catalog);
+    const ownerOf = (): unknown => catalog.db.prepare("SELECT owner FROM repo WHERE name = 'a'").get()?.["owner"];
+    catalog.putSnapshot("a", "c1", "2026-11-08T00:00:00Z", "test", files.files, files.counts, null, "mark1russell7");
+    expect(ownerOf()).toBe("mark1russell7");
+    // The repository moves to the organization
+    catalog.putSnapshot("a", "c2", "2026-11-09T00:00:00Z", "test", files.files, files.counts, null, "metrograph-labs");
+    expect(ownerOf()).toBe("metrograph-labs");
+    // A checkout with no remote on GitHub does not erase the owner
+    catalog.putSnapshot("a", "c3", "2026-11-10T00:00:00Z", "test", files.files, files.counts);
+    expect(ownerOf()).toBe("metrograph-labs");
+    catalog.close();
+  });
+
   it("removes each repository that is not kept, with its facts, and leaves no trace of them in the file", () => {
     const folder = mkdtempSync(join(tmpdir(), "atlas-db-"));
     folders.push(folder);

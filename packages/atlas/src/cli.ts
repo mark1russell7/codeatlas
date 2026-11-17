@@ -10,13 +10,17 @@
  * - `codeatlas agreement --sample <sample.json> --a <a.jsonl> --b <b.jsonl> --out <agreement.json>`
  * - `codeatlas reference --sample <sample.json> --rater <name>=<labels.jsonl> ... [--labeler <name>=<labels.jsonl> ...] [--db <catalog.sqlite>] --out <reference.json> [--markdown <reference.md>]`
  * - `codeatlas verdict --sample <sample.json> --a <a.jsonl> --agreement <agreement.json> --answers <answers.jsonl> --out <verdict.json>`
- * - `codeatlas trend --db <catalog.sqlite> [--previous <trend.json>] [--owner <owner>] --out <trend.json>`
+ * - `codeatlas trend --db <catalog.sqlite> [--previous <trend.json>] [--owner <owners> | --owners] --out <trend.json>`
+ * - `codeatlas previous-trend (--owner <owners> | --owners) --repo <name> --out <trend.json> [--workflow pages.yml]`
  * - `codeatlas drift --db <catalog.sqlite> [--out drift.json] [--markdown drift.md] [--gate]`
- * - `codeatlas coverage --db <catalog.sqlite> --owner <owner> --dir <folder> [--out coverage.json] [--markdown coverage.md]`
- * - `codeatlas clone --owner <owner> --into <folder>`
- * - `codeatlas prune --db <catalog.sqlite> --owner <owner>`
+ * - `codeatlas coverage --db <catalog.sqlite> (--owner <owners> | --owners) --dir <folder> [--out coverage.json] [--markdown coverage.md]`
+ * - `codeatlas clone (--owner <owners> | --owners) --into <folder>`
+ * - `codeatlas prune --db <catalog.sqlite> (--owner <owners> | --owners)`
  * - `codeatlas mcp --db <catalog.sqlite>`
  * - `codeatlas tool <name> [<json input>] --db <catalog.sqlite>`
+ *
+ * The option `--owner` takes one login or a list of logins with commas. The flag `--owners` gives each owner of `LOGINS`.
+ * A repository name that two owners have stops the command, because the catalog keys each repository by its name.
  *
  * The command build scans each repository (each folder of --repos-dir, and each name=path), and writes the
  * atlas as JSON and as Markdown. The command corpus counts the files, lines and bytes of each kind in the same repositories.
@@ -27,15 +31,20 @@
  * The command sample draws the seeded sample of functions of `SAMPLE_PLAN` from a catalog, for the labels of Layer 2.
  * The command agreement compares two drafts of labels of the sample, and writes the kappa, the confusion and the audit.
  * The command verdict compares the answers of the person with the audit, and writes the verdict and the labels of the truth.
+ *
  * The command trend adds the point of a catalog to the trend file of the last build.
- * With `--owner`, it removes the rows of each repository that is not public at this time from each point.
+ * With the owners, it removes the rows of each repository that is not public at this time from each point.
+ * The command previous-trend writes the trend of the last deploy. It reads the Pages site of each owner, then the
+ * Pages artifact of the last deploy. Its exit code is 3 (`FIRST_DEPLOY_EXIT`) when the repository has no deploy.
+ *
  * The command queries writes the answers of the query set of a catalog as JSON, for the site.
  * The command coverage reads the coverage artifacts of the CI of each repository into the catalog, and writes the report.
  * The command drift writes the drift of each repository from the template, and the share of the current repositories.
  * The command mcp serves the tools of agents over a catalog as MCP tools. The command tool calls one of them.
  */
 import { execFileSync } from "node:child_process";
-import { closeSync, existsSync, openSync, readFileSync, readdirSync, statSync, writeFileSync, writeSync } from "node:fs";
+import { closeSync, existsSync, mkdtempSync, openSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync, writeSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { checkpoint } from "@mark1russell7/sqlite";
 import { buildAtlas } from "./atlas.ts";
@@ -63,7 +72,8 @@ import { Catalog, readOnlyCatalog } from "./store.ts";
 import { addPoint, filterTrend, trendPoint } from "./trend.ts";
 import { querySet } from "./query-set.ts";
 import { factsMarkdown, factsSummary, gateVerdict, type GateVerdict } from "./summary.ts";
-import { clonePublic, isSafeName, publicNames, repoNames } from "./clone.ts";
+import { clonePublic, isSafeName, ownedRepos, ownerMap, ownersOption, repoNames, type OwnedRepo } from "./clone.ts";
+import { DEFAULT_IO, FIRST_DEPLOY_EXIT, previousTrend } from "./previous-trend.ts";
 import { changedRepos, DELAY_DAYS, delayStats, freshMarkdown, FRESHNESS_HOURS, indexedHeads, remoteHeads, staleRepos, type FreshReport } from "./fresh.ts";
 import { coverageGaps, coverageGapsMarkdown, coverageMarkdown, coverageOfRepo, coverageReport, ghArtifacts } from "./coverage.ts";
 import { buildCorpus, corpusMarkdown, corpusOfRepo } from "./corpus.ts";
@@ -125,7 +135,8 @@ const USAGE = `Usage:
   codeatlas agreement --sample <sample.json> --a <a.jsonl> --b <b.jsonl> --out <agreement.json>
   codeatlas verdict --sample <sample.json> --a <a.jsonl> --agreement <agreement.json> --answers <answers.jsonl> --out <verdict.json>
   codeatlas reference --sample <sample.json> --rater <name>=<labels.jsonl> ... [--labeler <name>=<labels.jsonl> ...] [--db <catalog.sqlite>] --out <reference.json> [--markdown <reference.md>]
-  codeatlas trend --db <catalog.sqlite> [--previous <trend.json>] [--owner <owner>] --out <trend.json>
+  codeatlas trend --db <catalog.sqlite> [--previous <trend.json>] [--owner <owners> | --owners] --out <trend.json>
+  codeatlas previous-trend (--owner <owners> | --owners) --repo <name> --out <trend.json> [--workflow pages.yml]
   codeatlas queries --db <catalog.sqlite> --out <queries.json>
   codeatlas facts [--out facts.jsonl] [--markdown facts.md] [--cache <facts.jsonl>] [--repos-dir <folder>] [<name>=<path> ...]
   codeatlas drift --db <catalog.sqlite> [--out drift.json] [--markdown drift.md] [--gate]
@@ -133,30 +144,64 @@ const USAGE = `Usage:
   codeatlas planned --db <catalog.sqlite> [--out planned.json] [--markdown planned.md] [--min 0.25]
   codeatlas dimensions --db <catalog.sqlite> [--out dimensions.json] [--markdown dimensions.md] [--catalog site-dimensions.json]
   codeatlas formulas --db <catalog.sqlite> --finds <finds.jsonl> [--verdicts <verdicts.jsonl>] [--out formulas.json] [--markdown formulas.md] [--top 30]
-  codeatlas coverage --db <catalog.sqlite> --owner <owner> --dir <folder> [--out coverage.json] [--markdown coverage.md]
-  codeatlas clone --owner <owner> --into <folder> [--only <names.txt>]
-  codeatlas prune --db <catalog.sqlite> --owner <owner>
-  codeatlas fresh --owner <owner> --db <catalog.sqlite> [--changed <names.txt>] [--out fresh.json] [--markdown fresh.md] [--gate]
+  codeatlas coverage --db <catalog.sqlite> (--owner <owners> | --owners) --dir <folder> [--out coverage.json] [--markdown coverage.md]
+  codeatlas clone (--owner <owners> | --owners) --into <folder> [--only <names.txt>]
+  codeatlas prune --db <catalog.sqlite> (--owner <owners> | --owners)
+  codeatlas fresh (--owner <owners> | --owners) --db <catalog.sqlite> [--changed <names.txt>] [--out fresh.json] [--markdown fresh.md] [--gate]
+
+  <owners> is one login, or a list of logins with commas. --owners gives each owner of the atlas.
   codeatlas mcp --db <catalog.sqlite> [--write]
   codeatlas tool <name> [<json input>] --db <catalog.sqlite>`;
+
+/**
+ * This function reads the owners of a command. It prints the error or the usage, and gives the exit code 2, when the
+ * options name no owner or a wrong one.
+ */
+function ownersOrExit(argv: readonly string[]): readonly string[] | number {
+  const owners = ownersOption(argv);
+  if (owners !== undefined && "owners" in owners) return owners.owners;
+  console.error(owners?.error ?? USAGE);
+  return 2;
+}
+
+/**
+ * This function lists the public repositories of each owner. When the list fails, or when two owners have one name,
+ * it prints the error and gives undefined.
+ */
+function listOwned(owners: readonly string[]): OwnedRepo[] | undefined {
+  try {
+    return ownedRepos(owners);
+  } catch (error) {
+    console.log(`::error::${String(error instanceof Error ? error.message : error).split("\n")[0]}`);
+    return undefined;
+  }
+}
 
 function main(argv: readonly string[]): number | Promise<number> {
   const [command, ...rest] = argv;
   if (command === "clone") {
-    const owner = rest[rest.indexOf("--owner") + 1];
-    const into = rest[rest.indexOf("--into") + 1];
-    if (!rest.includes("--owner") || !rest.includes("--into") || owner === undefined || into === undefined) {
+    const owners = ownersOrExit(rest);
+    if (typeof owners === "number") return owners;
+    const into = rest.includes("--into") ? rest[rest.indexOf("--into") + 1] : undefined;
+    if (into === undefined) {
       console.error(USAGE);
       return 2;
     }
     // With --only, the clone takes the repositories of that file, one name on each line, and the template
     const onlyFile = rest.includes("--only") ? rest[rest.indexOf("--only") + 1] : undefined;
     const only = onlyFile === undefined ? undefined : new Set([TEMPLATE_REPO, ...repoNames(readFileSync(onlyFile, "utf8"))]);
-    // The template gets its history, so the drift reads the content of each pin
-    const { failed } = clonePublic(owner, into, console.error, { [TEMPLATE_REPO]: TEMPLATE_CLONE }, only);
+    let failed: string[];
+    try {
+      // The template gets its history, so the drift reads the content of each pin
+      ({ failed } = clonePublic(owners, into, console.error, { [TEMPLATE_REPO]: TEMPLATE_CLONE }, only));
+    } catch (error) {
+      console.log(`::error::${String(error instanceof Error ? error.message : error).split("\n")[0]}`);
+      return 1;
+    }
     for (const name of failed) console.log(`::warning::${name} did not clone`);
     return 0;
   }
+  if (command === "previous-trend") return previousTrendCommand(rest);
   if (command === "corpus") return corpus(rest);
   if (command === "facts") return facts(rest);
   if (command === "catalog") return catalog(rest);
@@ -346,19 +391,22 @@ function catalog(argv: readonly string[]): number {
 }
 
 /**
- * This function removes from the catalog `--db` each repository that is not a public source repository of `--owner`
+ * This function removes from the catalog `--db` each repository that is not a public source repository of an owner
  * at this time. A repository that becomes private thus leaves the catalog, and the artifacts of the next run do not have it.
  */
 function prune(argv: readonly string[]): number {
-  const arg = (name: string): string | undefined => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined);
-  const [path, owner] = [arg("--db"), arg("--owner")];
-  if (path === undefined || owner === undefined) {
+  const path = argv.includes("--db") ? argv[argv.indexOf("--db") + 1] : undefined;
+  const owners = ownersOrExit(argv);
+  if (typeof owners === "number") return owners;
+  if (path === undefined) {
     console.error(USAGE);
     return 2;
   }
-  const names = publicNames(owner);
+  const repos = listOwned(owners);
+  if (repos === undefined) return 1;
+  const names = repos.map((repo) => repo.name);
   if (names.length === 0) {
-    console.error(`prune: the list of the public repositories of ${owner} is empty, so nothing is removed`);
+    console.error(`prune: the list of the public repositories of ${owners.join(", ")} is empty, so nothing is removed`);
     return 1;
   }
   // The prune comes before the scan, so a restored database of another schema must not stop it
@@ -492,19 +540,21 @@ async function reference(argv: readonly string[]): Promise<number> {
 
 /**
  * This function adds the point of the catalog `--db` to the trend `--previous`, and writes the trend `--out`. With
- * `--owner`, each point keeps only the rows of the public repositories of the owner.
+ * `--owner` or `--owners`, each point keeps only the rows of the public repositories of the owners.
  */
 async function trend(argv: readonly string[]): Promise<number> {
   const option = (name: string): string | undefined => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined);
   const db = option("--db");
   const out = option("--out");
   const previous = option("--previous");
-  const owner = option("--owner");
-  if (db === undefined || out === undefined) {
-    console.error(USAGE);
+  const owners = ownersOption(argv);
+  if (db === undefined || out === undefined || (owners !== undefined && "error" in owners)) {
+    console.error(owners !== undefined && "error" in owners ? owners.error : USAGE);
     return 2;
   }
-  const keep = owner === undefined ? undefined : publicNames(owner);
+  const repos = owners === undefined ? undefined : listOwned(owners.owners);
+  if (owners !== undefined && repos === undefined) return 1;
+  const keep = repos?.map((repo) => repo.name);
   const catalog = new Catalog(db);
   try {
     const point = await trendPoint(queryOf(catalog.db), new Date().toISOString(), FACTS_VERSION);
@@ -595,19 +645,22 @@ async function planned(argv: readonly string[]): Promise<number> {
 }
 
 /**
- * This function compares the head of each public repository of `--owner` with the catalog `--db`. It writes the
+ * This function compares the head of each public repository of the owners with the catalog `--db`. It writes the
  * repositories with a new head to `--changed`. With `--gate`, it fails when a head waits 6 hours or more.
  */
 async function fresh(argv: readonly string[]): Promise<number> {
   const option = (name: string): string | undefined => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined);
-  const owner = option("--owner");
+  const owners = ownersOrExit(argv);
+  if (typeof owners === "number") return owners;
   const db = option("--db");
-  if (owner === undefined || db === undefined || !isSafeName(owner)) {
+  if (db === undefined) {
     console.error(USAGE);
     return 2;
   }
-  const names = publicNames(owner);
-  const heads = remoteHeads(owner, names);
+  const repos = listOwned(owners);
+  if (repos === undefined) return 1;
+  const ownerOf = ownerMap(repos);
+  const heads = remoteHeads(repos);
   const now = new Date().toISOString();
   const catalog = existsSync(db) ? readOnlyCatalog(db) : undefined;
   try {
@@ -616,6 +669,8 @@ async function fresh(argv: readonly string[]): Promise<number> {
     // The commit time of a head comes from the API only for the heads that the index does not have
     const timeOf = (repo: string, sha: string): string | null => {
       try {
+        const owner = ownerOf.get(repo);
+        if (owner === undefined) return null;
         return execFileSync("gh", ["api", `repos/${owner}/${repo}/commits/${sha}`, "--jq", ".commit.committer.date"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim() || null;
       } catch {
         return null;
@@ -623,7 +678,7 @@ async function fresh(argv: readonly string[]): Promise<number> {
     };
     const report: FreshReport = {
       at: now,
-      repos: names.length,
+      repos: repos.length,
       unread: heads.filter((h) => h.head === null).map((h) => h.repo),
       changed: changedRepos(heads, indexed),
       stale: staleRepos(heads, indexed, now, timeOf),
@@ -735,21 +790,24 @@ async function breaks(argv: readonly string[]): Promise<number> {
 }
 
 /**
- * This function reads the coverage artifacts of each current snapshot of the catalog `--db` into the catalog. A
- * repository whose artifacts do not download gets a warning, not a failure.
+ * This function reads the coverage artifacts of each current snapshot of the catalog `--db` into the catalog. The
+ * artifacts of a repository come from its owner. A repository whose artifacts do not download gets a warning, not a failure.
  */
 async function coverage(argv: readonly string[]): Promise<number> {
   const option = (name: string): string | undefined => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined);
   const db = option("--db");
-  const owner = option("--owner");
+  const owners = ownersOrExit(argv);
+  if (typeof owners === "number") return owners;
   const dir = option("--dir");
-  if (db === undefined || owner === undefined || dir === undefined) {
+  if (db === undefined || dir === undefined) {
     console.error(USAGE);
     return 2;
   }
+  const repos = listOwned(owners);
+  if (repos === undefined) return 1;
   const catalog = new Catalog(db);
   try {
-    const source = ghArtifacts(owner);
+    const source = ghArtifacts(ownerMap(repos));
     const snapshots = catalog.db.prepare('SELECT id, repo, "commit" AS "commit" FROM current_snapshot ORDER BY repo').all() as { id: string; repo: string; commit: string | null }[];
     const pathsOf = catalog.db.prepare("SELECT path FROM file WHERE snapshot = ?");
     for (const s of snapshots) {
@@ -771,6 +829,45 @@ async function coverage(argv: readonly string[]): Promise<number> {
     return 0;
   } finally {
     catalog.close();
+  }
+}
+
+/**
+ * This function writes the trend of the last deploy to `--out`. It reads the Pages site of each owner, the current
+ * owner first, then the Pages artifact of the last deploy of `--workflow`. The exit code is `FIRST_DEPLOY_EXIT` when
+ * the repository has no deploy, and 1 on each other miss.
+ */
+async function previousTrendCommand(argv: readonly string[]): Promise<number> {
+  const option = (name: string): string | undefined => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined);
+  const owners = ownersOrExit(argv);
+  if (typeof owners === "number") return owners;
+  const repo = option("--repo");
+  const out = option("--out");
+  const workflow = option("--workflow") ?? "pages.yml";
+  if (repo === undefined || out === undefined || !isSafeName(repo)) {
+    console.error(USAGE);
+    return 2;
+  }
+  // In CI the current owner and the repository come from GitHub. Each other run takes the first owner of the list
+  const fromEnv = process.env["GITHUB_REPOSITORY_OWNER"];
+  const current = fromEnv !== undefined && isSafeName(fromEnv) ? fromEnv : (owners[0] ?? "");
+  const repository = process.env["GITHUB_REPOSITORY"] ?? `${current}/${repo}`;
+  const dir = mkdtempSync(join(tmpdir(), "atlas-trend-"));
+  try {
+    const result = await previousTrend({ owners, current, repo, repository, workflow, dir }, DEFAULT_IO);
+    if (result.kind === "found") {
+      writeFileSync(out, result.text);
+      console.error(`previous-trend: the trend comes from ${result.source}`);
+      return 0;
+    }
+    if (result.kind === "first") {
+      console.error(`previous-trend: ${repository} has no successful run of ${workflow} on main, and no site has a trend: ${result.tried.join(", ")}`);
+      return FIRST_DEPLOY_EXIT;
+    }
+    console.log(`::error::${result.error}`);
+    return 1;
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 }
 

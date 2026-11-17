@@ -27,19 +27,20 @@ for (const [name, root] of [
   ["b", b],
 ] as const) {
   const result = factsOfRepo(name, root, catalog);
-  catalog.putSnapshot(name, `commit-${name}`, "2026-11-08T00:00:00Z", "test", result.files, result.counts);
+  // The repository a has a known owner. The repository b has none, as a checkout with no remote on GitHub
+  catalog.putSnapshot(name, `commit-${name}`, "2026-11-08T00:00:00Z", "test", result.files, result.counts, null, name === "a" ? "metrograph-labs" : null);
 }
 const q = queryOf(catalog.db);
 afterAll(() => catalog.close());
 
 describe("querySet", () => {
-  it("gives the commit of each repository and the duplication of each level", async () => {
+  it("gives the owner and the commit of each repository, and the duplication of each level", async () => {
     const set = await querySet(q, "2026-11-09T06:40:00Z", "facts/1");
     expect(set.version).toBe(QUERY_SET_VERSION);
     expect(set.limits).toEqual(QUERY_SET_LIMITS);
     expect(set.repos).toEqual([
-      { repo: "a", commit: "commit-a" },
-      { repo: "b", commit: "commit-b" },
+      { repo: "a", commit: "commit-a", owner: "metrograph-labs" },
+      { repo: "b", commit: "commit-b", owner: null },
     ]);
     expect(set.duplication).toEqual(await duplication(q));
   });

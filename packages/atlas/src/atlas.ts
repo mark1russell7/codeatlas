@@ -70,6 +70,8 @@ export interface CloneClass {
 export interface RepoRow {
   readonly repo: string;
   readonly commit: string | null;
+  /** The owner of the repository on GitHub, or null when the scan does not know it. The links of the site use it. */
+  readonly owner: string | null;
   readonly files: number;
   readonly functions: number;
   readonly nodes: number;
@@ -200,6 +202,7 @@ export function buildAtlas(scans: readonly RepoScan[], options: AtlasOptions = {
       return {
         repo: scan.repo,
         commit: scan.commit,
+        owner: scan.owner,
         files: scan.files,
         functions: scan.units.length,
         nodes: scan.nodes,

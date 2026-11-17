@@ -35,6 +35,10 @@ describe("rescanRepo", () => {
   afterAll(() => db.close());
   const first = scanRepoInto(db, "app", app, [], "2026-11-08T00:00:00Z");
 
+  it("writes the owner of the repository from the remote origin of the checkout", () => {
+    expect(db.db.prepare("SELECT owner FROM repo WHERE name = 'app'").get()?.["owner"]).toBe("o");
+  });
+
   it("parses only the new blobs of a new commit, and makes the new snapshot current", () => {
     writeFileSync(join(app, "src/new.ts"), "export function second(y: number) { return y * 2; }\n");
     git(app, "add", "-A");
