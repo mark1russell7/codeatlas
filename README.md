@@ -61,7 +61,7 @@ An agent can ask the catalog in place of reading the code again. The tools read 
 Each catalog run of CI keeps its catalog for 14 days as the artifact `catalog`. Download it, then serve the tools or call one:
 
 ```sh
-gh run download --repo mark1russell7/codeatlas --name catalog --dir .
+gh run download --repo metrograph-labs/codeatlas --name catalog --dir .
 node packages/atlas/src/cli.ts mcp --db catalog.sqlite
 node packages/atlas/src/cli.ts tool find '{"name":"median"}' --db catalog.sqlite
 ```
@@ -72,7 +72,7 @@ To add the tools to Claude Code, start `claude mcp add codeatlas -- node <repo>/
 
 ## The site
 
-The site at https://mark1russell7.github.io/codeatlas/ shows the newest atlas. It shows the topics, the repositories that share code, and each clone class with a link to each copy. The atlas data is at `data/atlas.json`, and the corpus is at `data/corpus.json`.
+The site at https://metrograph-labs.github.io/codeatlas/ shows the newest atlas. It shows the topics, the repositories that share code, and each clone class with a link to each copy. The atlas data is at `data/atlas.json`, and the corpus is at `data/corpus.json`.
 
 The site also shows the answers of the query set of the catalog. These are the copies at each level, the exact copies, the complex functions and the markers. Each function links to its line at the commit of the scan. These answers are at `data/queries.json`. The trend of each build is at `data/trend.json`. Each point of the trend has rows only for the repositories that are public at this time.
 
