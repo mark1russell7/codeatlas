@@ -47,7 +47,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          node packages/atlas/src/cli.ts prune --db "$RUNNER_TEMP/catalog.sqlite" --owner "$GITHUB_REPOSITORY_OWNER" 2>&1 | tee "$RUNNER_TEMP/prune.txt"
+          node packages/atlas/src/cli.ts prune --db "$RUNNER_TEMP/catalog.sqlite" --owners 2>&1 | tee "$RUNNER_TEMP/prune.txt"
           removed=$(sed -n 's/.*, \([0-9]*\) removed from the catalog.*/\1/p' "$RUNNER_TEMP/prune.txt")
           echo "removed=${removed:-0}" >> "$GITHUB_OUTPUT"
       # The repositories with a head that the catalog does not have. With no catalog, each repository is one
@@ -57,7 +57,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          node packages/atlas/src/cli.ts fresh --owner "$GITHUB_REPOSITORY_OWNER" --db "$RUNNER_TEMP/catalog.sqlite" --changed "$RUNNER_TEMP/changed.txt"
+          node packages/atlas/src/cli.ts fresh --owners --db "$RUNNER_TEMP/catalog.sqlite" --changed "$RUNNER_TEMP/changed.txt"
           count=$(wc -l < "$RUNNER_TEMP/changed.txt" | tr -d ' ')
           echo "count=$count" >> "$GITHUB_OUTPUT"
           { echo "Changed repositories: $count"; echo; } >> "$GITHUB_STEP_SUMMARY"
@@ -66,7 +66,7 @@ jobs:
         if: steps.changed.outputs.count != '0'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: node packages/atlas/src/cli.ts clone --owner "$GITHUB_REPOSITORY_OWNER" --into "$RUNNER_TEMP/repos" --only "$RUNNER_TEMP/changed.txt"
+        run: node packages/atlas/src/cli.ts clone --owners --into "$RUNNER_TEMP/repos" --only "$RUNNER_TEMP/changed.txt"
       - name: Install the packages of the template
         if: steps.changed.outputs.count != '0'
         run: pnpm install --frozen-lockfile --ignore-scripts --dir "$RUNNER_TEMP/repos/template"
@@ -88,7 +88,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -uo pipefail
-          node packages/atlas/src/cli.ts fresh --owner "$GITHUB_REPOSITORY_OWNER" --db "$RUNNER_TEMP/catalog.sqlite" --markdown "$RUNNER_TEMP/fresh.md" --out "$RUNNER_TEMP/fresh.json" --gate
+          node packages/atlas/src/cli.ts fresh --owners --db "$RUNNER_TEMP/catalog.sqlite" --markdown "$RUNNER_TEMP/fresh.md" --out "$RUNNER_TEMP/fresh.json" --gate
           status=$?
           tee -a "$GITHUB_STEP_SUMMARY" < "$RUNNER_TEMP/fresh.md"
           exit "$status"

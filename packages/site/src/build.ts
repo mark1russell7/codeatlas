@@ -77,8 +77,18 @@ export function dataLine(stamp: PageStamp | undefined, built: string): string {
   return stamp === undefined ? `<p class="data-stamp">This build has no run. It scanned the repositories on ${escapeHtml(built)}.</p>` : renderDataStamp(stamp);
 }
 
+/**
+ * This function gives the owners of the repositories of the atlas, sorted and with no copies. An atlas with no
+ * owners, from a scan before the owners, gives `fallback`, the owner of the site.
+ */
+export function ownersOfAtlas(atlas: Pick<Atlas, "repos">, fallback: string): string[] {
+  const owners = [...new Set(atlas.repos.flatMap((r) => (typeof r.owner === "string" && r.owner !== "" ? [r.owner] : [])))].sort();
+  return owners.length === 0 ? [fallback] : owners;
+}
+
 export function pageHtml(script: string, atlas: Atlas, owner: string, line: string): string {
   const t = atlas.totals;
+  const owners = ownersOfAtlas(atlas, owner).join(" and ");
   const description = `A duplication atlas of ${t.repos} public repositories: ${(t.ratio * 100).toFixed(1)}% of the code is a copy, in ${t.crossRepoClasses} clone classes that span repositories.`;
   return `<!doctype html>
 <html lang="en">
@@ -92,7 +102,7 @@ export function pageHtml(script: string, atlas: Atlas, owner: string, line: stri
 <body>
 <header>
   <h1>codeatlas</h1>
-  <p class="sub">The code that the repositories of ${escapeHtml(owner)} write again and again. The atlas scans each public repository every week.</p>
+  <p class="sub">The code that the repositories of ${escapeHtml(owners)} write again and again. The atlas scans each public repository every week.</p>
   ${line}
   <nav><a href="#homes">Homes</a><a href="#topics">Topics</a><a href="#pairs">Pairs</a><a href="#trend">Trend</a><a href="#levels">Levels</a><a href="#exact">Exact</a><a href="#repos">Repositories</a><a href="#classes">Classes</a><a href="#names">Names</a><a href="#purposes">Purposes</a><a href="#complex">Complex</a><a href="#markers">Markers</a><a href="data/queries.json">Queries</a><a href="data/atlas.json">Data</a><a href="status/">Status</a><a href="releases/">Releases</a><a href="https://github.com/${escapeHtml(owner)}/codeatlas">Source</a></nav>
 </header>

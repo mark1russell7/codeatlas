@@ -2,7 +2,12 @@ export { buildAtlas, topicsOf, wordsOf, PURPOSES, TOPICS } from "./atlas.ts";
 export type { Atlas, AtlasOptions, CloneClass, Member, PurposeRow, RepoRow, SharedName } from "./atlas.ts";
 export { CHURN_DAYS, churnLogArgs, churnOfLog, churnOfRepo, isShallow } from "./churn.ts";
 export type { FileChurn } from "./churn.ts";
-export { CLONE_ARGS, clonePublic, listArgs, repoNames } from "./clone.ts";
+export { CLONE_ARGS, cloneUrl, clonePublic, isSafeName, listArgs, originOf, ownedRepos, ownerMap, ownerOfCheckout, ownerOfRemote, ownersOption, publicNames, repoNames } from "./clone.ts";
+export type { OwnedRepo } from "./clone.ts";
+export { LOGINS, OWNERS, sharedNames } from "./owners.ts";
+export type { Owner } from "./owners.ts";
+export { DEFAULT_IO, FIRST_DEPLOY_EXIT, PAGES_ARTIFACT, TREND_PATH, artifactArgs, lastRunArgs, previousTrend, trendUrls } from "./previous-trend.ts";
+export type { FetchReply, PreviousTrend, PreviousTrendIo, PreviousTrendOptions } from "./previous-trend.ts";
 export {
   changedRepos,
   DELAY_DAYS,

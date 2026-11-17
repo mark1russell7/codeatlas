@@ -6,6 +6,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { parseSync } from "@swc/core";
+import { ownerOfCheckout } from "./clone.ts";
 import { isNode, shapeOf, type AstNode } from "./shape.ts";
 
 /** One function of a repository. */
@@ -40,6 +41,8 @@ export interface RepoScan {
   readonly repo: string;
   /** The commit that the scan read, or null outside git. */
   readonly commit: string | null;
+  /** The owner on GitHub, from the remote `origin` of the checkout, or null when the remote is not on GitHub. */
+  readonly owner: string | null;
   readonly files: number;
   readonly nodes: number;
   readonly units: readonly Unit[];
@@ -306,5 +309,5 @@ export function scanRepo(repo: string, root: string, files: readonly string[] = 
   }
   // The nodes of the top functions: a nested function is a part of the function that holds it
   const nodes = units.reduce((sum, unit) => (unit.parent === null ? sum + unit.nodes : sum), 0);
-  return { repo, commit: headOf(root), files: count, nodes, units, exports, imports, errors };
+  return { repo, commit: headOf(root), owner: ownerOfCheckout(root), files: count, nodes, units, exports, imports, errors };
 }

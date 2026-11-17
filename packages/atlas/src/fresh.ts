@@ -4,6 +4,7 @@
  */
 import { execFileSync } from "node:child_process";
 import { quantile } from "@mark1russell7/rigor-statistics";
+import { cloneUrl, type OwnedRepo } from "./clone.ts";
 import type { CatalogQuery } from "./query.ts";
 
 /** A head that waits this number of hours or more for the index fails the freshness gate. */
@@ -30,7 +31,7 @@ export interface IndexedHead {
 
 /** The arguments of `git ls-remote` that give the head of the default branch of `owner/name`. */
 export function lsRemoteArgs(owner: string, name: string): string[] {
-  return ["ls-remote", "--", `https://github.com/${owner}/${name}.git`, "HEAD"];
+  return ["ls-remote", "--", cloneUrl({ owner, name }), "HEAD"];
 }
 
 /** This function reads the head from the output of `lsRemoteArgs`, or gives null. */
@@ -42,13 +43,16 @@ export function headOfLsRemote(output: string): string | null {
   return null;
 }
 
-/** This function gives the head of each repository of `names`. A repository that `git ls-remote` cannot read gets null. */
-export function remoteHeads(owner: string, names: readonly string[], run: (args: readonly string[]) => string = (args) => execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] })): RemoteHead[] {
-  return names.map((repo) => {
+/**
+ * This function gives the head of each repository of `repos`, from the owner of each repository. A repository that
+ * `git ls-remote` cannot read gets null.
+ */
+export function remoteHeads(repos: readonly OwnedRepo[], run: (args: readonly string[]) => string = (args) => execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] })): RemoteHead[] {
+  return repos.map(({ owner, name }) => {
     try {
-      return { repo, head: headOfLsRemote(run(lsRemoteArgs(owner, repo))) };
+      return { repo: name, head: headOfLsRemote(run(lsRemoteArgs(owner, name))) };
     } catch {
-      return { repo, head: null };
+      return { repo: name, head: null };
     }
   });
 }

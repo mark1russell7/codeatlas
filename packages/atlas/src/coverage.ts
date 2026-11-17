@@ -61,16 +61,24 @@ export interface ArtifactSource {
   download(repo: string, runId: number, name: string, dir: string): void;
 }
 
-/** This function gives the artifact source of the owner `owner` through the GitHub CLI. */
-export function ghArtifacts(owner: string): ArtifactSource {
+/**
+ * This function gives the artifact source of the repositories of `owners` through the GitHub CLI. The map gives the
+ * owner of each repository by its name. A repository with no owner in the map is an error.
+ */
+export function ghArtifacts(owners: ReadonlyMap<string, string>): ArtifactSource {
+  const full = (repo: string): string => {
+    const owner = owners.get(repo);
+    if (owner === undefined) throw new Error(`The repository ${repo} is not a public repository of the owners.`);
+    return `${owner}/${repo}`;
+  };
   return {
     artifacts(repo) {
-      const out = execFileSync("gh", ["api", `repos/${owner}/${repo}/actions/artifacts?per_page=100`, "--jq", ".artifacts"], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+      const out = execFileSync("gh", ["api", `repos/${full(repo)}/actions/artifacts?per_page=100`, "--jq", ".artifacts"], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
       const rows = JSON.parse(out) as { name: string; expired: boolean; created_at: string; workflow_run: { id: number; head_branch: string; head_sha: string } }[];
       return rows.map((a) => ({ name: a.name, runId: a.workflow_run.id, branch: a.workflow_run.head_branch, commit: a.workflow_run.head_sha, createdAt: a.created_at, expired: a.expired }));
     },
     download(repo, runId, name, dir) {
-      execFileSync("gh", ["run", "download", String(runId), "-R", `${owner}/${repo}`, "-n", name, "-D", dir], { stdio: ["ignore", "ignore", "pipe"] });
+      execFileSync("gh", ["run", "download", String(runId), "-R", full(repo), "-n", name, "-D", dir], { stdio: ["ignore", "ignore", "pipe"] });
     },
   };
 }

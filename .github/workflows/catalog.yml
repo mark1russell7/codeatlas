@@ -1,4 +1,4 @@
-# Builds the catalog database (Layer 1a of docs/SCHEMA.md) over each public repository of the owner.
+# Builds the catalog database (Layer 1a of docs/SCHEMA.md) over each public repository of each owner.
 # The job restores the database of the last run of main, so the scan parses only new blobs. It writes the
 # summary (counts, time, clone classes, the law of the chain) to the step summary. It keeps the database as an artifact.
 # A pull request builds the catalog from the cache of main and saves no cache.
@@ -78,12 +78,12 @@ jobs:
       - name: Clone the public repositories
         env:
           GH_TOKEN: ${{ github.token }}
-        run: node packages/atlas/src/cli.ts clone --owner "$GITHUB_REPOSITORY_OWNER" --into "$RUNNER_TEMP/repos"
+        run: node packages/atlas/src/cli.ts clone --owners --into "$RUNNER_TEMP/repos"
       # The restored catalog can have a repository that is now private, archived or deleted. Its facts go before the scan.
       - name: Remove the repositories that are not public now
         env:
           GH_TOKEN: ${{ github.token }}
-        run: node packages/atlas/src/cli.ts prune --db "$RUNNER_TEMP/catalog.sqlite" --owner "$GITHUB_REPOSITORY_OWNER"
+        run: node packages/atlas/src/cli.ts prune --db "$RUNNER_TEMP/catalog.sqlite" --owners
       # The scan starts "stamp --check" of the template on each repository, and the stamp imports packages of the template
       - name: Install the packages of the template
         run: pnpm install --frozen-lockfile --ignore-scripts --dir "$RUNNER_TEMP/repos/template"
@@ -120,7 +120,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          node packages/atlas/src/cli.ts coverage --db "$RUNNER_TEMP/catalog.sqlite" --owner "$GITHUB_REPOSITORY_OWNER" --dir "$RUNNER_TEMP/coverage" --markdown "$RUNNER_TEMP/coverage.md"
+          node packages/atlas/src/cli.ts coverage --db "$RUNNER_TEMP/catalog.sqlite" --owners --dir "$RUNNER_TEMP/coverage" --markdown "$RUNNER_TEMP/coverage.md"
           tee -a "$GITHUB_STEP_SUMMARY" < "$RUNNER_TEMP/coverage.md"
       # Two roadmap items in two repositories that plan the same thing (CA5)
       - name: Planned duplication

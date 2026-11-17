@@ -28,10 +28,20 @@ describe("headOfLsRemote", () => {
       if (args[2]?.includes("/gone.git") === true) throw new Error("not found");
       return `${A}\tHEAD\n`;
     };
-    expect(remoteHeads("o", ["r", "gone"], run)).toEqual([
+    expect(remoteHeads([{ owner: "o", name: "r" }, { owner: "o", name: "gone" }], run)).toEqual([
       { repo: "r", head: A },
       { repo: "gone", head: null },
     ]);
+  });
+
+  it("reads each repository from its own owner", () => {
+    const urls: string[] = [];
+    const run = (args: readonly string[]): string => {
+      urls.push(args[2] ?? "");
+      return `${A}\tHEAD\n`;
+    };
+    remoteHeads([{ owner: "mark1russell7", name: "vex" }, { owner: "metrograph-labs", name: "codeatlas" }], run);
+    expect(urls).toEqual(["https://github.com/mark1russell7/vex.git", "https://github.com/metrograph-labs/codeatlas.git"]);
   });
 });
 
