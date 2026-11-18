@@ -9,8 +9,6 @@ name: Pages
 on:
   push:
     branches: [main]
-  # A pull request builds the site and runs the site check, with no deploy.
-  pull_request:
   schedule:
     - cron: "46 6 * * 1"
   workflow_dispatch:
@@ -25,7 +23,7 @@ concurrency:
 
 jobs:
   pages:
-    uses: mark1russell7/template/.github/workflows/reusable-pages.yml@e34da837089781ed64d4619b1391938e1219664c # main
+    uses: mark1russell7/template/.github/workflows/reusable-pages.yml@8384e885a3cb304498a858c531cd86641956480c # main
     # The build job of the shared workflow gets only the read permissions. Only its deploy job,
     # which runs no code of the repository, writes to Pages.
     permissions:
@@ -38,47 +36,7 @@ jobs:
       pages: write
       id-token: write
     with:
-      # gh lists the public repositories with the token of the run (read permissions only).
-      github-token: true
-      build: |
-        node packages/atlas/src/cli.ts clone --owners --into "$RUNNER_TEMP/repos"
-        node packages/atlas/src/cli.ts build --repos-dir "$RUNNER_TEMP/repos" --out "$RUNNER_TEMP/atlas.json" --markdown "$RUNNER_TEMP/atlas.md"
-        node packages/site/src/build.ts --atlas "$RUNNER_TEMP/atlas.json" --markdown "$RUNNER_TEMP/atlas.md" --out packages/site/dist
-        node packages/atlas/src/cli.ts corpus --repos-dir "$RUNNER_TEMP/repos" --out packages/site/dist/data/corpus.json --markdown "$RUNNER_TEMP/corpus.md"
-        # Layer 1a: the catalog of the facts of each blob. The command fails when a hash breaks the law of the chain.
-        node packages/atlas/src/cli.ts catalog --repos-dir "$RUNNER_TEMP/repos" --out "$RUNNER_TEMP/catalog.sqlite" --markdown "$RUNNER_TEMP/facts.md"
-        # The trend: the file of the last deploy, with the point of this build. The command previous-trend reads the
-        # site of each owner, the current owner first, then the Pages artifact of the last deploy. Only a repository
-        # with no deploy has no trend (exit code 3). Each other failure stops the build, so a build does not lose the
-        # history. The flag --owners removes the rows of each repository that is not public at this time from each old
-        # point. The totals of a point stay.
-        code=0
-        node packages/atlas/src/cli.ts previous-trend --owners --repo codeatlas --out "$RUNNER_TEMP/trend.json" || code=$?
-        case "$code" in
-          0) node packages/atlas/src/cli.ts trend --db "$RUNNER_TEMP/catalog.sqlite" --previous "$RUNNER_TEMP/trend.json" --owners --out packages/site/dist/data/trend.json ;;
-          3) echo "::warning::The repository has no deploy: the trend starts with this build."
-             node packages/atlas/src/cli.ts trend --db "$RUNNER_TEMP/catalog.sqlite" --owners --out packages/site/dist/data/trend.json ;;
-          *) exit 1 ;;
-        esac
-        # The query set: the duplication of each level, the exact copies, the complex functions and the markers.
-        node packages/atlas/src/cli.ts queries --db "$RUNNER_TEMP/catalog.sqlite" --out packages/site/dist/data/queries.json
-        # The dimension catalog: the state of each dimension, the summary of its values, and the cause and next step of each gap.
-        node packages/atlas/src/cli.ts dimensions --db "$RUNNER_TEMP/catalog.sqlite" --catalog packages/site/dist/data/dimensions.json
-        cat "$RUNNER_TEMP/atlas.md" "$RUNNER_TEMP/corpus.md" "$RUNNER_TEMP/facts.md" >> "$GITHUB_STEP_SUMMARY"
-      out: packages/site/dist
       timeout-minutes: 30
-      site-pages: true
-      site-name: codeatlas
-      roadmap: docs/ROADMAP.md
-      # The site check: a browser opens each page at 360, 400 and 1280 px, in light and dark, before the deploy.
-      # A failure stops the deploy.
-      site-check: true
-      site-check-pages: /,/releases/,/status/
-      # The probe drives the filters of the atlas on the home page. The check reads the TypeScript source and removes its types.
-      site-check-probe: packages/site/src/check-probe.ts
-      # The gate reads these stamps, and its schedule rule reads the cron line of this file.
-      data-stamps: packages/site/dist/data-stamps.json
-      deploy: ${{ github.event_name != 'pull_request' }}
 
   # This job examines the deployed site: the page, the atlas data and the pages of site-pages.
   # It starts no code of the repository and reads only the public site.
