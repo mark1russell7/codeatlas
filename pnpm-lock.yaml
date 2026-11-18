@@ -170,8 +170,8 @@ importers:
         specifier: ^0.5.5
         version: 0.5.11
       '@mark1russell7/boundaries':
-        specifier: ^0.2.0
-        version: 0.2.1(@swc/core@1.16.22)(dependency-cruiser@18.7.2)
+        specifier: ^0.3.1
+        version: 0.3.1(@swc/core@1.16.22)(dependency-cruiser@18.7.2)
       '@mark1russell7/conventions':
         specifier: ^0.45.0
         version: 0.45.0
@@ -179,8 +179,8 @@ importers:
         specifier: ^2.1.1
         version: 2.1.4
       '@mark1russell7/ste-lint':
-        specifier: ^0.3.1
-        version: 0.3.2
+        specifier: ^0.4.0
+        version: 0.4.0
       '@mark1russell7/template-cli':
         specifier: ^0.1.0
         version: 0.1.9
@@ -221,8 +221,8 @@ importers:
         specifier: ^0.1.17
         version: 0.1.29
       '@mark1russell7/site-pages':
-        specifier: ^0.7.0
-        version: 0.7.1
+        specifier: ^0.8.0
+        version: 0.8.0
       '@mark1russell7/sqlite':
         specifier: ^0.3.4
         version: 0.3.9
@@ -304,11 +304,11 @@ importers:
         specifier: workspace:*
         version: link:../atlas
       '@mark1russell7/site-pages':
-        specifier: ^0.7.0
-        version: 0.7.1
+        specifier: ^0.8.0
+        version: 0.8.0
       '@mark1russell7/text':
-        specifier: ^0.0.13
-        version: 0.0.13
+        specifier: ^0.0.16
+        version: 0.0.16
       '@swc/core':
         specifier: ^1.15.0
         version: 1.16.22
@@ -637,8 +637,8 @@ packages:
     engines: {node: '>=22'}
     hasBin: true
 
-  '@mark1russell7/boundaries@0.2.1':
-    resolution: {integrity: sha512-ZaNTU/VEDJddvBEHyCtYhrPippjOWoWWWpgVs/zpYOfu4QujMz+JfQfmyCE1IGgb6SJq9Rsb5RlujAgTrP6qOw==}
+  '@mark1russell7/boundaries@0.3.1':
+    resolution: {integrity: sha512-i+nP6fCD+WIDPzVrOsMcS9y9J+Gdtyoj/ZF9OKT3s01Wn4TojgRBalB0xbwSuBM9QK7dJaGdbP4Rrs8WSw8FKw==}
     engines: {node: '>=22'}
     peerDependencies:
       '@swc/core': ^1.10.0
@@ -665,6 +665,10 @@ packages:
     resolution: {integrity: sha512-+EEUBpLrTBcJoMIOF3C5XMVpzO7eYrermtdleEvWLGNJK9/HGPT9o6GgbsW+Vl+s3/0QrXksc0qOIUlE70HI9Q==}
     engines: {node: '>=22'}
     hasBin: true
+
+  '@mark1russell7/files@0.0.4':
+    resolution: {integrity: sha512-Pb978ZnvlAxzcdWtRtqTGb7mZFCvlNrdKnpZqhxQ7gafzeNGf1JqYFuB4RWiLbJzRuFUWjEoAVG5f2TndCIlSg==}
+    engines: {node: '>=22'}
 
   '@mark1russell7/optional@1.2.0':
     resolution: {integrity: sha512-vS5jF21WC/VApRv4p8afRZahcMl9cuNp03LxbVngY9nYkzq+S7Oit6ksySt2baML+tp46UF60sxnHxn1jlwtTg==}
@@ -738,8 +742,8 @@ packages:
       zod:
         optional: true
 
-  '@mark1russell7/site-pages@0.7.1':
-    resolution: {integrity: sha512-iqRkCLWbqUZzPdvKn0JtRPkT6NiAU7gyojNQjQIWnak19Vab7hnE1QulZiRBL3wA/0xPn0e5vW4J+UxjPtJ4rg==}
+  '@mark1russell7/site-pages@0.8.0':
+    resolution: {integrity: sha512-OlqsZfj5yNovI1ysfPJEIVsRnON3KgEP9ELMIH5CO+kP9FY5Vu873oCY+Zja5dKB8wTVgU3YewEcTqH9ncDurg==}
     engines: {node: '>=22'}
     hasBin: true
 
@@ -747,8 +751,8 @@ packages:
     resolution: {integrity: sha512-H+dMOGwhOLFvxDfodTJvFjIIQaHcm5YaLCh5HC72NxSIJCZ8xRIoGFVPNMgGjTqe+6KEb71nUU2GE7N7Hw7LPg==}
     engines: {node: '>=22.13'}
 
-  '@mark1russell7/ste-lint@0.3.2':
-    resolution: {integrity: sha512-0WRNon1oYKX1mmTP/AhrPnpoGAGolmpkJWHaTkHXc4SKe1tQhUvPrY/0TQ4gvu7aN+TEPpypiZDIkOjYZG8qBA==}
+  '@mark1russell7/ste-lint@0.4.0':
+    resolution: {integrity: sha512-V58Mtpt7WOW2wRBreSuuIO4am0WOdrJq8603+NNtqyI5EY0/LpPiQFxEDx+yNOgkN5ddnpPTkjalRTmBF+9GXQ==}
     engines: {node: '>=22'}
     hasBin: true
 
@@ -759,6 +763,10 @@ packages:
 
   '@mark1russell7/text@0.0.13':
     resolution: {integrity: sha512-8Tu7DTTpfmpXIy0F2JCyOW1RD91X7tm38c5xiqz3cLdmEkUQViH/06kTBLj+hrzuQPMBGVyxd7snqVG6EpNLdQ==}
+    engines: {node: '>=22.12'}
+
+  '@mark1russell7/text@0.0.16':
+    resolution: {integrity: sha512-hq2AWdtbKtXlibTTcVA/6GQAxgPj+6U3Hdmkh1I4sRMQZn/SiKh1k78UtcMgtcLJxwHHG9GVs2O2VNQxJP7R1Q==}
     engines: {node: '>=22.12'}
 
   '@mark1russell7/text@0.0.2':
@@ -2539,7 +2547,7 @@ snapshots:
     dependencies:
       '@mark1russell7/conventions': 0.45.0
 
-  '@mark1russell7/boundaries@0.2.1(@swc/core@1.16.22)(dependency-cruiser@18.7.2)':
+  '@mark1russell7/boundaries@0.3.1(@swc/core@1.16.22)(dependency-cruiser@18.7.2)':
     optionalDependencies:
       '@swc/core': 1.16.22
       dependency-cruiser: 18.7.2
@@ -2565,6 +2573,8 @@ snapshots:
       yaml: 2.9.1
 
   '@mark1russell7/cue@2.1.4': {}
+
+  '@mark1russell7/files@0.0.4': {}
 
   '@mark1russell7/optional@1.2.0': {}
 
@@ -2606,14 +2616,15 @@ snapshots:
       ws: 8.22.1
       zod: 4.6.7
 
-  '@mark1russell7/site-pages@0.7.1':
+  '@mark1russell7/site-pages@0.8.0':
     dependencies:
       '@mark1russell7/rigor-statistics': 0.2.10
 
   '@mark1russell7/sqlite@0.3.9': {}
 
-  '@mark1russell7/ste-lint@0.3.2':
+  '@mark1russell7/ste-lint@0.4.0':
     dependencies:
+      '@mark1russell7/files': 0.0.4
       typescript: 6.0.3
 
   '@mark1russell7/template-cli@0.1.9':
@@ -2621,6 +2632,8 @@ snapshots:
       '@clack/prompts': 1.8.1
 
   '@mark1russell7/text@0.0.13': {}
+
+  '@mark1russell7/text@0.0.16': {}
 
   '@mark1russell7/text@0.0.2': {}
 
