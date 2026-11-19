@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@babel/parser": "^8.0.0",
-    "@mark1russell7/conventions": "^0.45.0",
+    "@mark1russell7/conventions": "^0.48.0",
     "@mark1russell7/rigor-generators": "^0.1.6",
     "@mark1russell7/rigor-statistics": "^0.1.17",
     "@mark1russell7/site-pages": "^0.8.0",
